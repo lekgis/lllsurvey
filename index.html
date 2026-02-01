@@ -507,32 +507,61 @@
 
         function toggleEditMode() {
             isEditMode = !isEditMode;
-            if (isEditMode) deactivateTools();
+            
+            if (isEditMode) {
+                activeTool = null;
+                document.getElementById('btn-building').classList.remove('active-tool');
+                document.getElementById('btn-sign').classList.remove('active-tool');
+                document.getElementById('crosshair').classList.add('hidden');
+                document.getElementById('add-trigger-container').classList.add('hidden');
+            }
             
             const btn = document.getElementById('btn-edit');
             btn.classList.toggle('active-edit', isEditMode);
 
+            // แปลงทุก marker → เป็น draggable marker (สร้างใหม่ทั้งหมด)
+            const markers = [];
             surveyLayers.eachLayer(layer => {
+                // ✅ เปลี่ยนจาก L.CircleMarker เป็น L.Marker
                 if (layer instanceof L.Marker) {
-                    if (isEditMode) {
-                        layer.dragging.enable();
-                        layer.on('dragend', async (e) => {
-                            const newLatLng = e.target.getLatLng();
-                            const marker = e.target;
-                            const data = marker._popupData;
-                            
-                            if (data) {
-                                await updateMarkerPosition(marker, data, newLatLng);
-                            }
+                    const data = layer._popupData;
+                    if (data) {
+                        markers.push({
+                            latlng: layer.getLatLng(),
+                            data: data,
+                            type: data.type
                         });
-                    } else {
-                        layer.dragging.disable();
-                        layer.off('dragend');
                     }
+                    surveyLayers.removeLayer(layer);
                 }
             });
-            
-            // แสดงหน้าต่างโหมดแก้ไข
+
+            // สร้างใหม่ทั้งหมดพร้อมเปิดใช้งาน dragging
+            markers.forEach(marker => {
+                const newMarker = createCircleMarker(
+                    marker.latlng,
+                    marker.type,
+                    isEditMode  // draggable
+                );
+                
+                // ผูกข้อมูลและป๊อปอัป
+                newMarker._popupData = marker.data;
+                setupMarkerPopup(newMarker, marker.data, marker.type);
+                newMarker.addTo(surveyLayers);
+                
+                // ผูกเหตุการณ์เมื่อเปิดโหมดแก้ไข
+                if (isEditMode) {
+                    newMarker.on('dragend', async (e) => {
+                        const newLatLng = e.target.getLatLng();
+                        const marker = e.target;
+                        const data = marker._popupData;
+                        if (data) {
+                            await updateMarkerPosition(marker, data, newLatLng);
+                        }
+                    });
+                }
+            });
+
             if (isEditMode) {
                 showEditModeModal();
             }
@@ -1278,20 +1307,46 @@
                     if (!r.lat_long) return;
                     const [lat, lng] = r.lat_long.split(',').map(Number);
                     if (isNaN(lat) || isNaN(lng)) return;
-                    
-                    const m = createCircleMarker([lat, lng], 'building');
+                    // ✅ ส่ง isEditMode เป็นพารามิเตอร์ที่ 3
+                    const m = createCircleMarker([lat, lng], 'building', isEditMode);
                     setupMarkerPopup(m, r, 'building');
                     m.addTo(surveyLayers);
+                    
+                    // ✅ เปิดการลากถ้าอยู่ในโหมดแก้ไข
+                    if (isEditMode) {
+                        m.dragging.enable();
+                        m.on('dragend', async (e) => {
+                            const newLatLng = e.target.getLatLng();
+                            const marker = e.target;
+                            const data = marker._popupData;
+                            if (data) {
+                                await updateMarkerPosition(marker, data, newLatLng);
+                            }
+                        });
+                    }
                 });
                 
                 if(allSigns) allSigns.forEach(r => {
                     if (!r.lat_long) return;
                     const [lat, lng] = r.lat_long.split(',').map(Number);
                     if (isNaN(lat) || isNaN(lng)) return;
-                    
-                    const m = createCircleMarker([lat, lng], 'sign');
+                    // ✅ ส่ง isEditMode เป็นพารามิเตอร์ที่ 3
+                    const m = createCircleMarker([lat, lng], 'sign', isEditMode);
                     setupMarkerPopup(m, r, 'sign');
                     m.addTo(surveyLayers);
+                    
+                    // ✅ เปิดการลากถ้าอยู่ในโหมดแก้ไข
+                    if (isEditMode) {
+                        m.dragging.enable();
+                        m.on('dragend', async (e) => {
+                            const newLatLng = e.target.getLatLng();
+                            const marker = e.target;
+                            const data = marker._popupData;
+                            if (data) {
+                                await updateMarkerPosition(marker, data, newLatLng);
+                            }
+                        });
+                    }
                 });
             } catch(e) {
                 console.error("Error loading data:", e);
