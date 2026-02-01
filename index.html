@@ -639,44 +639,68 @@
             backgroundUpload(latlng, activeTool, tempMarker);
         }
 
-        // แก้ไขฟังก์ชัน backgroundUpload
+        // แก้ไขฟังก์ชัน backgroundUpload ให้ส่งข้อมูลครบถ้วน
         async function backgroundUpload(latlng, type, marker) {
-            const refreshBtn = document.getElementById('btn-refresh');
-            const refreshIcon = document.getElementById('refresh-icon');
-            
-            // ปิดการใช้งานปุ่ม
-            disableRefreshButton();
-            refreshIcon.classList.add('animate-spin');
-            
-            const data = {
-                lat_long: `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`,
-                date_added: new Date().toISOString()
-            };
-            
-            const body = new URLSearchParams();
-            body.append('type', type);
-            body.append('payload', JSON.stringify(data));
-            body.append('action', 'quickAdd');
-            
-            try {
-                const res = await fetch(CONFIG.SCRIPT_URL.trim(), { method: 'POST', body });
-                if (res.ok) {
-                    refreshIcon.classList.remove('animate-spin');
-                    refreshBtn.classList.add('refresh-success');
-                    setTimeout(() => {
-                        refreshBtn.classList.remove('refresh-success');
-                        enableRefreshButton();
-                    }, 2000);
-                    
-                    setupMarkerPopup(marker, { ...data, id: Date.now() }, type);
-                    await loadExistingData();
-                }
-            } catch (err) {
-                refreshIcon.classList.remove('animate-spin');
+          const refreshBtn = document.getElementById('btn-refresh');
+          const refreshIcon = document.getElementById('refresh-icon');
+          
+          // ปิดการใช้งานปุ่ม
+          disableRefreshButton();
+          refreshIcon.classList.add('animate-spin');
+          
+          // ✅ สร้างข้อมูลพื้นฐานสำหรับป้าย/สิ่งปลูกสร้าง
+          const data = {
+            lat_long: `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`,
+            date_added: new Date().toISOString()
+          };
+          
+          // ✅ เพิ่มข้อมูลเริ่มต้นสำหรับป้าย
+          if (type === 'sign') {
+            data.s_code = `05G032-S${Date.now().toString().slice(-4)}`; // รหัสป้ายเริ่มต้น
+            data.s_name = 'ป้ายใหม่';
+            data.s_type = 'ป้ายทั่วไป';
+            data.s_wide = '0';
+            data.s_length = '0';
+          }
+          
+          // ✅ เพิ่มข้อมูลเริ่มต้นสำหรับสิ่งปลูกสร้าง
+          if (type === 'building') {
+            data.building_c = `B${Date.now().toString().slice(-5)}`; // รหัสสิ่งปลูกสร้างเริ่มต้น
+            data.full_name = 'เจ้าของใหม่';
+            data.b_type = 'บ้านพักอาศัย';
+            data.b_area = '0';
+          }
+          
+          const body = new URLSearchParams();
+          body.append('type', type);
+          body.append('payload', JSON.stringify(data));
+          body.append('action', 'quickAdd');
+          
+          try {
+            const res = await fetch(CONFIG.SCRIPT_URL.trim(), { method: 'POST', body });
+            if (res.ok) {
+              refreshIcon.classList.remove('animate-spin');
+              refreshBtn.classList.add('refresh-success');
+              setTimeout(() => {
+                refreshBtn.classList.remove('refresh-success');
                 enableRefreshButton();
-                marker.remove();
-                alert("การบันทึกล้มเหลว");
+              }, 2000);
+              
+              // ✅ เพิ่มไอดีที่ได้รับจากเซิร์ฟเวอร์ลงในข้อมูล
+              const result = await res.json();
+              if (result.data && result.data.id) {
+                data.id = result.data.id;
+              }
+              
+              setupMarkerPopup(marker, { ...data, id: data.id || Date.now() }, type);
+              await loadExistingData();
             }
+          } catch (err) {
+            refreshIcon.classList.remove('animate-spin');
+            enableRefreshButton();
+            marker.remove();
+            alert("การบันทึกล้มเหลว: " + err.message);
+          }
         }
 
         // ข้อ 3: ตั้งค่าป๊อปอัปเพื่อเปิดฟอร์ม (แก้ไขเพิ่มปุ่มลบ)
@@ -1320,3 +1344,4 @@
 </body>
 
 </html>
+
