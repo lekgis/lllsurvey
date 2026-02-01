@@ -92,13 +92,13 @@
         .active-tool { background-color: #2563eb !important; color: white !important; border: 2px solid white; }
         .active-edit { background-color: #2563eb !important; color: white !important; }
 
-        /* ข้อ 2: ปุ่มยืนยันกลางจอ */
+        /* ข้อ 2: ปุ่มยืนยันเหนือปุ่มบวก (ระยะห่าง = เส้นผ่าศูนย์กลางปุ่มบวก 70px) */
         .confirm-btn-overlay {
-            position: absolute;
-            top: 55%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 1005;
+        position: absolute;
+        bottom: calc(2.5rem + 4.375rem + 4.375rem); /* bottom-10 (40px) + ความสูงปุ่ม (70px) + ระยะห่าง (70px) */
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1005;
         }
         /* แอนิเมชันสำหรับ Modal */
         @keyframes scale-in {
