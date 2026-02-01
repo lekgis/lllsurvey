@@ -716,7 +716,13 @@
                 </div>
             `;
             
-            marker.bindPopup(popupDiv);
+            // เปลี่ยนเป็น:
+            marker.bindPopup(popupDiv, { 
+                minWidth: 190,  // กำหนดความกว้างขั้นต่ำ
+                maxWidth: 220,   // กำหนดความกว้างสูงสุด
+                minHeight: 140,     // กำหนดความสูงขั้นต่ำ
+                maxHeight: 160      // กำหนดความสูงสูงสุด
+            });
             marker._popupData = { ...data, type: type };
             
             marker.on('popupopen', () => {
