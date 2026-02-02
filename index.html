@@ -100,6 +100,47 @@
         transform: translateX(-50%);
         z-index: 1005;
         }
+        /* สไตล์สำหรับเมนูฟันเฟือง */
+        #settings-menu button {
+          opacity: 0;
+          transform: translateY(-20px);
+          transition: all 0.3s ease;
+        }
+
+        #settings-menu button:hover {
+          transform: translateY(0) scale(1.05) !important;
+        }
+
+        /* แอนิเมชันสำหรับปุ่มฟันเฟือง */
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .animate-spin {
+          animation: spin 0.5s linear;
+        }
+
+        /* สไตล์สำหรับแกลเลอรี่รูปภาพ */
+        #image-gallery-modal {
+          backdrop-filter: blur(10px);
+        }
+
+        #gallery-grid::-webkit-scrollbar {
+          width: 8px;
+        }
+
+        #gallery-grid::-webkit-scrollbar-track {
+          background: #1f2937;
+        }
+
+        #gallery-grid::-webkit-scrollbar-thumb {
+          background: #4b5563;
+          border-radius: 4px;
+        }
+
+        #gallery-grid::-webkit-scrollbar-thumb:hover {
+          background: #6b7280;
+        }
         /* แอนิเมชันสำหรับ Modal */
         @keyframes scale-in {
             from { opacity: 0; transform: scale(0.9); }
@@ -350,11 +391,42 @@
         </button>
     </div>
 
-    <!-- ปุ่มรีเฟรช (แสดงสถานะบันทึก) -->
-    <div class="absolute top-4 left-4 z-[1001]">
-        <button id="btn-refresh" onclick="refreshData()" class="map-btn p-3 text-blue-600 transition-all">
-            <i data-lucide="refresh-cw" id="refresh-icon" class="w-6 h-6"></i>
+    <!-- ปุ่มฟันเฟืองและรีเฟรช (ด้านบนซ้าย) -->
+    <div class="absolute top-4 left-4 z-[1001] flex flex-row gap-2">
+      <!-- ปุ่มฟันเฟือง (เมนูหลัก) -->
+      <button id="btn-settings" onclick="toggleSettingsMenu()" class="map-btn p-3 text-gray-600 hover:text-blue-600 transition-all relative group">
+        <i data-lucide="settings-2" id="settings-icon" class="w-6 h-6"></i>
+        <!-- จุดแจ้งเตือน -->
+        <span id="settings-badge" class="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full hidden"></span>
+      </button>
+      
+      <!-- ปุ่มรีเฟรช -->
+      <button id="btn-refresh" onclick="refreshData()" class="map-btn p-3 text-blue-600 transition-all">
+        <i data-lucide="refresh-cw" id="refresh-icon" class="w-6 h-6"></i>
+      </button>
+      
+      <!-- ปุ่มย่อยที่เลื่อนลงมา -->
+      <div id="settings-menu" class="mt-2 space-y-2 hidden">
+        <!-- ปุ่ม 1: ส่งออกแผนที่สิ่งปลูกสร้าง -->
+        <button onclick="exportBuildingGeoJSON()" class="map-btn p-3 w-full bg-gradient-to-r from-orange-400 to-orange-600 text-white hover:scale-105 transition-all shadow-lg">
+          <i data-lucide="home" class="w-5 h-5"></i>
         </button>
+        
+        <!-- ปุ่ม 2: ส่งออกแผนที่ป้าย -->
+        <button onclick="exportSignGeoJSON()" class="map-btn p-3 w-full bg-gradient-to-r from-green-400 to-green-600 text-white hover:scale-105 transition-all shadow-lg">
+          <i data-lucide="map-pin" class="w-5 h-5"></i>
+        </button>
+        
+        <!-- ปุ่ม 3: โหลดรูปสิ่งปลูกสร้าง -->
+        <button onclick="loadBuildingImages()" class="map-btn p-3 w-full bg-gradient-to-r from-blue-400 to-blue-600 text-white hover:scale-105 transition-all shadow-lg">
+          <i data-lucide="image" class="w-5 h-5"></i>
+        </button>
+        
+        <!-- ปุ่ม 4: โหลดรูปป้าย -->
+        <button onclick="loadSignImages()" class="map-btn p-3 w-full bg-gradient-to-r from-purple-400 to-purple-600 text-white hover:scale-105 transition-all shadow-lg">
+          <i data-lucide="gallery-horizontal" class="w-5 h-5"></i>
+        </button>
+      </div>
     </div>
 
     <!-- ปุ่มเลือกประเภทและแก้ไข -->
@@ -1258,7 +1330,366 @@
             
             lucide.createIcons();
         }
+        // ============================================
+        // ฟังก์ชันเมนูฟันเฟือง
+        // ============================================
 
+        /**
+         * เปิด/ปิดเมนูฟันเฟือง
+         */
+        function toggleSettingsMenu() {
+          const menu = document.getElementById('settings-menu');
+          const icon = document.getElementById('settings-icon');
+          const badge = document.getElementById('settings-badge');
+          
+          if (menu.classList.contains('hidden')) {
+            // เปิดเมนู - ปุ่มย่อยเลื่อนลงมาทีละปุ่ม
+            menu.classList.remove('hidden');
+            icon.classList.add('animate-spin');
+            
+            // ซ่อนจุดแจ้งเตือน (ถ้ามี)
+            badge.classList.add('hidden');
+            
+            // แอนิเมชันเลื่อนลงมาทีละปุ่ม
+            setTimeout(() => {
+              const buttons = menu.querySelectorAll('button');
+              buttons.forEach((btn, index) => {
+                setTimeout(() => {
+                  btn.style.transform = 'translateY(0)';
+                  btn.style.opacity = '1';
+                }, index * 100);
+              });
+            }, 100);
+            
+            // ปิดเมนูอัตโนมัติเมื่อคลิกที่อื่น
+            setTimeout(() => {
+              document.addEventListener('click', closeSettingsMenuOnClickOutside);
+            }, 100);
+            
+          } else {
+            // ปิดเมนู
+            closeSettingsMenu();
+          }
+        }
+
+        /**
+         * ปิดเมนูเมื่อคลิกที่อื่น
+         */
+        function closeSettingsMenuOnClickOutside(e) {
+          const settingsBtn = document.getElementById('btn-settings');
+          const settingsMenu = document.getElementById('settings-menu');
+          
+          if (!settingsBtn.contains(e.target) && !settingsMenu.contains(e.target)) {
+            closeSettingsMenu();
+            document.removeEventListener('click', closeSettingsMenuOnClickOutside);
+          }
+        }
+
+        /**
+         * ปิดเมนู
+         */
+        function closeSettingsMenu() {
+          const menu = document.getElementById('settings-menu');
+          const icon = document.getElementById('settings-icon');
+          
+          // แอนิเมชันเลื่อนขึ้นไป
+          const buttons = menu.querySelectorAll('button');
+          buttons.forEach((btn, index) => {
+            setTimeout(() => {
+              btn.style.transform = 'translateY(-20px)';
+              btn.style.opacity = '0';
+            }, (buttons.length - index - 1) * 50);
+          });
+          
+          setTimeout(() => {
+            menu.classList.add('hidden');
+            icon.classList.remove('animate-spin');
+          }, buttons.length * 50 + 100);
+        }
+
+        /**
+         * ปุ่ม 1: ส่งออกแผนที่สิ่งปลูกสร้าง (GeoJSON)
+         */
+        async function exportBuildingGeoJSON() {
+          closeSettingsMenu();
+          
+          // แสดงข้อความแจ้งเตือน
+          showNotification('กำลังเตรียมข้อมูลสิ่งปลูกสร้าง...', 'info');
+          
+          try {
+            // ดึงข้อมูลจากเซิร์ฟเวอร์
+            const res = await fetch(`${CONFIG.SCRIPT_URL}?action=exportGeoJSON&type=building`);
+            const geojsonData = await res.json();
+            
+            if (geojsonData.type === 'FeatureCollection') {
+              // สร้าง Blob และดาวน์โหลดไฟล์
+              const blob = new Blob([JSON.stringify(geojsonData, null, 2)], { 
+                type: 'application/geo+json' 
+              });
+              
+              const url = window.URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `buildings_${new Date().toISOString().slice(0,10)}.geojson`;
+              document.body.appendChild(a);
+              a.click();
+              window.URL.revokeObjectURL(url);
+              document.body.removeChild(a);
+              
+              showNotification('ดาวน์โหลดไฟล์สิ่งปลูกสร้างสำเร็จ!', 'success');
+            } else {
+              throw new Error('ข้อมูลไม่ถูกต้อง');
+            }
+          } catch (err) {
+            console.error('Error exporting buildings:', err);
+            showNotification('เกิดข้อผิดพลาดในการส่งออกข้อมูล', 'error');
+          }
+        }
+
+        /**
+         * ปุ่ม 2: ส่งออกแผนที่ป้าย (GeoJSON)
+         */
+        async function exportSignGeoJSON() {
+          closeSettingsMenu();
+          
+          showNotification('กำลังเตรียมข้อมูลป้าย...', 'info');
+          
+          try {
+            const res = await fetch(`${CONFIG.SCRIPT_URL}?action=exportGeoJSON&type=sign`);
+            const geojsonData = await res.json();
+            
+            if (geojsonData.type === 'FeatureCollection') {
+              const blob = new Blob([JSON.stringify(geojsonData, null, 2)], { 
+                type: 'application/geo+json' 
+              });
+              
+              const url = window.URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `signs_${new Date().toISOString().slice(0,10)}.geojson`;
+              document.body.appendChild(a);
+              a.click();
+              window.URL.revokeObjectURL(url);
+              document.body.removeChild(a);
+              
+              showNotification('ดาวน์โหลดไฟล์ป้ายสำเร็จ!', 'success');
+            } else {
+              throw new Error('ข้อมูลไม่ถูกต้อง');
+            }
+          } catch (err) {
+            console.error('Error exporting signs:', err);
+            showNotification('เกิดข้อผิดพลาดในการส่งออกข้อมูล', 'error');
+          }
+        }
+
+        /**
+         * ปุ่ม 3: โหลดรูปสิ่งปลูกสร้างจากโฟลเดอร์ Google Drive
+         */
+        async function loadBuildingImages() {
+          closeSettingsMenu();
+          
+          showNotification('กำลังโหลดรูปภาพสิ่งปลูกสร้าง...', 'info');
+          
+          try {
+            // ดึงข้อมูลสิ่งปลูกสร้างทั้งหมด
+            const res = await fetch(`${CONFIG.SCRIPT_URL}?action=getData`);
+            const data = await res.json();
+            const buildings = data.buildings || [];
+            
+            // กรองเฉพาะที่มีรูปภาพ
+            const buildingsWithImages = buildings.filter(b => b.image && b.image.trim() !== '');
+            
+            if (buildingsWithImages.length === 0) {
+              showNotification('ไม่พบรูปภาพสิ่งปลูกสร้าง', 'warning');
+              return;
+            }
+            
+            // แสดงแกลเลอรี่รูปภาพ
+            showImageGallery(buildingsWithImages, 'building');
+            
+          } catch (err) {
+            console.error('Error loading building images:', err);
+            showNotification('เกิดข้อผิดพลาดในการโหลดรูปภาพ', 'error');
+          }
+        }
+
+        /**
+         * ปุ่ม 4: โหลดรูปป้ายจากโฟลเดอร์ Google Drive
+         */
+        async function loadSignImages() {
+          closeSettingsMenu();
+          
+          showNotification('กำลังโหลดรูปภาพป้าย...', 'info');
+          
+          try {
+            const res = await fetch(`${CONFIG.SCRIPT_URL}?action=getData`);
+            const data = await res.json();
+            const signs = data.signs || [];
+            
+            const signsWithImages = signs.filter(s => s.picture && s.picture.trim() !== '');
+            
+            if (signsWithImages.length === 0) {
+              showNotification('ไม่พบรูปภาพป้าย', 'warning');
+              return;
+            }
+            
+            showImageGallery(signsWithImages, 'sign');
+            
+          } catch (err) {
+            console.error('Error loading sign images:', err);
+            showNotification('เกิดข้อผิดพลาดในการโหลดรูปภาพ', 'error');
+          }
+        }
+
+        /**
+         * แสดงแกลเลอรี่รูปภาพ
+         */
+        function showImageGallery(items, type) {
+          // สร้างหน้าต่างแกลเลอรี่
+          const galleryDiv = document.createElement('div');
+          galleryDiv.id = 'image-gallery-modal';
+          galleryDiv.className = 'fixed inset-0 bg-black/90 z-[3000] flex flex-col p-4 overflow-hidden';
+          galleryDiv.innerHTML = `
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-white text-xl font-bold">
+                ${type === 'building' ? 'รูปภาพสิ่งปลูกสร้าง' : 'รูปภาพป้าย'} (${items.length} รูป)
+              </h3>
+              <button onclick="closeImageGallery()" class="text-white hover:text-gray-300 transition">
+                <i data-lucide="x" class="w-8 h-8"></i>
+              </button>
+            </div>
+            <div id="gallery-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 flex-1 overflow-y-auto">
+              ${items.map((item, index) => `
+                <div class="relative group cursor-pointer" onclick="openImageViewer(${index}, '${type}')">
+                  <img src="${item.image || item.picture}" 
+                       alt="รูปภาพ ${index + 1}" 
+                       class="w-full h-32 object-cover rounded-lg hover:opacity-75 transition"
+                       onerror="this.src='https://via.placeholder.com/150?text=No+Image'">
+                  <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                    <span class="text-white text-sm font-bold">ดูรูปใหญ่</span>
+                  </div>
+                  <div class="mt-1 text-xs text-white truncate">
+                    ${type === 'building' ? (item.building_c || item.full_name || '-') : (item.s_code || item.s_name || '-')}
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+            <div class="mt-4 text-center">
+              <button onclick="closeImageGallery()" class="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition">
+                ปิด
+              </button>
+            </div>
+          `;
+          
+          document.body.appendChild(galleryDiv);
+          lucide.createIcons();
+        }
+
+        /**
+         * เปิดดูรูปภาพขนาดใหญ่
+         */
+        function openImageViewer(index, type) {
+          // ดึงข้อมูลจากหน้าต่างแกลเลอรี่
+          const gallery = document.getElementById('image-gallery-modal');
+          const items = type === 'building' ? allBuildings.filter(b => b.image) : allSigns.filter(s => s.picture);
+          const item = items[index];
+          
+          if (!item) return;
+          
+          // สร้างหน้าต่างดูรูปใหญ่
+          const viewerDiv = document.createElement('div');
+          viewerDiv.id = 'image-viewer-modal';
+          viewerDiv.className = 'fixed inset-0 bg-black/95 z-[3001] flex items-center justify-center p-4';
+          viewerDiv.onclick = (e) => {
+            if (e.target === viewerDiv) closeImageViewer();
+          };
+          viewerDiv.innerHTML = `
+            <div class="relative max-w-4xl w-full">
+              <img src="${item.image || item.picture}" 
+                   alt="รูปภาพ" 
+                   class="w-full max-h-[80vh] object-contain rounded-lg"
+                   onerror="this.src='https://via.placeholder.com/800x600?text=No+Image'">
+              <div class="absolute bottom-4 left-4 right-4 bg-black/70 text-white p-3 rounded-lg">
+                <p class="font-bold">${type === 'building' ? 'สิ่งปลูกสร้าง:' : 'ป้าย:'} ${item.building_c || item.s_code || '-'}</p>
+                <p class="text-sm">${item.full_name || item.s_name || ''}</p>
+                <p class="text-xs mt-1">${item.address || item.comment || ''}</p>
+              </div>
+              <button onclick="closeImageViewer()" class="absolute top-4 right-4 text-white hover:text-gray-300 transition">
+                <i data-lucide="x" class="w-8 h-8"></i>
+              </button>
+              <button onclick="downloadImage('${item.image || item.picture}', '${item.building_c || item.s_code || 'image'}')" 
+                      class="absolute top-4 left-4 bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 transition">
+                <i data-lucide="download" class="w-5 h-5"></i>
+              </button>
+            </div>
+          `;
+          
+          document.body.appendChild(viewerDiv);
+          lucide.createIcons();
+        }
+
+        /**
+         * ปิดหน้าต่างดูรูปใหญ่
+         */
+        function closeImageViewer() {
+          const viewer = document.getElementById('image-viewer-modal');
+          if (viewer) viewer.remove();
+        }
+
+        /**
+         * ปิดแกลเลอรี่รูปภาพ
+         */
+        function closeImageGallery() {
+          const gallery = document.getElementById('image-gallery-modal');
+          if (gallery) gallery.remove();
+          closeImageViewer(); // ปิดหน้าต่างดูรูปใหญ่ด้วย (ถ้ามี)
+        }
+
+        /**
+         * ดาวน์โหลดรูปภาพ
+         */
+        function downloadImage(url, filename) {
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `${filename}_${Date.now()}.jpg`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+
+        /**
+         * แสดงแจ้งเตือน
+         */
+        function showNotification(message, type = 'info') {
+          const colors = {
+            info: 'bg-blue-500',
+            success: 'bg-green-500',
+            error: 'bg-red-500',
+            warning: 'bg-yellow-500'
+          };
+          
+          const icons = {
+            info: 'info',
+            success: 'check-circle',
+            error: 'alert-circle',
+            warning: 'alert-triangle'
+          };
+          
+          const notification = document.createElement('div');
+          notification.className = `fixed top-4 right-4 ${colors[type]} text-white px-6 py-3 rounded-lg shadow-lg z-[2000] animate-fade-in`;
+          notification.innerHTML = `
+            <i data-lucide="${icons[type]}" class="w-5 h-5 inline mr-2"></i>
+            ${message}
+          `;
+          
+          document.body.appendChild(notification);
+          lucide.createIcons();
+          
+          setTimeout(() => {
+            notification.classList.add('animate-fade-out');
+            setTimeout(() => notification.remove(), 300);
+          }, 3000);
+        }
         // ฟังก์ชันสร้างแถวข้อมูลป้าย
         function renderSignTable() {
             const tbody = document.getElementById('sign-table-body');
