@@ -110,7 +110,29 @@
         #settings-menu button:hover {
           transform: translateY(0) scale(1.05) !important;
         }
+        /* ========== แอนิเมชันเลื่อนขึ้น/ลงสำหรับเป้าเล็งและปุ่มบวก ========== */
+        #crosshair,
+        #add-trigger-container {
+          transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), 
+                      opacity 0.3s ease;
+          transform: translateY(100vh); /* เริ่มจากด้านล่างสุดของหน้าจอ */
+          opacity: 0;
+          will-change: transform, opacity;
+        }
 
+        #crosshair.visible,
+        #add-trigger-container.visible {
+          transform: translateY(0);
+          opacity: 1;
+        }
+
+        /* สำหรับมือถือ: ความเร็วแอนิเมชันปรับให้เหมาะสม */
+        @media (max-width: 768px) {
+          #crosshair,
+          #add-trigger-container {
+            transition-duration: 0.35s;
+          }
+        }
         /* แอนิเมชันสำหรับปุ่มฟันเฟือง */
         @keyframes spin {
           from { transform: rotate(0deg); }
@@ -560,28 +582,58 @@
         }
 
         function activateTool(tool) {
-            isEditMode = false;
-            document.getElementById('btn-edit').classList.remove('active-edit');
-            surveyLayers.eachLayer(l => l.dragging && l.dragging.disable());
-
-            if (activeTool === tool) {
-                deactivateTools();
-            } else {
-                activeTool = tool;
-                document.getElementById('btn-building').classList.toggle('active-tool', tool === 'building');
-                document.getElementById('btn-sign').classList.toggle('active-tool', tool === 'sign');
-                document.getElementById('crosshair').classList.remove('hidden');
-                document.getElementById('add-trigger-container').classList.remove('hidden');
-            }
+          isEditMode = false;
+          document.getElementById('btn-edit').classList.remove('active-edit');
+          surveyLayers.eachLayer(l => l.dragging && l.dragging.disable());
+          
+          if (activeTool === tool) {
+            // ยกเลิกการเพิ่มจุด - เลื่อนลง
+            deactivateTools();
+          } else {
+            // เปิดใช้งานเครื่องมือใหม่
+            activeTool = tool;
+            document.getElementById('btn-building').classList.toggle('active-tool', tool === 'building');
+            document.getElementById('btn-sign').classList.toggle('active-tool', tool === 'sign');
+            
+            // แสดงเป้าเล็งและปุ่มบวกด้วยแอนิเมชันเลื่อนขึ้น
+            const crosshair = document.getElementById('crosshair');
+            const addTrigger = document.getElementById('add-trigger-container');
+            
+            // ลบคลาส hidden และเพิ่มคลาส visible พร้อมแอนิเมชัน
+            crosshair.classList.remove('hidden');
+            addTrigger.classList.remove('hidden');
+            
+            // บังคับให้เบราว์เซอร์คำนวณใหม่ก่อนเริ่มแอนิเมชัน
+            void crosshair.offsetWidth;
+            void addTrigger.offsetWidth;
+            
+            // เริ่มแอนิเมชันเลื่อนขึ้น
+            crosshair.classList.add('visible');
+            addTrigger.classList.add('visible');
+            
+            // ซ่อนปุ่มคอนเฟิร์มหากมี
+            document.getElementById('confirm-overlay').classList.add('hidden');
+          }
         }
 
         function deactivateTools() {
-            activeTool = null;
-            document.getElementById('btn-building').classList.remove('active-tool');
-            document.getElementById('btn-sign').classList.remove('active-tool');
-            document.getElementById('crosshair').classList.add('hidden');
-            document.getElementById('add-trigger-container').classList.add('hidden');
+          activeTool = null;
+          document.getElementById('btn-building').classList.remove('active-tool');
+          document.getElementById('btn-sign').classList.remove('active-tool');
+          
+          const crosshair = document.getElementById('crosshair');
+          const addTrigger = document.getElementById('add-trigger-container');
+          
+          // เริ่มแอนิเมชันเลื่อนลง
+          crosshair.classList.remove('visible');
+          addTrigger.classList.remove('visible');
+          
+          // หลังแอนิเมชันเสร็จ ซ่อนองค์ประกอบจริงๆ
+          setTimeout(() => {
+            crosshair.classList.add('hidden');
+            addTrigger.classList.add('hidden');
             document.getElementById('confirm-overlay').classList.add('hidden');
+          }, 400); // ตรงกับระยะเวลาแอนิเมชัน 0.4s
         }
 
         function toggleEditMode() {
