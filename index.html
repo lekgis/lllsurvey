@@ -1795,7 +1795,56 @@
             
             lucide.createIcons();
         }
+        /**
+         * อัปเดตมาร์กเกอร์ที่แสดงเฉพาะในมุมมองปัจจุบัน (สำหรับข้อมูลจำนวนมาก)
+         */
+        function updateVisibleMarkers() {
+          const bounds = map.getBounds();
+          surveyLayers.clearLayers(); // ล้างมาร์กเกอร์เก่า
+          
+          // แสดงเฉพาะสิ่งปลูกสร้างในมุมมอง
+          allBuildings.forEach(r => {
+            if (!r.lat_long) return;
+            const coords = r.lat_long.split(',').map(Number);
+            if (coords.length < 2 || isNaN(coords[0]) || isNaN(coords[1])) return;
+            const latLng = L.latLng(coords[0], coords[1]);
+            if (!bounds.contains(latLng)) return; // ข้ามถ้าอยู่นอกมุมมอง
+            
+            const m = createCircleMarker(latLng, 'building', isEditMode);
+            setupMarkerPopup(m, r, 'building');
+            m.addTo(surveyLayers);
+            if (isEditMode) enableMarkerDragging(m, r);
+          });
+          
+          // แสดงเฉพาะป้ายในมุมมอง
+          allSigns.forEach(r => {
+            if (!r.lat_long) return;
+            const coords = r.lat_long.split(',').map(Number);
+            if (coords.length < 2 || isNaN(coords[0]) || isNaN(coords[1])) return;
+            const latLng = L.latLng(coords[0], coords[1]);
+            if (!bounds.contains(latLng)) return; // ข้ามถ้าอยู่นอกมุมมอง
+            
+            const m = createCircleMarker(latLng, 'sign', isEditMode);
+            setupMarkerPopup(m, r, 'sign');
+            m.addTo(surveyLayers);
+            if (isEditMode) enableMarkerDragging(m, r);
+          });
+        }
 
+        /**
+         * เปิดใช้งานการลากมาร์กเกอร์ในโหมดแก้ไข (แยกฟังก์ชันเพื่อลดซ้ำซ้อน)
+         */
+        function enableMarkerDragging(marker, data) {
+          marker.dragging.enable();
+          marker.on('dragend', async (e) => {
+            const newLatLng = e.target.getLatLng();
+            const marker = e.target;
+            const data = marker._popupData;
+            if (data) {
+              await updateMarkerPosition(marker, data, newLatLng);
+            }
+          });
+        }
         async function loadExistingData() {
             try {
                 const res = await fetch(`${CONFIG.SCRIPT_URL}?action=getData`);
@@ -1811,51 +1860,54 @@
                 renderSignTable();
                 
                 // สร้าง marker บนแผนที่
-                if(allBuildings) allBuildings.forEach(r => {
-                    if (!r.lat_long) return;
-                    const [lat, lng] = r.lat_long.split(',').map(Number);
-                    if (isNaN(lat) || isNaN(lng)) return;
-                    // ✅ ส่ง isEditMode เป็นพารามิเตอร์ที่ 3
-                    const m = createCircleMarker([lat, lng], 'building', isEditMode);
-                    setupMarkerPopup(m, r, 'building');
-                    m.addTo(surveyLayers);
-                    
-                    // ✅ เปิดการลากถ้าอยู่ในโหมดแก้ไข
-                    if (isEditMode) {
-                        m.dragging.enable();
-                        m.on('dragend', async (e) => {
-                            const newLatLng = e.target.getLatLng();
-                            const marker = e.target;
-                            const data = marker._popupData;
-                            if (data) {
-                                await updateMarkerPosition(marker, data, newLatLng);
-                            }
-                        });
-                    }
-                });
+            // ล้างมาร์กเกอร์เก่า
+            surveyLayers.clearLayers();
+
+            // ✅ ตรวจสอบว่าต้องใช้โหมดแสดงมาร์กเกอร์แบบกรองตามมุมมองหรือไม่
+            const useOptimizedRendering = (allBuildings.length > 200 || allSigns.length > 200);
+
+            if (useOptimizedRendering) {
+              // โหมดข้อมูลจำนวนมาก: แสดงเฉพาะมาร์กเกอร์ในมุมมอง + อัปเดตเมื่อเลื่อนแผนที่
+              map.off('moveend', updateVisibleMarkers); // ลบตัวฟังเหตุการณ์เก่าก่อน (ป้องกันซ้ำ)
+              map.on('moveend', updateVisibleMarkers);
+              updateVisibleMarkers(); // แสดงมาร์กเกอร์ในมุมมองปัจจุบันทันที
+              
+              // แสดงข้อความแจ้งเตือนผู้ใช้ (ไม่บังคับ แต่แนะนำ)
+              if (!document.getElementById('optimize-notice')) {
+                const notice = document.createElement('div');
+                notice.id = 'optimize-notice';
+                notice.className = 'fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-yellow-500 text-white px-4 py-2 rounded-lg shadow-lg z-[2000] animate-fade-in';
+                notice.innerHTML = '<i data-lucide="info" class="w-4 h-4 inline mr-1"></i>แสดงเฉพาะจุดในมุมมองเพื่อประสิทธิภาพ';
+                document.body.appendChild(notice);
+                lucide.createIcons();
                 
-                if(allSigns) allSigns.forEach(r => {
-                    if (!r.lat_long) return;
-                    const [lat, lng] = r.lat_long.split(',').map(Number);
-                    if (isNaN(lat) || isNaN(lng)) return;
-                    // ✅ ส่ง isEditMode เป็นพารามิเตอร์ที่ 3
-                    const m = createCircleMarker([lat, lng], 'sign', isEditMode);
-                    setupMarkerPopup(m, r, 'sign');
-                    m.addTo(surveyLayers);
-                    
-                    // ✅ เปิดการลากถ้าอยู่ในโหมดแก้ไข
-                    if (isEditMode) {
-                        m.dragging.enable();
-                        m.on('dragend', async (e) => {
-                            const newLatLng = e.target.getLatLng();
-                            const marker = e.target;
-                            const data = marker._popupData;
-                            if (data) {
-                                await updateMarkerPosition(marker, data, newLatLng);
-                            }
-                        });
-                    }
-                });
+                // ซ่อนอัตโนมัติหลัง 5 วินาที
+                setTimeout(() => {
+                  notice.classList.add('animate-fade-out');
+                  setTimeout(() => notice.remove(), 300);
+                }, 5000);
+              }
+            } else {
+              // โหมดข้อมูลน้อย: แสดงมาร์กเกอร์ทั้งหมดตามปกติ
+              allBuildings.forEach(r => {
+                if (!r.lat_long) return;
+                const coords = r.lat_long.split(',').map(Number);
+                if (coords.length < 2 || isNaN(coords[0]) || isNaN(coords[1])) return;
+                const m = createCircleMarker(L.latLng(coords[0], coords[1]), 'building', isEditMode);
+                setupMarkerPopup(m, r, 'building');
+                m.addTo(surveyLayers);
+                if (isEditMode) enableMarkerDragging(m, r);
+              });
+              
+              allSigns.forEach(r => {
+                if (!r.lat_long) return;
+                const coords = r.lat_long.split(',').map(Number);
+                if (coords.length < 2 || isNaN(coords[0]) || isNaN(coords[1])) return;
+                const m = createCircleMarker(L.latLng(coords[0], coords[1]), 'sign', isEditMode);
+                setupMarkerPopup(m, r, 'sign');
+                m.addTo(surveyLayers);
+                if (isEditMode) enableMarkerDragging(m, r);
+              });
             } catch(e) {
                 console.error("Error loading data:", e);
             }
@@ -1898,22 +1950,6 @@
               });
             });
           }
-        }
-
-        // ในฟังก์ชัน loadExistingData()
-        if (allBuildings.length > 200 || allSigns.length > 200) {
-          // แสดงเฉพาะมาร์กเกอร์ในมุมมองปัจจุบัน
-          map.on('moveend', updateVisibleMarkers);
-          updateVisibleMarkers(); // เรียกครั้งแรก
-        }
-
-        function updateVisibleMarkers() {
-          const bounds = map.getBounds();
-          surveyLayers.clearLayers();
-          
-          // แสดงเฉพาะมาร์กเกอร์ในมุมมอง
-          allBuildings.filter(b => bounds.contains(L.latLng(b.lat_long.split(',').map(Number)))).forEach(...);
-          allSigns.filter(s => bounds.contains(L.latLng(s.lat_long.split(',').map(Number)))).forEach(...);
         }
 
         // เรียกใช้หลังสร้างแผนที่
