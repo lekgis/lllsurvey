@@ -593,23 +593,24 @@
           map = L.map('map', { 
             zoomControl: false, 
             attributionControl: false,
-            preferCanvas: true // ✅ เปิดใช้งาน Canvas Rendering
+            preferCanvas: true
+            // ลบบรรทัด: tap: isMobile()
           }).setView([15.234, 102.054], 16);
           
-          L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
-            maxZoom: 22,
-            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-            updateWhenIdle: isMobile(), // โหลดไทล์เฉพาะเมื่อหยุดเลื่อน (มือถือ)
-            updateWhenZooming: false,
-            keepBuffer: 2 // เก็บไทล์รอบๆ เพิ่มอีก 2 ชั้น
-          }).addTo(map);
+        L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+          maxZoom: 22,
+          subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+          updateWhenIdle: isMobile(), // โหลดไทล์เฉพาะเมื่อหยุดเลื่อน (มือถือ)
+          updateWhenZooming: true, // ✅ เปิดการอัปเดตไทล์ขณะซูม
+          keepBuffer: 2
+        }).addTo(map);
           
           surveyLayers.addTo(map);
           
           // ปรับแต่งเฉพาะมือถือ
           if (isMobile()) {
             // จำกัดซูมสูงสุดเพื่อลดการโหลดไทล์ความละเอียดสูง
-            map._limitZoom = () => Math.min(19, map.getMaxZoom());
+            map.options.zoomSnap = 0.5; // ซูมแบบละเอียด
           }
         }
         // ตรวจจับอุปกรณ์มือถือ
