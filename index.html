@@ -603,7 +603,7 @@
           subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
           updateWhenIdle: true, // ✅ โหลดขณะเลื่อน (ไม่รอหยุด)
           updateWhenZooming: true,
-          keepBuffer: 4, // ✅ เก็บไทล์รอบๆ เพิ่มอีก 4 ชั้น (จากเดิม 2)
+          keepBuffer: 8, // ✅ เก็บไทล์รอบๆ เพิ่มอีก 4 ชั้น (จากเดิม 2)
           maxNativeZoom: 19, // ป้องกันการโหลดไทล์ที่ไม่มี
           reuseTiles: true // ใช้ไทล์เก่าซ้ำแทนโหลดใหม่
         }).addTo(map);
