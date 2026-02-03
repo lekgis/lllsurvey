@@ -1,6 +1,6 @@
 // ========== การตั้งค่าแคช ==========
-const APP_CACHE_NAME = 'gis-survey-app-v2'; // เปลี่ยนเวอร์ชันเพื่ออัปเดตแคช
-const MAP_CACHE_NAME = 'map-tiles-v2'; // เปลี่ยนเวอร์ชันเพื่ออัปเดตแคช
+const APP_CACHE_NAME = 'gis-survey-app-v2';
+const MAP_CACHE_NAME = 'map-tiles-v2';
 
 // ไฟล์แอปที่ต้องการแคช
 const urlsToCache = [
@@ -11,7 +11,7 @@ const urlsToCache = [
   '/static/icons/lb-512.png'
 ];
 
-// URL ของไทล์แผนที่ที่ต้องการแคช
+// URL ของไทล์แผนที่ที่ต้องการแคช (แก้ไข: ลบช่องว่างต่อท้าย)
 const TILE_URLS = [
   'https://mt0.google.com',
   'https://mt1.google.com',
@@ -33,7 +33,7 @@ self.addEventListener('install', (event) => {
         });
       }),
       
-      // เตรียมแคชไทล์แผนที่ (ยังไม่โหลด รอให้ผู้ใช้เรียกดูจริงๆ)
+      // เตรียมแคชไทล์แผนที่
       caches.open(MAP_CACHE_NAME).then((cache) => {
         console.log('Map tile cache ready');
       })
