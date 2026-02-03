@@ -601,7 +601,7 @@
         L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
           maxZoom: 22,
           subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-          updateWhenIdle: false, // ✅ โหลดขณะเลื่อน (ไม่รอหยุด)
+          updateWhenIdle: true, // ✅ โหลดขณะเลื่อน (ไม่รอหยุด)
           updateWhenZooming: true,
           keepBuffer: 4, // ✅ เก็บไทล์รอบๆ เพิ่มอีก 4 ชั้น (จากเดิม 2)
           maxNativeZoom: 19, // ป้องกันการโหลดไทล์ที่ไม่มี
