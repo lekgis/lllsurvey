@@ -944,15 +944,18 @@
             </div>
           `;
           
-          // ✅ ใช้การตั้งค่าแบบเรียบง่าย (เหมือนโค้ดเก่าที่ทำงานได้)
+          // ✅ แก้ไขหลัก: ปิด autoPan + ไม่แพนแผนที่อัตโนมัติ
           marker.bindPopup(popupDiv, {
             minWidth: 190,
-            maxWidth: 220
-            // ❌ ไม่ต้องมี autoPan, keepInView, autoClose
+            maxWidth: 220,
+            autoPan: false, // ✅ ปิดการแพนอัตโนมัติ (สำคัญมาก!)
+            closeOnClick: true // ใช้ค่าเริ่มต้น (ปิดเมื่อคลิกนอกป๊อปอัป)
           });
           
           marker._popupData = { ...data, type: type };
           
+          // ✅ ลบโค้ด setTimeout + panTo ทั้งหมดออก!
+          // เหลือเฉพาะการผูกปุ่ม
           marker.on('popupopen', () => {
             const buttons = marker.getPopup().getElement().querySelectorAll('button');
             
