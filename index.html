@@ -53,8 +53,7 @@
         .side-panel { 
             transition: transform 0.3s ease-in-out; 
             transform: translateX(100%); 
-            background: rgba(255, 255, 255, 0.6); /* โปร่งใส 95% */
-            backdrop-filter: blur(10px); /* เอฟเฟกต์เบลอ */
+            background: rgba(200, 200, 200, 1.0); /* โปร่งใส 95% */            
             z-index: 1010;
             box-shadow: -5px 0 25px rgba(0,0,0,0.15); /* เงาให้ดูดีขึ้น */
         }
@@ -134,7 +133,17 @@
           transform: translateX(-50%) translateY(0); /* ศูนย์กลาง + ตำแหน่งปกติ */
           opacity: 1;
         }
+        /* เพิ่มการเร่งฮาร์ดแวร์สำหรับแผนที่ */
+        #map {
+          transform: translate3d(0, 0, 0);
+          will-change: transform;
+        }
 
+        /* ปิดการเรนเดอร์ชั่วคราวเมื่อเลื่อนแผนที่ (เพิ่มความลื่น) */
+        .leaflet-zoom-anim .circle-marker,
+        .leaflet-zoom-anim .crosshair {
+          display: none !important;
+        }
         /* สำหรับมือถือ: ความเร็วแอนิเมชันปรับให้เหมาะสม */
         @media (max-width: 768px) {
           #crosshair,
@@ -153,7 +162,6 @@
 
         /* สไตล์สำหรับแกลเลอรี่รูปภาพ */
         #image-gallery-modal {
-          backdrop-filter: blur(10px);
         }
 
         #gallery-grid::-webkit-scrollbar {
