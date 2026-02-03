@@ -590,31 +590,59 @@
         let allSigns = [];
 
         function initMap() {
-          map = L.map('map', { 
-            zoomControl: false, 
+          const mapOptions = {
+            zoomControl: false,
             attributionControl: false,
-            preferCanvas: true
-            // ลบบรรทัด: tap: isMobile()
+            preferCanvas: true,
+            zoomSnap: isMobile() ? 0.5 : 1, // Conditional snap
+            wheelDebounceTime: 40,         // Better scroll performance
+            maxBoundsViscosity: 1.0        // Smoother dragging
+          };
+
+          map = L.map('map', {
+            zoomControl: false,
+            attributionControl: false,
+            preferCanvas: true,
+            // ✅ อนุญาตให้แผนที่แสดงล้นขอบจอได้
+            padding: [50, 50], // เพิ่มพื้นที่ว่างรอบแผนที่ (บน, ล่าง, ซ้าย, ขวา)
+            maxBoundsViscosity: 0.5, // ลดความหนืดของขอบเขต (ทำให้เลื่อนลื่นขึ้น)
+            inertia: true, // เปิดใช้งานการเลื่อนแบบอินเนอร์เชีย
+            inertiaDeceleration: 3000, // ความเร็วการชะลอตัว
+            inertiaMaxSpeed: 1500, // ความเร็วสูงสุด
+            // ไม่กำหนดขอบเขตแผนที่ (ให้แสดงล้นได้)
+            // maxBounds: undefined
           }).setView([15.202, 102.068], 14);
+
+          // Hardware Acceleration
+          const container = map.getContainer();
+          container.style.transform = 'translate3d(0, 0, 0)';
           
-        // ปรับการตั้งค่าไทล์ให้โหลดรอบๆ มากขึ้น
-        L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
-          maxZoom: 22,
-          subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-          updateWhenIdle: false, // ✅ โหลดขณะเลื่อน (ไม่รอหยุด)
-          updateWhenZooming: true,
-          keepBuffer: 4, // ✅ เก็บไทล์รอบๆ เพิ่มอีก 4 ชั้น (จากเดิม 2)
-          maxNativeZoom: 19, // ป้องกันการโหลดไทล์ที่ไม่มี
-          reuseTiles: true // ใช้ไทล์เก่าซ้ำแทนโหลดใหม่
-        }).addTo(map);
-          
+          // Google Hybrid Tile Options
+          const tileOptions = {
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+            updateWhenIdle: true,
+            keepBuffer: isMobile() ? 2 : 4, // Less memory on mobile
+            className: 'map-tiles-optimized' // For custom CSS smoothing
+          };
+
+          // Low Res / Background Layer
+          const lowResLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+            ...tileOptions,
+            maxZoom: 15,
+            zIndex: 1
+          });
+
+          // High Res Layer
+          const highResLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+            ...tileOptions,
+            minZoom: 16,
+            maxZoom: 22,
+            zIndex: 2
+          });
+
+          lowResLayer.addTo(map);
+          highResLayer.addTo(map);
           surveyLayers.addTo(map);
-          
-          // ปรับแต่งเฉพาะมือถือ
-          if (isMobile()) {
-            // จำกัดซูมสูงสุดเพื่อลดการโหลดไทล์ความละเอียดสูง
-            map.options.zoomSnap = 0.5; // ซูมแบบละเอียด
-          }
         }
         // ตรวจจับอุปกรณ์มือถือ
         function isMobile() {
@@ -903,35 +931,25 @@
           }
         }
 
-        // ข้อ 3: ตั้งค่าป๊อปอัปเพื่อเปิดฟอร์ม (แก้ไขเพิ่มปุ่มลบ)
+        // ข้อ 3: ตั้งค่าป๊อปอัปเพื่อเปิดฟอร์ม (แก้ไขเพิ่มปุ่มลบ + แก้ไขป๊อบอัปไม่ปิดอัตโนมัติ)
         function setupMarkerPopup(marker, data, type) {
-            const popupDiv = document.createElement('div');
-            popupDiv.className = "p-1 min-w-[160px]";
-            popupDiv.innerHTML = `
-                <p class="font-bold text-sm text-blue-900">${type === 'building' ? 'สิ่งปลูกสร้าง' : 'ป้าย'}</p>
-                <p class="text-[10px] text-gray-500">${data.lat_long}</p>
-                <div class="mt-2 space-y-1">
-                    <button class="w-full bg-blue-600 text-white text-[11px] py-2 rounded font-bold shadow-sm active:bg-blue-700">แก้ข้อมูล</button>
-                    <button class="w-full bg-red-600 text-white text-[11px] py-2 rounded font-bold shadow-sm active:bg-red-700">ลบจุด</button>
-                </div>
-            `;
-            
-            // เปลี่ยนเป็น:
-            marker.bindPopup(popupDiv, { 
-                minWidth: 190,  // กำหนดความกว้างขั้นต่ำ
-                maxWidth: 220   // กำหนดความกว้างสูงสุด
-            });
-            marker._popupData = { ...data, type: type };
-            
-            marker.on('popupopen', () => {
-                const buttons = marker.getPopup().getElement().querySelectorAll('button');
-                
-                // ปุ่มแก้ข้อมูล
-                buttons[0].onclick = () => openEditPanel(data, type, marker);
-                
-                // ปุ่มลบจุด - ใช้หน้าต่างกำหนดเอง
-                buttons[1].onclick = () => showDeleteConfirm(marker, data, type);
-            });
+          const popupDiv = document.createElement('div');
+          popupDiv.className = "p-1 min-w-[160px]";
+          popupDiv.innerHTML = `
+            <p class="font-bold text-sm text-blue-900">${type === 'building' ? 'สิ่งปลูกสร้าง' : 'ป้าย'}</p>
+            <p class="text-[10px] text-gray-500">${data.lat_long}</p>
+            <div class="mt-2 space-y-1">
+              <button class="w-full bg-blue-600 text-white text-[11px] py-2 rounded font-bold shadow-sm active:bg-blue-700">แก้ข้อมูล</button>
+              <button class="w-full bg-red-600 text-white text-[11px] py-2 rounded font-bold shadow-sm active:bg-red-700">ลบจุด</button>
+            </div>
+          `;
+          
+          // ✅ ปรับการตั้งค่าป๊อปอัปให้แสดงล้นขอบจอได้
+        // การตั้งค่าป๊อปอัปแบบเรียบง่าย
+        marker.bindPopup(popupDiv, {
+          minWidth: 190,
+          maxWidth: 220
+        });
         }
 
         // ฟังก์ชันลบจุดและข้อมูลจาก Google Sheets (ข้อ 1)
@@ -1967,12 +1985,16 @@
             lucide.createIcons();
             loadExistingData();
         };
-        // ลงทะเบียน Service Worker
+        // ลงทะเบียน Service Worker สำหรับแคชไทล์
         if ('serviceWorker' in navigator) {
           window.addEventListener('load', () => {
-            navigator.serviceWorker.register('sw.js')
-              .then(reg => console.log('Service Worker registered', reg))
-              .catch(err => console.log('Service Worker registration failed', err));
+            navigator.serviceWorker.register('/sw.js')
+              .then((registration) => {
+                console.log('Service Worker registered:', registration.scope);
+              })
+              .catch((error) => {
+                console.log('Service Worker registration failed:', error);
+              });
           });
         }
           
