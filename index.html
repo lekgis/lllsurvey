@@ -589,6 +589,9 @@
         let allBuildings = [];
         let allSigns = [];
 
+        // ✅ วางตัวแปรตรวจสอบการอัปโหลดรูปภาพที่นี่
+        let isUploadingImage = false; // ← วางตรงนี้
+
         function initMap() {
           const mapOptions = {
             zoomControl: false,
@@ -616,28 +619,31 @@
           const container = map.getContainer();
           container.style.transform = 'translate3d(0, 0, 0)';
           
-          // Google Hybrid Tile Options
-          const tileOptions = {
+        // Google Hybrid Tile Options - ปรับเพิ่มประสิทธิภาพ
+        const tileOptions = {
             subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-            updateWhenIdle: true,
-            keepBuffer: isMobile() ? 2 : 4, // Less memory on mobile
-            className: 'map-tiles-optimized' // For custom CSS smoothing
-          };
+            updateWhenIdle: false, // ✅ โหลดขณะเลื่อน (ไม่รอหยุด)
+            updateWhenZooming: true, // ✅ อัปเดตขณะซูม
+            keepBuffer: isMobile() ? 6 : 10, // ✅ เพิ่มบัฟเฟอร์ (มือถือ 4, คอม 8)
+            maxNativeZoom: 19, // ป้องกันการโหลดไทล์ที่ไม่มี
+            reuseTiles: true, // ✅ ใช้ไทล์เก่าซ้ำแทนโหลดใหม่
+            className: 'map-tiles-optimized'
+        };
 
-          // Low Res / Background Layer
-          const lowResLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+        // Low Res / Background Layer
+        const lowResLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
             ...tileOptions,
             maxZoom: 15,
             zIndex: 1
-          });
+        });
 
-          // High Res Layer
-          const highResLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+        // High Res Layer
+        const highResLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
             ...tileOptions,
             minZoom: 16,
             maxZoom: 22,
             zIndex: 2
-          });
+        });
 
           lowResLayer.addTo(map);
           highResLayer.addTo(map);
@@ -682,6 +688,44 @@
             document.getElementById('confirm-overlay').classList.add('hidden');
           }
         }
+
+        // ระบบแคชแผนที่
+        let mapCache = {};
+
+        function cacheCurrentView() {
+            const bounds = map.getBounds();
+            const zoom = map.getZoom();
+            
+            // สร้างคีย์สำหรับแคช
+            const cacheKey = `${bounds.getNorth()},${bounds.getEast()},${bounds.getSouth()},${bounds.getWest()}_${zoom}`;
+            
+            // บันทึกตำแหน่งปัจจุบันลงในแคช
+            mapCache[cacheKey] = {
+                timestamp: new Date().toISOString(),
+                bounds: bounds,
+                zoom: zoom
+            };
+            
+            console.log(`แคชตำแหน่ง: ${cacheKey}`);
+        }
+
+        // โหลดแผนที่จากแคชเมื่อเปิดแอป
+        function loadCachedMapViews() {
+            // โหลดจาก localStorage
+            const cached = localStorage.getItem('mapCache');
+            if (cached) {
+                mapCache = JSON.parse(cached);
+                console.log('โหลดแคชแผนที่เรียบร้อย');
+            }
+        }
+
+        // บันทึกแคชเมื่อปิดแอป
+        window.addEventListener('beforeunload', () => {
+            localStorage.setItem('mapCache', JSON.stringify(mapCache));
+        });
+
+        // เรียกใช้เมื่อเปิดแอป
+        loadCachedMapViews();
 
         function deactivateTools() {
           activeTool = null;
@@ -1239,8 +1283,20 @@
             marker.closePopup();
         }
 
-        // ✅ แก้ไขฟังก์ชัน saveSurveyData ให้รองรับออฟไลน์อย่างสมบูรณ์
+        // ============================================
+        // ฟังก์ชันบันทึกข้อมูล (แก้ไขแล้ว)
+        // ============================================
         async function saveSurveyData() {
+            // ✅ ตรวจสอบว่ากำลังอัปโหลดอยู่หรือไม่
+            if (isUploadingImage) {
+                console.log('กำลังอัปโหลดรูปภาพอยู่ โปรดรอ...');
+                showNotificationLeft('กำลังอัปโหลดรูปภาพอยู่ โปรดรอ...', 'warning');
+                return;
+            }
+            
+            // ✅ ตั้งค่าสถานะว่ากำลังอัปโหลด
+            isUploadingImage = true;
+            
             const form = document.getElementById('survey-form');
             const formData = new FormData(form);
             
@@ -1278,6 +1334,7 @@
             
             if (!rowKey) {
                 alert("ไม่พบข้อมูลสำหรับอัปเดต");
+                isUploadingImage = false; // ✅ รีเซ็ตสถานะ
                 return;
             }
             
@@ -1323,6 +1380,8 @@
                         showNotificationLeft('บันทึกข้อมูลไว้ในมือถือ (รอซิงค์)', 'warning');
                     }
                     
+                    // ✅ รีเซ็ตสถานะ
+                    isUploadingImage = false;
                     return;
                 }
                 
@@ -1355,8 +1414,14 @@
                     showNotificationLeft('บันทึกข้อมูลไว้ในมือถือ (รอซิงค์)', 'warning');
                 }
                 
+                // ✅ รีเซ็ตสถานะ
+                isUploadingImage = false;
+                
             } catch (err) {
                 console.error("Error saving data:", err);
+                
+                // ✅ รีเซ็ตสถานะเมื่อเกิดข้อผิดพลาด
+                isUploadingImage = false;
                 
                 // ✅ หากเกิดข้อผิดพลาด ให้เก็บข้อมูลไว้ในคิวแทน
                 try {
@@ -2346,7 +2411,9 @@
             }
         }
 
-        // ซิงค์รูปภาพที่ยังไม่ได้ส่ง
+        // ============================================
+        // ฟังก์ชันซิงค์รูปภาพที่ยังไม่ได้ส่ง (แก้ไขแล้ว)
+        // ============================================
         async function syncPendingImages() {
             try {
                 const unsyncedImages = await getUnsyncedImages();
@@ -2357,6 +2424,12 @@
                 
                 for (const image of unsyncedImages) {
                     try {
+                        // ✅ ตรวจสอบว่ารูปภาพถูกส่งแล้วหรือไม่
+                        if (image.synced) {
+                            console.log(`รูปภาพ ${image.filename} ถูกส่งแล้ว ข้าม...`);
+                            continue;
+                        }
+                        
                         // หาข้อมูลที่เกี่ยวข้อง
                         const relatedData = syncQueue.find(q => q.rowKey === image.relatedId);
                         
@@ -2728,7 +2801,7 @@
         let cachedBuildings = [];
         let cachedSigns = [];
 
-        // โหลดข้อมูลแบบอัจฉริยะ (เฉพาะข้อมูลที่เปลี่ยนแปลง)
+        // โหลดข้อมูลแบบอัจฉริยะ
         async function smartLoadData() {
             try {
                 // ดึงข้อมูลพร้อม timestamp
@@ -2763,7 +2836,7 @@
                 console.log('อัปเดตข้อมูลสำเร็จ');
                 
             } catch(e) {
-                console.error("Error loading data:", e);
+                console.error("Error loading ", e);
             }
         }
 
@@ -2852,6 +2925,93 @@
         window.onbeforeunload = () => {
             stopAutoUpdate();
         };
+
+        // ใช้ MarkerCluster สำหรับมาร์กเกอร์จำนวนมาก
+        let markerCluster = null;
+
+        function initMarkerClustering() {
+            // สร้าง MarkerCluster Group
+            markerCluster = L.markerClusterGroup({
+                maxClusterRadius: 80, // ระยะห่างที่จะรวมเป็นคลัสเตอร์
+                disableClusteringAtZoom: 16, // ปิดคลัสเตอร์เมื่อซูมใกล้
+                chunkedLoading: true, // โหลดแบบแบ่งชิ้นส่วน
+                chunkInterval: 200, // เวลาในการโหลดแต่ละชิ้น (มิลลิวินาที)
+                chunkDelay: 50 // ดีเลย์ระหว่างการโหลด
+            });
+            
+            // เพิ่มมาร์กเกอร์ลงในคลัสเตอร์แทนการเพิ่มลงแผนที่โดยตรง
+            markerCluster.addTo(map);
+        }
+
+        // เมื่อสร้างมาร์กเกอร์ใหม่
+        function createCircleMarker(latlng, type, draggable = false) {
+            const color = type === 'building' ? '#FF6B6B' : '#4ECDC4';
+            const marker = L.circleMarker(latlng, {
+                radius: 6,
+                fillColor: color,
+                color: '#fff',
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 1.0,
+                className: 'survey-marker'
+            });
+            
+            // เพิ่มลงในคลัสเตอร์แทนแผนที่
+            if (markerCluster) {
+                markerCluster.addLayer(marker);
+            } else {
+                marker.addTo(surveyLayers);
+            }
+            
+            return marker;
+        }
+
+        // ฟังก์ชันโหลดมาร์กเกอร์เฉพาะที่มองเห็น
+        function loadVisibleMarkers() {
+            const bounds = map.getBounds();
+            const visibleMarkers = [];
+            
+            // ล้างมาร์กเกอร์ทั้งหมด
+            if (markerCluster) {
+                markerCluster.clearLayers();
+            } else {
+                surveyLayers.clearLayers();
+            }
+            
+            // โหลดเฉพาะมาร์กเกอร์ที่อยู่ในขอบเขตที่มองเห็น
+            allBuildings.forEach(r => {
+                if (!r.lat_long) return;
+                const coords = r.lat_long.split(',').map(Number);
+                if (coords.length < 2 || isNaN(coords[0]) || isNaN(coords[1])) return;
+                
+                const latLng = L.latLng(coords[0], coords[1]);
+                
+                // ตรวจสอบว่าอยู่ในขอบเขตที่มองเห็นหรือไม่
+                if (bounds.contains(latLng)) {
+                    const m = createCircleMarker(latLng, 'building', isEditMode);
+                    setupMarkerPopup(m, r, 'building');
+                    if (isEditMode) enableMarkerDragging(m, r);
+                }
+            });
+            
+            allSigns.forEach(r => {
+                if (!r.lat_long) return;
+                const coords = r.lat_long.split(',').map(Number);
+                if (coords.length < 2 || isNaN(coords[0]) || isNaN(coords[1])) return;
+                
+                const latLng = L.latLng(coords[0], coords[1]);
+                
+                if (bounds.contains(latLng)) {
+                    const m = createCircleMarker(latLng, 'sign', isEditMode);
+                    setupMarkerPopup(m, r, 'sign');
+                    if (isEditMode) enableMarkerDragging(m, r);
+                }
+            });
+        }
+
+        // เรียกใช้เมื่อเลื่อนหรือซูมแผนที่
+        map.on('moveend', loadVisibleMarkers);
+        map.on('zoomend', loadVisibleMarkers);
 
         // แก้ไขฟังก์ชัน refreshData
         function refreshData() {
