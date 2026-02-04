@@ -2925,48 +2925,63 @@
             return marker;
         }
 
-        // ฟังก์ชันโหลดมาร์กเกอร์เฉพาะที่มองเห็น
-        function loadVisibleMarkers() {
-            const bounds = map.getBounds();
-            const visibleMarkers = [];
-            
-            // ล้างมาร์กเกอร์ทั้งหมด
-            if (markerCluster) {
-                markerCluster.clearLayers();
-            } else {
-                surveyLayers.clearLayers();
-            }
-            
-            // โหลดเฉพาะมาร์กเกอร์ที่อยู่ในขอบเขตที่มองเห็น
-            allBuildings.forEach(r => {
-                if (!r.lat_long) return;
-                const coords = r.lat_long.split(',').map(Number);
-                if (coords.length < 2 || isNaN(coords[0]) || isNaN(coords[1])) return;
-                
-                const latLng = L.latLng(coords[0], coords[1]);
-                
-                // ตรวจสอบว่าอยู่ในขอบเขตที่มองเห็นหรือไม่
-                if (bounds.contains(latLng)) {
-                    const m = createCircleMarker(latLng, 'building', isEditMode);
-                    setupMarkerPopup(m, r, 'building');
-                    if (isEditMode) enableMarkerDragging(m, r);
-                }
-            });
-            
-            allSigns.forEach(r => {
-                if (!r.lat_long) return;
-                const coords = r.lat_long.split(',').map(Number);
-                if (coords.length < 2 || isNaN(coords[0]) || isNaN(coords[1])) return;
-                
-                const latLng = L.latLng(coords[0], coords[1]);
-                
-                if (bounds.contains(latLng)) {
-                    const m = createCircleMarker(latLng, 'sign', isEditMode);
-                    setupMarkerPopup(m, r, 'sign');
-                    if (isEditMode) enableMarkerDragging(m, r);
-                }
-            });
+// ฟังก์ชันโหลดมาร์กเกอร์เฉพาะที่มองเห็น + buffer
+function loadVisibleMarkers() {
+    const bounds = map.getBounds();
+    const visibleMarkers = [];
+    
+    // ✅ เพิ่ม Buffer Zone รอบขอบเขตที่มองเห็น
+    const bufferRatio = isMobile() ? 1.0 : 1.0; // มือถือ 50%, คอม 100%
+    const bufferedBounds = bounds.pad(bufferRatio);
+    
+    // ล้างมาร์กเกอร์ทั้งหมด
+    if (markerCluster) {
+        markerCluster.clearLayers();
+    } else {
+        surveyLayers.clearLayers();
+    }
+    
+    // โหลดเฉพาะมาร์กเกอร์ที่อยู่ในขอบเขต + buffer
+    allBuildings.forEach(r => {
+        if (!r.lat_long) return;
+        const coords = r.lat_long.split(',').map(Number);
+        if (coords.length < 2 || isNaN(coords[0]) || isNaN(coords[1])) return;
+        const latLng = L.latLng(coords[0], coords[1]);
+        
+        // ✅ ตรวจสอบว่าอยู่ในขอบเขต + buffer
+        if (!bufferedBounds.contains(latLng)) return;
+        
+        const m = createCircleMarker(latLng, 'building', isEditMode);
+        setupMarkerPopup(m, r, 'building');
+        if (isEditMode) enableMarkerDragging(m, r);
+        
+        if (markerCluster) {
+            markerCluster.addLayer(m);
+        } else {
+            m.addTo(surveyLayers);
         }
+    });
+    
+    allSigns.forEach(r => {
+        if (!r.lat_long) return;
+        const coords = r.lat_long.split(',').map(Number);
+        if (coords.length < 2 || isNaN(coords[0]) || isNaN(coords[1])) return;
+        const latLng = L.latLng(coords[0], coords[1]);
+        
+        // ✅ ตรวจสอบว่าอยู่ในขอบเขต + buffer
+        if (!bufferedBounds.contains(latLng)) return;
+        
+        const m = createCircleMarker(latLng, 'sign', isEditMode);
+        setupMarkerPopup(m, r, 'sign');
+        if (isEditMode) enableMarkerDragging(m, r);
+        
+        if (markerCluster) {
+            markerCluster.addLayer(m);
+        } else {
+            m.addTo(surveyLayers);
+        }
+    });
+}
 
         // เรียกใช้เมื่อเลื่อนหรือซูมแผนที่
         map.on('moveend', loadVisibleMarkers);
