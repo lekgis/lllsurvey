@@ -2838,7 +2838,8 @@
                 const res = await fetch(`${CONFIG.SCRIPT_URL}?action=getData&t=${Date.now()}`);
                 const newData = await res.json();
                 
-                if (!newData.timestamp || !newData.buildings || !newData.signs) {
+                // ✅ แก้ไข: ลบการตรวจสอบ timestamp ออก (เซิร์ฟเวอร์ไม่ได้ส่งมา)
+                if (!newData.buildings || !newData.signs) { // ← ลบ newData.timestamp ||
                     console.warn('ข้อมูลจากเซิร์ฟเวอร์ไม่สมบูรณ์');
                     return;
                 }
