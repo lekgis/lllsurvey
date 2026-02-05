@@ -888,18 +888,34 @@
                 // แสดงแจ้งเตือน
                 showNotificationLeft('เพิ่มจุดเรียบร้อยแล้ว! (รออัปโหลด)', 'success');
                 
-                // ✅ รอ 500ms แล้วเริ่มกระบวนการซิงค์ทันที
+                // ✅ โหลดข้อมูลใหม่ (จุดจริงจะถูกสร้างทันที พร้อมจุดชั่วคราว)
+                await loadExistingData();
+                
+                // ✅ รอ 1 วินาที ให้แน่ใจว่าจุดจริงเรนเดอร์เสร็จแล้ว
                 setTimeout(() => {
+                    // ลบจุดชั่วคราว
+                    surveyLayers.eachLayer(layer => {
+                        if (layer._popupData && layer._popupData.tempMarker) {
+                            surveyLayers.removeLayer(layer);
+                        }
+                    });
+                    
+                    // เริ่มกระบวนการซิงค์
                     processSyncQueue();
-                }, 500);
+                    
+                    refreshIcon.classList.remove('animate-spin');
+                    refreshBtn.classList.add('refresh-success');
+                    setTimeout(() => {
+                        refreshBtn.classList.remove('refresh-success');
+                        enableRefreshButton();
+                    }, 2000);
+                    
+                }, 160000); // ⏱️ รอ 1 วินาที - ให้จุดจริงแสดงก่อน
                 
             } catch (err) {
                 refreshIcon.classList.remove('animate-spin');
                 enableRefreshButton();
                 showNotificationLeft("การบันทึกล้มเหลว: " + err.message, 'error');
-            } finally {
-                refreshIcon.classList.remove('animate-spin');
-                enableRefreshButton();
             }
         }
 
@@ -963,12 +979,10 @@
                 // แสดงแจ้งเตือน
                 showNotificationLeft('อัปเดตตำแหน่งเรียบร้อยแล้ว! (รออัปโหลด)', 'success');
                 
-                // ✅ รอ 500ms แล้วเริ่มกระบวนการซิงค์ทันที
-                setTimeout(() => {
-                    processSyncQueue();
-                }, 500);
+                // ✅ โหลดข้อมูลใหม่ (จุดจริงจะถูกสร้างทันที พร้อมจุดชั่วคราว)
+                await loadExistingData();
                 
-                // รอให้แน่ใจว่าจุดจริงเรนเดอร์เสร็จแล้ว
+                // ✅ รอ 1 วินาที ให้แน่ใจว่าจุดจริงเรนเดอร์เสร็จแล้ว
                 setTimeout(() => {
                     // ลบจุดชั่วคราว
                     surveyLayers.eachLayer(layer => {
@@ -987,7 +1001,7 @@
                         enableRefreshButton();
                     }, 2000);
                     
-                }, 1000);
+                }, 160000); // ⏱️ รอ 1 วินาที - ให้จุดจริงแสดงก่อน
                 
             } catch (err) {
                 // หากเกิดข้อผิดพลาด ให้คืนค่าจุดเดิม
@@ -2327,7 +2341,7 @@
         }
 
         // ============================================
-        // Enhanced Sync Process with Image Support
+        // Enhanced Sync Process with Image Support (เวอร์ชันปรับปรุง)
         // ============================================
 
         async function processSyncQueue() {
@@ -2343,15 +2357,25 @@
             
             console.log(`เริ่มกระบวนการซิงค์ (${syncQueue.length} รายการ)`);
             
+            // ✅ ประมวลผลทั้งคิวโดยไม่โหลดข้อมูลทุกครั้ง
+            let successCount = 0;
+            let processedCount = 0;
+            
             // ประมวลผลคิวทีละรายการ
             for (let i = 0; i < syncQueue.length; i++) {
                 const item = syncQueue[i];
+                
+                if (item.status === 'success') {
+                    processedCount++;
+                    continue;
+                }
                 
                 try {
                     console.log(`กำลังประมวลผลรายการ ${i + 1}/${syncQueue.length}: ${item.action}`);
                     
                     let result;
                     
+                    // แยกการจัดการแต่ละ action
                     switch (item.action) {
                         case 'add':
                         case 'quickAdd':
@@ -2380,15 +2404,11 @@
                         // อัปเดตสถานะในคิว
                         item.status = 'success';
                         item.syncedAt = new Date().toISOString();
+                        successCount++;
+                        processedCount++;
                         
                         // บันทึกคิวลงใน LocalStorage
                         saveSyncQueueToStorage();
-                        
-                        // โหลดข้อมูลใหม่ทุกครั้งที่อัปโหลดสำเร็จ
-                        await loadExistingData();
-                        
-                        // แสดงแจ้งเตือน
-                        showNotificationLeft(`อัปโหลดข้อมูลสำเร็จ (${i + 1}/${syncQueue.length})`, 'success');
                         
                     } else {
                         console.warn(`⚠️ รายการ ${i + 1} ล้มเหลว - รอลองใหม่`);
@@ -2406,8 +2426,8 @@
                         break;
                     }
                     
-                    // รอ 500ms ระหว่างการอัปโหลดแต่ละรายการ
-                    await new Promise(resolve => setTimeout(resolve, 500));
+                    // รอ 300ms ระหว่างการอัปโหลดแต่ละรายการ (เร็วกว่าเดิม)
+                    await new Promise(resolve => setTimeout(resolve, 300));
                     
                 } catch (err) {
                     console.error(`❌ ข้อผิดพลาดในการประมวลผลรายการ ${i + 1}:`, err);
@@ -2424,6 +2444,12 @@
                     // หยุดกระบวนการชั่วคราว
                     break;
                 }
+            }
+            
+            // ✅ โหลดข้อมูลเพียงครั้งเดียวหลังประมวลผลทั้งคิวเสร็จ
+            if (successCount > 0) {
+                await loadExistingData();
+                showNotificationLeft(`ซิงค์ข้อมูลสำเร็จ ${successCount} รายการ!`, 'success');
             }
             
             // ลบรายการที่สำเร็จแล้วออกจากคิว
