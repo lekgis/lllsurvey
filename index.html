@@ -593,13 +593,9 @@
         // ตัวแปรสำหรับเก็บข้อมูลและ Cache
         let allBuildings = []; 
         let allSigns = [];     
-        let cachedBuildings = [];
-        let cachedSigns = [];
         
         // ตัวแปรสำหรับระบบอัปเดตอัตโนมัติ
-        let lastUpdateTimestamp = null;
-        let lastBuildingUpdate = null;
-        let lastSignUpdate = null;
+
         let autoUpdateInterval = null;
         let isUpdating = false;
         let isUploadingImage = false; // [cite: 71]
@@ -2861,7 +2857,6 @@
                 // อัปเดตข้อมูลแคช
                 allBuildings = newData.buildings;
                 allSigns = newData.signs;
-                lastUpdateTimestamp = newData.timestamp;
                 
                 console.log('✅ อัปเดตข้อมูลเรียลไทม์สำเร็จ');
             } catch (err) {
@@ -2983,15 +2978,7 @@
                 }
             }, 5000); // 5 วินาที
             
-            console.log('✅ เริ่มระบบอัปเดตเรียลไทม์');
-        }
-
-        function stopRealtimeAutoUpdate() {
-            if (autoUpdateInterval) {
-                clearInterval(autoUpdateInterval);
-                autoUpdateInterval = null;
-                console.log('⏸️ หยุดระบบอัปเดตเรียลไทม์');
-            }
+            console.log('✅ เริ่มระบบอัปเดตเรียลไทม์ทุก 5 วินาที');
         }
 
         // ============================================
@@ -3004,7 +2991,7 @@
             // โหลดข้อมูลครั้งแรก
             await loadExistingData();
             
-            // เริ่มระบบอัปเดตอัตโนมัติ
+            // ✅ เริ่มระบบอัปเดตอัตโนมัติ (ระบบใหม่)
             startRealtimeAutoUpdate();
             
             // ตรวจสอบและซิงค์ข้อมูลที่ค้างอยู่
@@ -3016,7 +3003,7 @@
 
         // หยุดเมื่อปิดหน้าเว็บ
         window.addEventListener('beforeunload', () => {
-            stopRealtimeAutoUpdate();
+            if (autoUpdateInterval) clearInterval(autoUpdateInterval);
         });
 
 
@@ -3158,17 +3145,15 @@
         window.onload = async () => {
             initMap();
             lucide.createIcons();
-            await smartLoadData(); // ใช้ smartLoadData แทน loadExistingData
-            startAutoUpdate(); // เริ่มการอัปเดตอัตโนมัติ
             await checkAndSyncOnStartup();
             
             setInterval(updateSyncBadge, 1000);
         };
 
         // หยุดการอัปเดตเมื่อปิดหน้าเว็บ
-        window.onbeforeunload = () => {
-            stopAutoUpdate();
-        };
+        //window.onbeforeunload = () => {
+            //stopAutoUpdate();
+        //};
 
         // ใช้ MarkerCluster สำหรับมาร์กเกอร์จำนวนมาก
         let markerCluster = null;
