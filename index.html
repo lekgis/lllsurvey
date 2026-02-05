@@ -719,11 +719,22 @@
         }
 
         function showSyncToast(msg) {
+            // ลบ Toast เก่าที่มีอยู่ (ถ้ามี)
+            const oldToast = document.querySelector('.sync-toast');
+            if (oldToast) oldToast.remove();
+
             const toast = document.createElement('div');
-            toast.className = "fixed bottom-24 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-6 py-2 rounded-full shadow-lg z-[9999] flex items-center gap-2 animate-bounce";
+            toast.className = "sync-toast fixed bottom-24 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-6 py-2 rounded-full shadow-lg z-[9999] flex items-center gap-2 animate-bounce";
+            toast.style.pointerEvents = "none";
             toast.innerHTML = `<span>${msg}</span>`;
             document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 3000);
+
+            // หายไปใน 3 วินาที
+            setTimeout(() => {
+                toast.style.transition = "opacity 0.5s";
+                toast.style.opacity = "0";
+                setTimeout(() => toast.remove(), 500);
+            }, 3000);
         }
 
         // โหลดแผนที่จากแคชเมื่อเปิดแอป
@@ -2542,35 +2553,49 @@
             }
         }
 
-        // ✅ มีเพียงระบบใหม่
-        // ใช้ window.addEventListener แทน  เพื่อป้องกันการทับซ้อน
-        window.addEventListener('load', async () => {
-            // 1. เริ่มต้นแผนที่และไอคอน
-            initMap();
-            lucide.createIcons();
-            loadExistingData();
-            
-            // 2. ตรวจสอบและซิงค์ข้อมูลที่ค้างอยู่ (สำคัญสำหรับระบบออฟไลน์)
-            await checkAndSyncOnStartup();
-            
-            // 3. อัปเดตจุดแจ้งเตือนจำนวนข้อมูลที่รอซิงค์
-            setInterval(() => {
-                updateSyncBadge();
-            }, 1000);
-
+// ============================================
+        // 1. จัดการเหตุการณ์ตอนปิดหน้าจอ (วางแยกไว้)
+        // ============================================
         window.addEventListener('beforeunload', () => {
-            stopRealtimeAutoUpdate(); // ✅ หยุดระบบใหม่
+            if (typeof stopRealtimeAutoUpdate === 'function') {
+                stopRealtimeAutoUpdate(); 
+            }
         });
+
+        // ============================================
+        // 2. เริ่มต้นแอปพลิเคชัน (รวมไว้ที่เดียว)
+        // ============================================
+        window.addEventListener('load', async () => {
+            console.log("App Starting...");
             
-            // 4. ลงทะเบียน Service Worker สำหรับแคชไทล์
+            // เริ่มต้นแผนที่
+            initMap();
+            
+            // สร้างไอคอน
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            
+            // โหลดข้อมูลครั้งแรก และเริ่มระบบ Real-time
+            // ✅ ใช้ smartLoadData เพื่อให้ Hash เริ่มทำงานทันที
+            await smartLoadData(); 
+            
+            // เริ่มการตรวจสอบข้อมูลอัตโนมัติทุก 5 วินาที
+            startRealtimeAutoUpdate();
+            
+            // ตรวจสอบข้อมูลออฟไลน์ที่ค้างอยู่
+            if (typeof checkAndSyncOnStartup === 'function') {
+                await checkAndSyncOnStartup();
+            }
+            
+            // อัปเดตตัวเลขแจ้งเตือนคิว (Badge) ทุก 1 วินาที
+            setInterval(() => {
+                if (typeof updateSyncBadge === 'function') updateSyncBadge();
+            }, 1000);
+            
+            // ลงทะเบียน Service Worker
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/sw.js')
-                    .then((registration) => {
-                        console.log('Service Worker registered:', registration.scope);
-                    })
-                    .catch((error) => {
-                        console.log('Service Worker registration failed:', error);
-                    });
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('SW Registered:', reg.scope))
+                    .catch(err => console.error('SW Failed:', err));
             }
         });
 
@@ -3281,56 +3306,7 @@ async function smartLoadData() {
         map.on('moveend', loadVisibleMarkers);
         map.on('zoomend', loadVisibleMarkers);
 
-        window.addEventListener('beforeunload', stopRealtimeAutoUpdate);
 
-        window.addEventListener('load', async () => {
-            initMap();
-            lucide.createIcons();
-            
-            // โหลดข้อมูลครั้งแรก
-            await smartLoadData(); 
-            
-            startRealtimeAutoUpdate();
-            if (typeof checkAndSyncOnStartup === 'function') await checkAndSyncOnStartup();
-            
-            setInterval(() => {
-                if (typeof updateSyncBadge === 'function') updateSyncBadge();
-            }, 1000);
-        });
-
-        // ============================================
-        // 2. วาง beforeunload ที่ระดับบนสุด (นอก window.load)
-        // ============================================
-        window.addEventListener('beforeunload', () => {
-            stopRealtimeAutoUpdate(); // ✅ หยุดระบบใหม่
-        });
-
-        // ============================================
-        // 3. เริ่มต้นแอป (วางด้านล่าง beforeunload)
-        // ============================================
-        window.addEventListener('load', async () => {
-            initMap();
-            lucide.createIcons();
-            
-            // โหลดข้อมูลครั้งแรก
-            await loadExistingData();
-            
-            // เริ่มระบบอัปเดตเรียลไทม์ (ระบบใหม่เท่านั้น!)
-            startRealtimeAutoUpdate();
-            
-            // ตรวจสอบและซิงค์ข้อมูลที่ค้างอยู่
-            await checkAndSyncOnStartup();
-            
-            // อัปเดตจุดแจ้งเตือนคิวทุก 1 วินาที
-            setInterval(updateSyncBadge, 1000); // ✅ ถูกต้องแล้ว
-            
-            // ลงทะเบียน Service Worker
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(registration => console.log('Service Worker registered:', registration.scope))
-                    .catch(error => console.log('Service Worker registration failed:', error));
-            }
-        });
     </script>
 </body>
 
