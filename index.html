@@ -3255,17 +3255,12 @@
             initMap();
             lucide.createIcons();
             
-            // โหลดข้อมูลครั้งแรก
-            await loadExistingData();
+            // ✅ เพิ่ม await และเริ่มระบบอัปเดต
+            await loadExistingData(); // ← เพิ่ม await
+            startRealtimeAutoUpdate(); // ← เพิ่มบรรทัดนี้ (สำคัญที่สุด!)
             
-            // เริ่มระบบอัปเดตเรียลไทม์ (ระบบใหม่เท่านั้น!)
-            startRealtimeAutoUpdate();
-            
-            // ตรวจสอบและซิงค์ข้อมูลที่ค้างอยู่
             await checkAndSyncOnStartup();
-            
-            // อัปเดตจุดแจ้งเตือนคิวทุก 1 วินาที
-            setInterval(updateSyncBadge, 1000); // ✅ ถูกต้องแล้ว
+            setInterval(updateSyncBadge, 1000);
             
             // ลงทะเบียน Service Worker
             if ('serviceWorker' in navigator) {
