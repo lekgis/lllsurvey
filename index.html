@@ -1041,19 +1041,20 @@
             
             try {
                 const res = await fetch(CONFIG.SCRIPT_URL.trim(), { method: 'POST', body });
+                
                 if (res.ok) {
                     // ✅ โหลดข้อมูลใหม่ (จุดจริงจะถูกสร้างทันที พร้อมจุดชั่วคราว)
                     await loadExistingData();
                     
-                    // ✅ ลบจุดชั่วคราวหลังจากจุดจริงปรากฏแล้ว (รอ 300ms)
+                    // ⏱️ รอ 1 วินาที ให้แน่ใจว่าจุดจริงเรนเดอร์เสร็จแล้ว
                     setTimeout(() => {
+                        // ลบจุดชั่วคราว
                         surveyLayers.eachLayer(layer => {
                             if (layer._popupData && layer._popupData.tempMarkerId === `temp_${rowKey}`) {
                                 surveyLayers.removeLayer(layer);
                             }
                         });
                         
-                        // ✅ ลบออกจากรายการหลังจากลบจุดชั่วคราวแล้ว
                         markersBeingMoved.delete(rowKey);
                         
                         refreshIcon.classList.remove('animate-spin');
@@ -1063,9 +1064,8 @@
                             enableRefreshButton();
                         }, 2000);
                         
-                        console.log(`ตำแหน่งอัปเดตจาก ${oldLatLng} เป็น ${newLatLngStr}`);
                         showNotificationLeft('อัปเดตตำแหน่งสำเร็จ!', 'success');
-                    }, 300); // รอให้จุดจริงปรากฏก่อน
+                    }, 5000); // รอ 1 วินาที
                     
                 } else {
                     throw new Error("อัปเดตตำแหน่งไม่สำเร็จ");
