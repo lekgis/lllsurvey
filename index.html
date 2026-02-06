@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="th">
 <head>
@@ -849,7 +850,6 @@
         }
 
         // แก้ไขฟังก์ชัน backgroundUpload
-        // แก้ไขฟังก์ชันนี้
         async function backgroundUpload(latlng, type, marker) {
             const refreshBtn = document.getElementById('btn-refresh');
             const refreshIcon = document.getElementById('refresh-icon');
@@ -861,7 +861,7 @@
             const data = {
                 lat_long: `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`,
                 date_added: new Date().toISOString(),
-                tempMarker: true // ✅ ทำเครื่องหมายว่าเป็นมาร์กเกอร์ชั่วคราว
+                tempMarker: true
             };
             
             // เพิ่มข้อมูลเริ่มต้น
@@ -883,57 +883,57 @@
             setupMarkerPopup(marker, marker._popupData, type);
             
             try {
-                const result = await sendDataWithRetry('quickAdd', type, data);
-                
-                if (result.success) {
-                    // ✅ ขั้นตอนที่ 1-3: จุดชั่วคราวยังแสดงอยู่
-                    // โหลดข้อมูลใหม่ก่อน (เพื่อให้มีข้อมูลจริงแสดงบนแผนที่)
-                    await loadExistingData();
-                    
-                    // ✅ ขั้นตอนที่ 4: ลบจุดชั่วคราวหลังจากโหลดเสร็จ
-                    setTimeout(() => {
-                        surveyLayers.eachLayer(layer => {
-                            if (layer._popupData && layer._popupData.tempMarker) {
-                                surveyLayers.removeLayer(layer);
-                            }
-                        });
-                        
-                        refreshIcon.classList.remove('animate-spin');
-                        refreshBtn.classList.add('refresh-success');
-                        setTimeout(() => {
-                            refreshBtn.classList.remove('refresh-success');
-                            enableRefreshButton();
-                        }, 2000);
-                        
-                        showNotificationLeft('เพิ่มจุดสำเร็จ!', 'success');
-                    }, 300); // รอให้แสดงจุดจริงก่อน
-                    
-                } else if (result.queued) {
-                    // ถ้าอยู่ในคิว - ไม่ลบจุดชั่วคราว
-                    refreshIcon.classList.remove('animate-spin');
-                    enableRefreshButton();
-                    marker._popupData = {
-                        ...data,
-                        type: type,
-                        tempMarker: true,
-                        queued: true,
-                        queueId: result.queueId
-                    };
-                    setupMarkerPopup(marker, marker._popupData, type);
-                    await loadExistingData();
-                    showNotificationLeft('บันทึกข้อมูลไว้ในมือถือ (รอซิงค์)', 'warning');
-                }
-            } catch (err) {
-                refreshIcon.classList.remove('animate-spin');
-                enableRefreshButton();
-                // ไม่ลบมาร์กเกอร์ แต่ทำเครื่องหมายว่าล้มเหลว
+                // ✅ สร้างคิวทุกกรณี ไม่ต้องตรวจสอบออนไลน์/ออฟไลน์
+                const queueId = addToSyncQueue('quickAdd', type, data);
                 marker._popupData = {
                     ...data,
                     type: type,
                     tempMarker: true,
-                    failed: true
+                    queued: true,
+                    queueId: queueId
                 };
                 setupMarkerPopup(marker, marker._popupData, type);
+                
+                // ✅ เรียกซิงค์ทันที
+                await processSyncQueue();
+                
+                // ✅ รอให้รายการนี้สำเร็จ
+                const maxWaitTime = 60000; // 30 วินาที
+                const startTime = Date.now();
+                let queueItem = syncQueue.find(q => q.id === queueId);
+                
+                while (queueItem && queueItem.status === 'pending' && (Date.now() - startTime) < maxWaitTime) {
+                    await new Promise(resolve => setTimeout(resolve, 500)); // รอ 500 มิลลิวินาที
+                    queueItem = syncQueue.find(q => q.id === queueId);
+                }
+                
+                // ✅ โหลดข้อมูลใหม่ก่อน (เพื่อให้มีข้อมูลจริงแสดงบนแผนที่)
+                await loadExistingData();
+                
+                // ✅ ลบจุดชั่วคราวหลังจากโหลดเสร็จ
+                setTimeout(() => {
+                    surveyLayers.eachLayer(layer => {
+                        if (layer._popupData && layer._popupData.tempMarker) {
+                            surveyLayers.removeLayer(layer);
+                        }
+                    });
+                    refreshIcon.classList.remove('animate-spin');
+                    refreshBtn.classList.add('refresh-success');
+                    setTimeout(() => {
+                        refreshBtn.classList.remove('refresh-success');
+                        enableRefreshButton();
+                    }, 2000);
+                    
+                    if (queueItem && queueItem.status === 'success') {
+                        showNotificationLeft('เพิ่มจุดเรียบร้อยแล้ว!', 'success');
+                    } else {
+                        showNotificationLeft('เพิ่มจุดเรียบร้อยแล้ว (รอซิงค์)', 'warning');
+                    }
+                }, 300);
+                
+            } catch (err) {
+                refreshIcon.classList.remove('animate-spin');
+                enableRefreshButton();
                 showNotificationLeft("การบันทึกล้มเหลว: " + err.message, 'error');
             }
         }
@@ -942,34 +942,131 @@
         // แก้ไขฟังก์ชัน saveSurveyData
 
         // แก้ไขฟังก์ชัน deleteMarker
-        async function deleteMarker(marker, data, type) {
-            const rowKey = data._row_num || data.id;
+        async function saveSurveyData() {
+            const form = document.getElementById('survey-form');
+            const formData = new FormData(form);
+            
+            // ดึงค่าฟอร์ม
+            const data = {};
+            for (let [key, value] of formData.entries()) {
+                const input = form.querySelector(`[name="${key}"]`);
+                if (input && input.type === 'checkbox') {
+                    data[key] = input.checked ? 'TRUE' : 'FALSE';
+                } else if (input && input.type !== 'file') {
+                    data[key] = value;
+                }
+            }
+            
+            // ดึงพิกัด
+            data.lat_long = document.getElementById('latlng-display').innerText;
+            
+            // ✅ ประกาศตัวแปรครั้งเดียวที่นี่
+            const markerType = editingMarker._popupData.type;
+            const rowKey = editingMarker._popupData.id || editingMarker._popupData._row_num;
             
             if (!rowKey) {
-                alert("ไม่พบข้อมูลสำหรับลบ");
+                alert("ไม่พบข้อมูลสำหรับอัปเดต");
                 return;
             }
             
-            try {
-                // ส่งคำขอลบพร้อมการลองใหม่
-                const result = await sendDataWithRetry('delete', type, null, rowKey);
+            // จัดการรูปภาพ
+            let imageBase64 = "";
+            let imageFilename = null;
+            const fileInput = form.querySelector('input[type="file"]');
+            
+            if (fileInput && fileInput.files[0]) {
+                const file = fileInput.files[0];
+                // ✅ ใช้ตัวแปรที่ประกาศไว้แล้ว
+                const maxSize = markerType === 'building' ? 1500 : 2000;
                 
-                if (result.success) {
-                    surveyLayers.removeLayer(marker);
-                    await loadExistingData();
-                    showNotificationLeft('ลบข้อมูลเรียบร้อยแล้ว!', 'success');
-                    
-                } else if (result.queued) {
-                    // เก็บไว้ในคิว แต่ลบจากแผนที่ก่อน
-                    surveyLayers.removeLayer(marker);
-                    await loadExistingData();
-                    showNotificationLeft('ลบข้อมูลไว้ในมือถือ (รอซิงค์)', 'warning');
+                const resizeImage = (file, maxWidth = maxSize, maxHeight = maxSize) => {
+                    return new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            const img = new Image();
+                            img.onload = () => {
+                                let width = img.width;
+                                let height = img.height;
+                                if (width > height) {
+                                    if (width > maxWidth) {
+                                        height = Math.round(height * maxWidth / width);
+                                        width = maxWidth;
+                                    }
+                                } else {
+                                    if (height > maxHeight) {
+                                        width = Math.round(width * maxHeight / height);
+                                        height = maxHeight;
+                                    }
+                                }
+                                const canvas = document.createElement('canvas');
+                                canvas.width = width;
+                                canvas.height = height;
+                                const ctx = canvas.getContext('2d');
+                                ctx.drawImage(img, 0, 0, width, height);
+                                const resizedBase64 = canvas.toDataURL(file.type, 0.85);
+                                resolve(resizedBase64);
+                            };
+                            img.onerror = reject;
+                            img.src = e.target.result;
+                        };
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
+                    });
+                };
+                
+                try {
+                    imageBase64 = await resizeImage(file, maxSize, maxSize);
+                    const base64Data = imageBase64.split(',')[1];
+                    imageBase64 = `${file.type};base64,${base64Data}`;
+                    imageFilename = data.building_c || data.s_code || `IMG_${Date.now()}.jpg`;
+                    console.log(`รูปภาพถูกปรับขนาดเป็น ${maxSize} พิกเซล: ${imageFilename}`);
+                } catch (err) {
+                    console.error('Error resizing image:', err);
+                    const arrayBuffer = await file.arrayBuffer();
+                    const bytes = [...new Uint8Array(arrayBuffer)];
+                    const binary = bytes.map(b => String.fromCharCode(b)).join('');
+                    imageBase64 = `${file.type};base64,${btoa(binary)}`;
+                    imageFilename = data.building_c || data.s_code || `IMG_${Date.now()}.jpg`;
+                }
+            }
+            
+            // ปิดหน้าต่างทันที
+            closePanel();
+            showNotificationLeft('กำลังบันทึกข้อมูล...', 'info');
+            
+            try {
+                // ✅ สร้างคิวทุกกรณี ไม่ต้องตรวจสอบออนไลน์/ออฟไลน์
+                
+                // จัดการรูปภาพ - สร้างคิว IndexedDB ทุกกรณี
+                if (imageBase64) {
+                    const imageId = await saveImageToDB(imageBase64, imageFilename, rowKey, markerType);
+                    console.log(`รูปภาพถูกบันทึกไว้ในมือถือ (ID: ${imageId})`);
+                    data.hasImage = true;
+                    data.imageFilename = imageFilename;
+                }
+                
+                // สร้างคิวข้อความใน localStorage
+                const queueId = addToSyncQueue('update', markerType, data, rowKey);
+                
+                editingMarker._popupData = {
+                    ...editingMarker._popupData,
+                    ...data,
+                    queued: true,
+                    queueId: queueId
+                };
+                
+                setupMarkerPopup(editingMarker, editingMarker._popupData, markerType);
+                await loadExistingData();
+                
+                if (imageBase64) {
+                    showNotificationLeft('บันทึกข้อมูลเรียบร้อยแล้ว! (รูปภาพจะถูกอัปโหลดเมื่อซิงค์)', 'success');
+                } else {
+                    showNotificationLeft('บันทึกข้อมูลเรียบร้อยแล้ว! (รอซิงค์)', 'success');
                 }
                 
             } catch (err) {
-                console.error("Error deleting marker:", err);
-                showNotificationLeft('เกิดข้อผิดพลาดในการลบ!', 'error');
-                throw err;
+                console.error("Error saving data:", err);
+                showNotificationLeft('เกิดข้อผิดพลาดในการบันทึก!', 'error');
             }
         }
 
@@ -1065,7 +1162,7 @@
                         }, 2000);
                         
                         showNotificationLeft('อัปเดตตำแหน่งสำเร็จ!', 'success');
-                    }, 10000); // รอ 1 วินาที
+                    }, 5000); // รอ 1 วินาที
                     
                 } else {
                     throw new Error("อัปเดตตำแหน่งไม่สำเร็จ");
@@ -1475,7 +1572,7 @@
                     }
                     
                     const queueId = addToSyncQueue('update', markerType, textData, rowKey);
-                    
+                    processSyncQueue(); // ✅ เพิ่มบรรทัดนี้
                     editingMarker._popupData = { 
                         ...editingMarker._popupData, 
                         ...data,
@@ -2417,12 +2514,14 @@
         // ============================================
 
         async function processSyncQueue() {
-            if (!isOnline || syncQueue.length === 0) return;
+            if (!navigator.onLine || syncQueue.length === 0) {
+                console.log('ไม่สามารถซิงค์ได้: ไม่มีอินเทอร์เน็ตหรือไม่มีคิว');
+                return;
+            }
             
-            showNotificationLeft(`กำลังซิงค์ข้อมูล (${syncQueue.length} รายการ)...`, 'info');
+            console.log(`กำลังซิงค์ข้อมูล (${syncQueue.length} รายการ)...`);
             
             const failedItems = [];
-            
             for (let item of syncQueue) {
                 if (item.status === 'success') continue;
                 
@@ -2449,7 +2548,6 @@
                 } catch (err) {
                     item.retryCount++;
                     console.error(`Error syncing ${item.id}:`, err);
-                    
                     if (item.retryCount >= 5) {
                         item.status = 'failed';
                         failedItems.push(item);
@@ -2461,7 +2559,6 @@
             
             // ซิงค์รูปภาพที่ยังไม่ได้ส่ง
             await syncPendingImages();
-            
             saveSyncQueueToStorage();
             
             // แจ้งผลลัพธ์
@@ -2469,13 +2566,13 @@
             const pendingCount = syncQueue.filter(i => i.status === 'pending').length;
             
             if (pendingCount === 0 && failedItems.length === 0) {
-                showNotificationLeft(`ซิงค์ข้อมูลสำเร็จทั้งหมด!`, 'success');
+                console.log('ซิงค์ข้อมูลสำเร็จทั้งหมด!');
             } else if (pendingCount > 0) {
-                showNotificationLeft(`ซิงค์ข้อมูล ${successCount} รายการ (${pendingCount} รายการรอซิงค์)`, 'warning');
+                console.log(`ซิงค์ข้อมูล ${successCount} รายการ (${pendingCount} รายการรอซิงค์)`);
             }
             
             if (failedItems.length > 0) {
-                showNotificationLeft(`มี ${failedItems.length} รายการที่ซิงค์ไม่สำเร็จ`, 'error');
+                console.log(`มี ${failedItems.length} รายการที่ซิงค์ไม่สำเร็จ`);
             }
         }
 
