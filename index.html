@@ -548,8 +548,8 @@
                             <th style="width: 30px"><i data-lucide="map-pin" class="w-4 h-4"></i></th>
                             <th>รหัส</th>
                             <th>ลักษณะ</th>
-                            <th>กว้าง (ม.)</th>
-                            <th>ยาว (ม.)</th>
+                            <th>กว้าง (ซ.ม.)</th>
+                            <th>ยาว (ซ.ม.)</th>
                             <th>จำนวนด้าน</th>
                             <th>ข้อความ</th>
                             <th>ตรวจสอบ</th> <!-- ✅ เพิ่มบรรทัดนี้ -->
@@ -952,6 +952,9 @@
             // ดึงค่าฟอร์ม
             const data = {};
             for (let [key, value] of formData.entries()) {
+                // ✅ ข้ามฟิลด์ชั่วคราว (ไม่ส่งไปเซิร์ฟเวอร์)
+                if (key.endsWith('_temp')) continue;
+                
                 const input = form.querySelector(`[name="${key}"]`);
                 if (input && input.type === 'checkbox') {
                     data[key] = input.checked ? 'TRUE' : 'FALSE';
@@ -1524,11 +1527,33 @@
             const signFields = [
                 { id: 's_code', label: 'รหัสป้าย', type: 'text' },
                 { id: 's_name', label: 'ชื่อกิจการ', type: 'text' },
-                { id: 's_type', label: 'ประเภทป้าย', type: 'text' },
-                { id: 's_characte', label: 'ลักษณะป้าย', type: 'text' },
-                { id: 's_wide', label: 'กว้าง (ม.)', type: 'number' },
-                { id: 's_length', label: 'ยาว (ม.)', type: 'number' },
-                { id: 'no_side', label: 'จำนวนด้าน', type: 'text' },
+                { id: 's_type', label: 'ประเภทป้าย', type: 'select', options: ['ป้าย/แสดงโฆษณาทั่วไป', 'ป้าย/ป้ายภายในอาคาร 3 ตร.ม. ขึ้นไป', 'ป้ายตามกฎหมายทะเบียนพาณิชย์'] },
+                { id: 's_wide', label: 'กว้าง (ซ.ม.)', type: 'number' },
+                { id: 's_length', label: 'ยาว (ซ.ม.)', type: 'number' },
+                { id: 'no_side', label: 'จำนวนด้าน', type: 'select', options: [1, 2, 3], defaultValue: 1 },
+                // ✅ เพิ่ม 2 ฟิลด์ชั่วคราว (ไม่บันทึกลงชีท)
+                { 
+                    id: 'content_type_temp', 
+                    label: 'ลักษณะเนื้อหา', 
+                    type: 'select', 
+                    options: ['1.ไทยล้วน', '2.ไทยอยู่บนสุด', '3.ไม่มีไทย', '4.ไทยไม่อยู่บนสุด'],
+                    tempField: true // หมายเหตุ: ฟิลด์นี้ไม่บันทึกลงชีท
+                },
+                { 
+                    id: 'sign_type_detail_temp', 
+                    label: 'ลักษณะตัวป้าย', 
+                    type: 'select', 
+                    options: ['(ข).ทั่วไป', '(ก).จอ LED', '(ก).มอเตอร์/เคลื่อนไหว'],
+                    tempField: true // หมายเหตุ: ฟิลด์นี้ไม่บันทึกลงชีท
+                },
+                // ✅ ฟิลด์ "ลักษณะ" แบบอ่านอย่างเดียว (สร้างอัตโนมัติ)
+                { 
+                    id: 's_characte', 
+                    label: 'ลักษณะ', 
+                    type: 'text',
+                    readonly: true,
+                    description: 'ค่านี้สร้างอัตโนมัติจาก 2 ฟิลด์ด้านบน'
+                },
                 { id: 's_text', label: 'ข้อความ', type: 'text' },
                 { id: 'comment', label: 'หมายเหตุ', type: 'text' },
                 { id: 'fullname', label: 'เจ้าของ', type: 'text' },
@@ -1545,7 +1570,7 @@
                 html += `<label class="form-label">${f.label}</label>`;
                 
                 if (f.type === 'textarea') {
-                    html += `<textarea name="${f.id}" class="form-input" rows="2">${data[f.id] || ''}</textarea>`;
+                    html += `<textarea name="${f.id}" class="form-input" rows="2"${f.readonly ? ' readonly' : ''}>${data[f.id] || ''}</textarea>`;
                 } else if (f.type === 'file') {
                     html += `<input type="file" name="${f.id}" accept="image/*" capture="camera" class="text-xs w-full mt-1">`;
                 } else if (f.type === 'checkbox') {
@@ -1573,13 +1598,67 @@
                         html += `</select>`;
                     }
                 } else {
-                    html += `<input type="${f.type}" name="${f.id}" class="form-input" value="${data[f.id] || ''}">`;
+                    html += `<input type="${f.type}" name="${f.id}" class="form-input" value="${data[f.id] || ''}"${f.readonly ? ' readonly' : ''}>`;
                 }
                 
                 html += `</div>`;
             });
             
             form.innerHTML = html;
+            // ✅ เพิ่มหลังจาก form.innerHTML = html; ในฟังก์ชัน openEditPanel()
+            if (type === 'sign') {
+                // ฟังก์ชันอัปเดตค่า s_characte อัตโนมัติ
+                const updateSCharacte = () => {
+                    const contentTypeEl = document.querySelector('select[name="content_type_temp"]');
+                    const signTypeDetailEl = document.querySelector('select[name="sign_type_detail_temp"]');
+                    const sCharacteEl = document.querySelector('input[name="s_characte"]');
+                    
+                    if (!contentTypeEl || !signTypeDetailEl || !sCharacteEl) return;
+                    
+                    const num = contentTypeEl.value.charAt(0); // ดึงเลขหน้าสุด (1, 2, 3, 4)
+                    const letterMatch = signTypeDetailEl.value.match(/\(([^)]+)\)/); // ดึงตัวอักษรในวงเล็บ
+                    const letter = letterMatch ? letterMatch[1].charAt(0) : ''; // เอาแค่ตัวแรก (ก หรือ ข)
+                    
+                    sCharacteEl.value = num && letter ? `${num}(${letter})` : '-';
+                };
+                
+                // ผูกเหตุการณ์เมื่อเลือกค่า
+                const contentTypeEl = document.querySelector('select[name="content_type_temp"]');
+                const signTypeDetailEl = document.querySelector('select[name="sign_type_detail_temp"]');
+                
+                if (contentTypeEl && signTypeDetailEl) {
+                    contentTypeEl.addEventListener('change', updateSCharacte);
+                    signTypeDetailEl.addEventListener('change', updateSCharacte);
+                    
+                    // ตั้งค่าเริ่มต้นจากข้อมูลเดิม (ถ้ามี)
+                    if (data.s_characte) {
+                        const match = data.s_characte.match(/^(\d)\(([^)]+)\)$/);
+                        if (match) {
+                            const num = match[1];
+                            const letter = match[2];
+                            
+                            // ตั้งค่าลักษณะเนื้อหา
+                            for (let opt of contentTypeEl.options) {
+                                if (opt.value.startsWith(`${num}.`)) {
+                                    contentTypeEl.value = opt.value;
+                                    break;
+                                }
+                            }
+                            
+                            // ตั้งค่าลักษณะตัวป้าย
+                            for (let opt of signTypeDetailEl.options) {
+                                if (opt.value.includes(`(${letter})`)) {
+                                    signTypeDetailEl.value = opt.value;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // อัปเดตค่าเริ่มต้น
+                    updateSCharacte();
+                }
+            }
             document.getElementById('side-panel').classList.add('open');
             marker.closePopup();
         }
@@ -2465,20 +2544,21 @@
                 tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-gray-500">ไม่มีข้อมูลป้าย</td></tr>';
                 return;
             }
+            // ในฟังก์ชัน renderSignTable() แก้ไขส่วนสร้างแถว:
             tbody.innerHTML = allSigns.map((sign, index) => {
                 if (!sign.lat_long) return '';
                 const [lat, lng] = sign.lat_long.split(',').map(Number);
                 
-                // ✅ แก้ไขให้แสดงสถานะตรงกับข้อมูลจริง
+                // ✅ แสดงสถานะตรวจสอบให้ตรงกับข้อมูลจริง
                 const statusClass = sign.check === 'ถ่ายรูปแล้ว' ? 'status-ถ่ายรูปแล้ว' :
                                    sign.check === 'ตรวจสอบแล้ว' ? 'status-ตรวจสอบแล้ว' : 'status-ยังไม่สำรวจ';
-                const statusText = sign.check || 'ยังไม่สำรวจ'; // ✅ แสดงค่าจริงจากข้อมูล
+                const statusText = sign.check || 'ยังไม่สำรวจ';
                 
                 return `
                 <tr>
                     <td><span class="marker-icon marker-sign"></span></td>
                     <td class="font-medium">${sign.s_code || '-'}</td>      <!-- 1. รหัส -->
-                    <td>${sign.s_characte || '-'}</td>                      <!-- 2. ลักษณะ -->
+                    <td>${sign.s_characte || '-'}</td>                      <!-- 2. ลักษณะ (ค่ารวมอัตโนมัติ) -->
                     <td>${sign.s_wide || '-'}</td>                          <!-- 3. กว้าง -->
                     <td>${sign.s_length || '-'}</td>                        <!-- 4. ยาว -->
                     <td>${sign.no_side || '-'}</td>                         <!-- 5. จำนวนด้าน -->
