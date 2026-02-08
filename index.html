@@ -64,6 +64,22 @@
             border-color: #6b7280 !important;
         }
 
+        /* สีเขียวสำหรับกลุ่มแรก */
+        .form-input.green-bg {
+            background-color: rgba(187, 247, 208, 0.9) !important;
+        }
+
+        /* สีชมพูอ่อนสำหรับกลุ่มสอง */
+        .form-input.pink-bg {
+            background-color: rgba(255, 204, 204, 0.3) !important; /* ชมพูอ่อน */
+        }
+
+        /* สีเขียวสำหรับช่อง "สถานะการตรวจสอบ" */
+        .form-input.check-status {
+            background-color: rgba(187, 247, 208, 0.9) !important;
+            font-weight: bold;
+        }
+
         /* แก้ไขสีพื้นหลังสถานะ "ถ่ายรูปแล้ว" */
         .status-ถ่ายรูปแล้ว { 
             background: rgba(187, 247, 208, 0.9) !important; 
@@ -569,7 +585,7 @@
                         <tr>
                             <th style="width: 30px"><i data-lucide="map-pin" class="w-4 h-4"></i></th>
                             <th>รหัส</th>
-                            <th>ลักษณะ</th>
+                            <th class="text-center">ลักษณะ</th>
                             <th class="text-center">กว้าง (ซ.ม.)</th>
                             <th class="text-center">ยาว (ซ.ม.)</th>
                             <th class="text-center">จำนวนด้าน</th>
@@ -1531,20 +1547,21 @@
                 { id: 'no_floor', label: 'จำนวนชั้น', type: 'select', options: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], defaultValue: 1 },
                 { id: 'b_area', label: 'พื้นที่ทั้งหลัง (ตร.ม.)', type: 'number' },
                 { id: 'b_note', label: 'รายละเอียด', type: 'select', options: ['ยุ้งข้าว', 'คอกวัว', 'เล้าไก่', 'คอกหมู', 'โรงจอดรถ', 'ห้องน้ำ', 'ร้านค้าของชำ', 'กระท่อมนา', 'เพิงพัก', 'โรงเก็บของ', 'เก็บฟาง', 'โรงครัว', 'ศาลาพักผ่อน', 'ตู้เติมเงิน', 'ตู้น้ำมันหยอดเหรียญ', 'ตู้น้ำดื่มหยอดเหรียญ', 'รื้อ'], allowCustom: true },
-                { id: 'b_use', label: 'ใช้ประโยชน์', type: 'select', options: ['', '1-เกษตรกรรม', '2-(1)ที่อยู่อาศัย หลังหลัก', '2-(2)ที่อยู่อาศัย หลังหลักกรณีไม่ได้เป็นเจ้าของกรรมสิทธิ์ที่ดิน)', '2-(3)ที่อยู่อาศัย หลังอื่นๆ เช่น กรณีให้เช่าอยู่อาศัย หรือแบ่งพื้นที่ให้เช่าอยู่อาศัย', '3-อื่นๆ ไม่ใช่เกษตรกรรมหรือที่อยู่อาศัย)', '4-ทิ้งไว้ว่างเปล่า/รกร้าง', '5-ใช้ประโยชน์หลายประเภท'] },
-                { id: 'per_use', label: 'การเช่า', type: 'select', options: ['ใช้ประโยชน์เอง', 'ให้เช่า', 'ผู้อื่นใช้'] },
-                { id: 'full_area', label: 'ใช้ทั้งหลัง', type: 'checkbox' },
-                { id: 'buse_floor', label: 'ชั้นที่ใช้', type: 'select', options: ['1-1', '1-2', '1-3', '1-4', '1-5'], allowCustom: true, defaultValue: '1-1' },  // ✅ ถูกต้องแล้ว
-                { id: 'buse_area', label: 'พื้นที่ใช้ (ตร.ม.)', type: 'number' },
-                { id: 'ment_use', label: 'รายละเอียด', type: 'select', options: ['ยุ้งข้าว', 'คอกวัว', 'เล้าไก่', 'คอกหมู', 'โรงจอดรถ', 'ห้องน้ำ', 'ร้านค้าของชำ', 'กระท่อมนา', 'เพิงพัก', 'โรงเก็บของ', 'เก็บฟาง', 'โรงครัว', 'ศาลาพักผ่อน', 'ตู้เติมเงิน', 'ตู้น้ำมันหยอดเหรียญ', 'ตู้น้ำดื่มหยอดเหรียญ', 'รื้อ'], allowCustom: true },
-                { id: 'b_use2', label: 'ใช้ประโยชน์ (2)', type: 'select', options: ['', '1-เกษตรกรรม', '2-(1)ที่อยู่อาศัย หลังหลัก', '2-(2)ที่อยู่อาศัย หลังหลักกรณีไม่ได้เป็นเจ้าของกรรมสิทธิ์ที่ดิน)', '2-(3)ที่อยู่อาศัย หลังอื่นๆ เช่น กรณีให้เช่าอยู่อาศัย หรือแบ่งพื้นที่ให้เช่าอยู่อาศัย', '3-อื่นๆ ไม่ใช่เกษตรกรรมหรือที่อยู่อาศัย)', '4-ทิ้งไว้ว่างเปล่า/รกร้าง', '5-ใช้ประโยชน์หลายประเภท'] },
-                { id: 'per_use2', label: 'การเช่า (2)', type: 'select', options: ['ใช้ประโยชน์เอง', 'ให้เช่า', 'ผู้อื่นใช้'] },
-                { id: 'buse_flor2', label: 'ชั้นที่ใช้ (2)', type: 'select', options: ['', '1-1', '1-2', '1-3', '1-4', '1-5'], allowCustom: true },
-                { id: 'buse_area2', label: 'พื้นที่ใช้ (2) (ตร.ม.)', type: 'number' },
-                { id: 'ment_use2', label: 'รายละเอียด (2)', type: 'select', options: ['ยุ้งข้าว', 'คอกวัว', 'เล้าไก่', 'คอกหมู', 'โรงจอดรถ', 'ห้องน้ำ', 'ร้านค้าของชำ', 'กระท่อมนา', 'เพิงพัก', 'โรงเก็บของ', 'เก็บฟาง', 'โรงครัว', 'ศาลาพักผ่อน', 'ตู้เติมเงิน', 'ตู้น้ำมันหยอดเหรียญ', 'ตู้น้ำดื่มหยอดเหรียญ', 'รื้อ'], allowCustom: true },
-                { id: 'full_area2', label: 'ใช้ทั้งหลัง (2)', type: 'checkbox' },
-                { id: 'check', label: 'สถานะการตรวจสอบ', type: 'select', options: ['ยังไม่สำรวจ', 'ถ่ายรูปแล้ว', 'ตรวจสอบแล้ว'] }
+                { id: 'b_use', label: 'ใช้ประโยชน์', type: 'select', options: ['', '1-เกษตรกรรม', '2-(1)ที่อยู่อาศัย หลังหลัก', '2-(2)ที่อยู่อาศัย หลังหลักกรณีไม่ได้เป็นเจ้าของกรรมสิทธิ์ที่ดิน)', '2-(3)ที่อยู่อาศัย หลังอื่นๆ เช่น กรณีให้เช่าอยู่อาศัย หรือแบ่งพื้นที่ให้เช่าอยู่อาศัย', '3-อื่นๆ ไม่ใช่เกษตรกรรมหรือที่อยู่อาศัย)', '4-ทิ้งไว้ว่างเปล่า/รกร้าง', '5-ใช้ประโยชน์หลายประเภท'], colorClass: 'green-bg' },
+                { id: 'per_use', label: 'การเช่า', type: 'select', options: ['ใช้ประโยชน์เอง', 'ให้เช่า', 'ผู้อื่นใช้'], colorClass: 'green-bg' },
+                { id: 'full_area', label: 'ใช้ทั้งหลัง', type: 'select', options: ['', 'เต็มพื้นที่', 'บางส่วน'], colorClass: 'green-bg' },
+                { id: 'buse_floor', label: 'ชั้นที่ใช้', type: 'select', options: ['1-1', '1-2', '1-3', '1-4', '1-5'], allowCustom: true, defaultValue: '1-1', colorClass: 'green-bg' },
+                { id: 'buse_area', label: 'พื้นที่ใช้ (ตร.ม.)', type: 'number', colorClass: 'green-bg' },
+                { id: 'ment_use', label: 'รายละเอียด', type: 'select', options: ['ยุ้งข้าว', 'คอกวัว', 'เล้าไก่', 'คอกหมู', 'โรงจอดรถ', 'ห้องน้ำ', 'ร้านค้าของชำ', 'กระท่อมนา', 'เพิงพัก', 'โรงเก็บของ', 'เก็บฟาง', 'โรงครัว', 'ศาลาพักผ่อน', 'ตู้เติมเงิน', 'ตู้น้ำมันหยอดเหรียญ', 'ตู้น้ำดื่มหยอดเหรียญ', 'รื้อ'], allowCustom: true, colorClass: 'green-bg' },
+                { id: 'b_use2', label: 'ใช้ประโยชน์ (2)', type: 'select', options: ['', '1-เกษตรกรรม', '2-(1)ที่อยู่อาศัย หลังหลัก', '2-(2)ที่อยู่อาศัย หลังหลักกรณีไม่ได้เป็นเจ้าของกรรมสิทธิ์ที่ดิน)', '2-(3)ที่อยู่อาศัย หลังอื่นๆ เช่น กรณีให้เช่าอยู่อาศัย หรือแบ่งพื้นที่ให้เช่าอยู่อาศัย', '3-อื่นๆ ไม่ใช่เกษตรกรรมหรือที่อยู่อาศัย)', '4-ทิ้งไว้ว่างเปล่า/รกร้าง', '5-ใช้ประโยชน์หลายประเภท'], colorClass: 'pink-bg' },
+                { id: 'per_use2', label: 'การเช่า (2)', type: 'select', options: ['ใช้ประโยชน์เอง', 'ให้เช่า', 'ผู้อื่นใช้'], colorClass: 'pink-bg' },
+                { id: 'buse_flor2', label: 'ชั้นที่ใช้ (2)', type: 'select', options: ['', '1-1', '1-2', '1-3', '1-4', '1-5'], allowCustom: true, colorClass: 'pink-bg' },
+                { id: 'buse_area2', label: 'พื้นที่ใช้ (2) (ตร.ม.)', type: 'number', colorClass: 'pink-bg' },
+                { id: 'ment_use2', label: 'รายละเอียด (2)', type: 'select', options: ['ยุ้งข้าว', 'คอกวัว', 'เล้าไก่', 'คอกหมู', 'โรงจอดรถ', 'ห้องน้ำ', 'ร้านค้าของชำ', 'กระท่อมนา', 'เพิงพัก', 'โรงเก็บของ', 'เก็บฟาง', 'โรงครัว', 'ศาลาพักผ่อน', 'ตู้เติมเงิน', 'ตู้น้ำมันหยอดเหรียญ', 'ตู้น้ำดื่มหยอดเหรียญ', 'รื้อ'], allowCustom: true, colorClass: 'pink-bg' },
+                { id: 'full_area2', label: 'ใช้ทั้งหลัง (2)', type: 'select', options: ['', 'บางส่วน'], colorClass: 'pink-bg' },
+                { id: 'check', label: 'สถานะการตรวจสอบ', type: 'select', options: ['ยังไม่สำรวจ', 'ถ่ายรูปแล้ว', 'ตรวจสอบแล้ว'], colorClass: 'check-status' }
             ];
+
             
             const signFields = [
                 { id: 'image', label: 'รูปป้าย', type: 'file', icon: 'camera' },
@@ -1553,7 +1570,7 @@
                 { id: 's_type', label: 'ประเภทป้าย', type: 'select', options: ['ป้าย/แสดงโฆษณาทั่วไป', 'ป้าย/ป้ายภายในอาคาร 3 ตร.ม. ขึ้นไป', 'ป้ายตามกฎหมายทะเบียนพาณิชย์'] },
                 { id: 's_wide', label: 'กว้าง (ซ.ม.)', type: 'number' },
                 { id: 's_length', label: 'ยาว (ซ.ม.)', type: 'number' },
-                { id: 'no_side', label: 'จำนวนด้าน', type: 'select', options: [1, 2, 3], defaultValue: 1 },
+                { id: 'no_side', label: 'จำนวนด้าน', type: 'select', options: [1, 2], defaultValue: 1 },
                 // ✅ เพิ่ม 2 ฟิลด์ชั่วคราว (ไม่บันทึกลงชีท)
                 { 
                     id: 'content_type_temp', 
@@ -1581,7 +1598,7 @@
                 { id: 'comment', label: 'หมายเหตุ', type: 'text' },
                 { id: 'fullname', label: 'เจ้าของ', type: 'text' },
                 { id: 'address', label: 'ที่อยู่', type: 'text' },
-                { id: 'check', label: 'สถานะการตรวจสอบ', type: 'select', options: ['ยังไม่สำรวจ', 'ถ่ายรูปแล้ว', 'ตรวจสอบแล้ว'] }
+                { id: 'check', label: 'สถานะการตรวจสอบ', type: 'select', options: ['ยังไม่สำรวจ', 'ถ่ายรูปแล้ว', 'ตรวจสอบแล้ว'], colorClass: 'check-status' }
             ];
             
             const fields = type === 'building' ? buildingFields : signFields;
@@ -1589,10 +1606,22 @@
             
             fields.forEach(f => {
                 html += `<div class="mb-2">`;
-                html += `<label class="form-label">${f.label}</label>`;
+                // ✅ สร้าง <label> เฉพาะฟิลด์ที่ไม่ใช่ 'file'
+                if (f.type !== 'file') {
+                    html += `<label class="form-label">${f.label}</label>`;
+                }
+                
+                // ✅ ตรวจสอบฟิลด์ "สถานะการตรวจสอบ" และตั้งค่าอัตโนมัติ
+                let fieldValue = data[f.id] || '';
+                if (f.id === 'check' && type === 'building' && data.image && data.image.trim() !== '') {
+                    fieldValue = 'ถ่ายรูปแล้ว'; // ถ้ามีรูป ให้ตั้งค่าเป็น "ถ่ายรูปแล้ว"
+                } else if (f.id === 'check' && type === 'sign' && data.picture && data.picture.trim() !== '') {
+                    fieldValue = 'ถ่ายรูปแล้ว'; // ถ้ามีรูป ให้ตั้งค่าเป็น "ถ่ายรูปแล้ว"
+                }
                 
                 if (f.type === 'textarea') {
-                    html += `<textarea name="${f.id}" class="form-input" rows="2"${f.readonly ? ' readonly' : ''}>${data[f.id] || ''}</textarea>`;
+                    const colorClass = f.colorClass || '';
+                    html += `<textarea name="${f.id}" class="form-input ${colorClass}" rows="2"${f.readonly ? ' readonly' : ''}>${fieldValue}</textarea>`;
                 } else if (f.type === 'file') {
                     // ✅ ลบบรรทัดที่ซ้ำออก ให้เหลือแค่ใน <div class="mb-3"> เท่านั้น
                     html += `<div class="mb-2">
@@ -1617,6 +1646,7 @@
                     const checked = data[f.id] === 'TRUE' || data[f.id] === true ? 'checked' : '';
                     html += `<input type="checkbox" name="${f.id}" class="mt-1" ${checked}>`;
                 } else if (f.type === 'select') {
+
                     // ✅ ตรวจสอบว่ามี allowCustom หรือไม่
                     if (f.allowCustom) {
                         // สร้าง <input> พร้อม <datalist> ให้สามารถพิมพ์ได้
@@ -2598,7 +2628,7 @@
                 <tr>
                     <td><span class="marker-icon marker-sign"></span></td>
                     <td class="font-medium">${sign.s_code || '-'}</td>      <!-- 1. รหัส -->
-                    <td class="text-center" style="text-align: center !important;">${sign.s_characte || '-'}</td>      <!-- ✅ แก้ไข: บังคับกึ่งกลางด้วย inline style -->
+                    <td class="text-center">${sign.s_characte || '-'}</td>       <!-- ✅ แก้ไข: บังคับกึ่งกลางด้วย inline style -->
                     <td class="text-center">${sign.s_wide || '-'}</td>        <!-- ✅ เพิ่ม -->
                     <td class="text-center">${sign.s_length || '-'}</td>      <!-- ✅ เพิ่ม -->
                     <td class="text-center">${sign.no_side || '-'}</td>       <!-- ✅ เพิ่ม -->
