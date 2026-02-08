@@ -337,9 +337,9 @@
             font-size: 11px;
             font-weight: 600;
         }
-        .status-pending { background: #fef3c7; color: #92400e; }
-        .status-verified { background: #d1fae5; color: #065f46; }
-        .status-rejected { background: #fee2e2; color: #991b1b; }
+        .status-ยังไม่สำรวจ { background: #fef3c7; color: #92400e; }
+        .status-ถ่ายรูปแล้ว { background: #d1fae5; color: #065f46; }
+        .status-ตรวจสอบแล้ว { background: #fee2e2; color: #991b1b; }
         .zoom-btn {
             padding: 4px 10px;
             background: #2563eb;
@@ -902,7 +902,7 @@
                 const startTime = Date.now();
                 let queueItem = syncQueue.find(q => q.id === queueId);
                 
-                while (queueItem && queueItem.status === 'pending' && (Date.now() - startTime) < maxWaitTime) {
+                while (queueItem && queueItem.status === 'ยังไม่สำรวจ' && (Date.now() - startTime) < maxWaitTime) {
                     await new Promise(resolve => setTimeout(resolve, 500)); // รอ 500 มิลลิวินาที
                     queueItem = syncQueue.find(q => q.id === queueId);
                 }
@@ -1484,7 +1484,7 @@
                 { id: 'address', label: 'ที่อยู่', type: 'text' },
                 { id: 'building_c', label: 'รหัสสิ่งปลูกสร้าง', type: 'text' },
                 { id: 'b_type', label: 'ประเภทสิ่งปลูกสร้าง', type: 'text' },
-                { id: 'b_mat', label: 'วัสดุ', type: 'text' },
+                { id: 'b_mat', label: 'วัสดุ', type: 'select', options: ['ไม้', 'ตึก', 'ตึก/ไม้'] },  // ✅ แก้ตรงนี้
                 { id: 'b_year', label: 'อายุ (ปี)', type: 'number' },
                 { id: 'hs_no', label: 'บ้านเลขที่', type: 'text' },
                 { id: 'hs_moo', label: 'หมู่', type: 'text' },
@@ -1504,7 +1504,7 @@
                 { id: 'ment_use2', label: 'หมายเหตุ (2)', type: 'textarea' },
                 { id: 'full_area2', label: 'ใช้ทั้งหลัง (2)', type: 'checkbox' },
                 { id: 'picture', label: 'ถ่ายรูป', type: 'file' },
-                { id: 'check', label: 'สถานะการตรวจสอบ', type: 'select', options: ['pending', 'verified', 'rejected'] }
+                { id: 'check', label: 'สถานะการตรวจสอบ', type: 'select', options: ['ยังไม่สำรวจ', 'ถ่ายรูปแล้ว', 'ตรวจสอบแล้ว'] }
             ];
             
             const signFields = [
@@ -1704,10 +1704,10 @@
                 if (!building.lat_long) return '';
                 
                 const [lat, lng] = building.lat_long.split(',').map(Number);
-                const statusClass = building.check === 'verified' ? 'status-verified' : 
-                                   building.check === 'rejected' ? 'status-rejected' : 'status-pending';
-                const statusText = building.check === 'verified' ? 'ตรวจสอบแล้ว' : 
-                                  building.check === 'rejected' ? 'ปฏิเสธ' : 'รอดำเนินการ';
+                const statusClass = building.check === 'ถ่ายรูปแล้ว' ? 'status-ถ่ายรูปแล้ว' : 
+                                   building.check === 'ตรวจสอบแล้ว' ? 'status-ตรวจสอบแล้ว' : 'status-ยังไม่สำรวจ';
+                const statusText = building.check === 'ถ่ายรูปแล้ว' ? 'ตรวจสอบแล้ว' : 
+                                  building.check === 'ตรวจสอบแล้ว' ? 'ปฏิเสธ' : 'รอดำเนินการ';
                 
                 return `
                     <tr>
@@ -2119,11 +2119,11 @@
          */
         function updateVisibleMarkers() {
             // เก็บจุดชั่วคราวทั้งหมดก่อนล้าง
-            const pendingMarkers = [];
+            const ยังไม่สำรวจMarkers = [];
             surveyLayers.eachLayer(layer => {
                 if (layer._popupData) {
                     if (layer._popupData.queued || layer._popupData.tempMarker) {
-                        pendingMarkers.push({
+                        ยังไม่สำรวจMarkers.push({
                             latlng: layer.getLatLng(),
                             data: layer._popupData,
                             type: layer._popupData.type
@@ -2176,7 +2176,7 @@
             });
             
             // เพิ่มจุดชั่วคราวกลับเข้ามา
-            pendingMarkers.forEach(marker => {
+            ยังไม่สำรวจMarkers.forEach(marker => {
                 const m = createCircleMarker(marker.latlng, marker.type, isEditMode);
                 m._popupData = marker.data;
                 setupMarkerPopup(m, marker.data, marker.type);
@@ -2374,7 +2374,7 @@
                 type: type,     // 'building', 'sign'
                 data: data,
                 rowKey: rowKey,
-                status: 'pending', // pending, success, failed
+                status: 'ยังไม่สำรวจ', // ยังไม่สำรวจ, success, failed
                 retryCount: 0
             };
             
@@ -2530,12 +2530,12 @@
             
             // แจ้งผลลัพธ์
             const successCount = syncQueue.filter(i => i.status === 'success').length;
-            const pendingCount = syncQueue.filter(i => i.status === 'pending').length;
+            const ยังไม่สำรวจCount = syncQueue.filter(i => i.status === 'ยังไม่สำรวจ').length;
             
-            if (pendingCount === 0 && failedItems.length === 0) {
+            if (ยังไม่สำรวจCount === 0 && failedItems.length === 0) {
                 console.log('ซิงค์ข้อมูลสำเร็จทั้งหมด!');
-            } else if (pendingCount > 0) {
-                console.log(`ซิงค์ข้อมูล ${successCount} รายการ (${pendingCount} รายการรอซิงค์)`);
+            } else if (ยังไม่สำรวจCount > 0) {
+                console.log(`ซิงค์ข้อมูล ${successCount} รายการ (${ยังไม่สำรวจCount} รายการรอซิงค์)`);
             }
             
             if (failedItems.length > 0) {
@@ -2561,24 +2561,24 @@
         function checkSyncStatus() {
             closeSettingsMenu();
             
-            const pending = syncQueue.filter(i => i.status === 'pending').length;
+            const ยังไม่สำรวจ = syncQueue.filter(i => i.status === 'ยังไม่สำรวจ').length;
             const failed = syncQueue.filter(i => i.status === 'failed').length;
             const success = syncQueue.filter(i => i.status === 'success').length;
             
             let message = `📊 สถานะการซิงค์ข้อมูล:\n`;
             message += `✅ สำเร็จ: ${success} รายการ\n`;
-            message += `⏳ รอซิงค์: ${pending} รายการ\n`;
+            message += `⏳ รอซิงค์: ${ยังไม่สำรวจ} รายการ\n`;
             message += `❌ ล้มเหลว: ${failed} รายการ`;
             
-            if (pending > 0) {
+            if (ยังไม่สำรวจ > 0) {
                 message += `\n\n⚠️ มีข้อมูลที่ยังไม่ได้ซิงค์!`;
             }
             
             alert(message);
             
             // ถ้ามีข้อมูลรอซิงค์ ถามว่าต้องการซิงค์เลยไหม
-            if (pending > 0 && isOnline) {
-                if (confirm(`ต้องการซิงค์ข้อมูล ${pending} รายการที่รออยู่เลยหรือไม่?`)) {
+            if (ยังไม่สำรวจ > 0 && isOnline) {
+                if (confirm(`ต้องการซิงค์ข้อมูล ${ยังไม่สำรวจ} รายการที่รออยู่เลยหรือไม่?`)) {
                     processSyncQueue();
                 }
             }
@@ -2597,10 +2597,10 @@
             // ตรวจสอบรูปภาพที่ยังไม่ได้ซิงค์
             try {
                 const unsyncedImages = await getUnsyncedImages();
-                const pendingCount = syncQueue.filter(i => i.status === 'pending').length;
+                const ยังไม่สำรวจCount = syncQueue.filter(i => i.status === 'ยังไม่สำรวจ').length;
                 
-                if (pendingCount > 0 || unsyncedImages.length > 0) {
-                    const totalPending = pendingCount + unsyncedImages.length;
+                if (ยังไม่สำรวจCount > 0 || unsyncedImages.length > 0) {
+                    const totalPending = ยังไม่สำรวจCount + unsyncedImages.length;
                     
                     showNotificationLeft(
                         `พบข้อมูลที่รอซิงค์ ${totalPending} รายการ`, 
@@ -2618,7 +2618,7 @@
                     }
                 }
             } catch (err) {
-                console.error('Error checking pending data:', err);
+                console.error('Error checking ยังไม่สำรวจ data:', err);
             }
         }
 
@@ -2656,11 +2656,11 @@
 
         // แสดงจำนวนข้อมูลที่รอซิงค์ในปุ่มฟันเฟือง
         function updateSyncBadge() {
-            const pending = syncQueue.filter(i => i.status === 'pending').length;
+            const ยังไม่สำรวจ = syncQueue.filter(i => i.status === 'ยังไม่สำรวจ').length;
             const badge = document.getElementById('settings-badge');
             
-            if (pending > 0) {
-                badge.textContent = pending > 9 ? '9+' : pending;
+            if (ยังไม่สำรวจ > 0) {
+                badge.textContent = ยังไม่สำรวจ > 9 ? '9+' : ยังไม่สำรวจ;
                 badge.classList.remove('hidden');
             } else {
                 badge.classList.add('hidden');
@@ -3364,12 +3364,12 @@
         // ฟังก์ชันโหลดมาร์กเกอร์เฉพาะที่มองเห็น + buffer
         function loadVisibleMarkers() {
             // เก็บจุดชั่วคราวทั้งหมดก่อนล้าง
-            const pendingMarkers = [];
+            const ยังไม่สำรวจMarkers = [];
             if (markerCluster) {
                 markerCluster.eachLayer(layer => {
                     if (layer._popupData) {
                         if (layer._popupData.queued || layer._popupData.tempMarker) {
-                            pendingMarkers.push({
+                            ยังไม่สำรวจMarkers.push({
                                 latlng: layer.getLatLng(),
                                 data: layer._popupData,
                                 type: layer._popupData.type
@@ -3381,7 +3381,7 @@
                 surveyLayers.eachLayer(layer => {
                     if (layer._popupData) {
                         if (layer._popupData.queued || layer._popupData.tempMarker) {
-                            pendingMarkers.push({
+                            ยังไม่สำรวจMarkers.push({
                                 latlng: layer.getLatLng(),
                                 data: layer._popupData,
                                 type: layer._popupData.type
@@ -3450,7 +3450,7 @@
             });
             
             // เพิ่มจุดชั่วคราวกลับเข้ามา
-            pendingMarkers.forEach(marker => {
+            ยังไม่สำรวจMarkers.forEach(marker => {
                 const m = createCircleMarker(marker.latlng, marker.type, isEditMode);
                 m._popupData = marker.data;
                 setupMarkerPopup(m, marker.data, marker.type);
