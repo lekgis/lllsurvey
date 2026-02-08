@@ -1642,9 +1642,7 @@
                             </button>
                         </div>
                     </div>`;
-                } else if (f.type === 'checkbox') {
-                    const checked = data[f.id] === 'TRUE' || data[f.id] === true ? 'checked' : '';
-                    html += `<input type="checkbox" name="${f.id}" class="mt-1" ${checked}>`;
+
                 } else if (f.type === 'select') {
 
                     // ✅ ตรวจสอบว่ามี allowCustom หรือไม่
@@ -2153,10 +2151,7 @@
                         <span id="view-text">แสดงเป็นภาพ</span>
                     </button>
                     <!-- ✅ ปุ่มดาวน์โหลดทั้งหมด -->
-                    <button onclick="downloadAllImagesAsZip(${JSON.stringify(filteredItems.map(item => ({
-                        url: type === 'building' ? item.image : item.picture,
-                        filename: type === 'building' ? (item.building_c || 'building') : (item.s_code || 'sign')
-                    })))}, '${type}')" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center gap-2">
+                    <button onclick="downloadAllImagesAsZip()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center gap-2">
                         <i data-lucide="download" class="w-4 h-4"></i>
                         <span>ดาวน์โหลดทั้งหมด</span>
                     </button>
@@ -3985,6 +3980,102 @@
                     .catch(error => console.log('Service Worker registration failed:', error));
             }
         });
+        // ============================================
+        // ดาวน์โหลดรูปทั้งหมดเป็นไฟล์เดียว (ใช้ JSZip)
+        // ============================================
+        async function downloadAllImagesAsZip() {
+            showNotificationLeft('กำลังเตรียมดาวน์โหลด...', 'info');
+            
+            try {
+                // ดึงข้อมูลจากรูปที่แสดงในแกลเลอรี่ปัจจุบัน
+                const galleryGrid = document.getElementById('gallery-grid');
+                if (!galleryGrid) {
+                    showNotificationLeft('❌ ไม่พบข้อมูลรูปภาพ', 'error');
+                    return;
+                }
+                
+                const items = [];
+                const type = document.querySelector('#image-gallery-modal h3')?.innerText.includes('สิ่งปลูกสร้าง') ? 'building' : 'sign';
+                
+                // ดึงข้อมูลจากรูปทั้งหมดในแกลเลอรี่
+                galleryGrid.querySelectorAll('.relative.group').forEach((el, index) => {
+                    const img = el.querySelector('img');
+                    const url = img?.src;
+                    const codeEl = el.querySelector('p.font-bold');
+                    const codeText = codeEl?.innerText || '';
+                    const code = codeText.replace(/[^0-9]/g, '');
+                    
+                    if (url && url !== 'https://via.placeholder.com/150?text=No+Image') {
+                        items.push({
+                            url: url,
+                            filename: `${type === 'building' ? 'B' : 'S'}${code || index + 1}.jpg`
+                        });
+                    }
+                });
+                
+                if (items.length === 0) {
+                    showNotificationLeft('⚠️ ไม่พบรูปภาพให้ดาวน์โหลด', 'warning');
+                    return;
+                }
+                
+                showNotificationLeft(`กำลังดาวน์โหลด ${items.length} รูป...`, 'info');
+                
+                // โหลด JSZip (ถ้ายังไม่มี)
+                if (typeof JSZip === 'undefined') {
+                    await new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+                        script.onload = resolve;
+                        script.onerror = () => reject(new Error('Failed to load JSZip'));
+                        document.head.appendChild(script);
+                    });
+                }
+                
+                // สร้างไฟล์ ZIP
+                const zip = new JSZip();
+                const folder = zip.folder(type === 'building' ? 'buildings' : 'signs');
+                let successCount = 0;
+                
+                // ดาวน์โหลดและเพิ่มรูปในไฟล์ ZIP
+                for (let i = 0; i < items.length; i++) {
+                    const item = items[i];
+                    try {
+                        const response = await fetch(item.url);
+                        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                        
+                        const blob = await response.blob();
+                        folder.file(item.filename, blob);
+                        successCount++;
+                        
+                        if ((i + 1) % 5 === 0 || i === items.length - 1) {
+                            showNotificationLeft(`กำลังดาวน์โหลด (${successCount}/${items.length})...`, 'info');
+                        }
+                    } catch (err) {
+                        console.error(`ดาวน์โหลด ${item.filename} ล้มเหลว:`, err);
+                    }
+                }
+                
+                if (successCount === 0) {
+                    showNotificationLeft('❌ ดาวน์โหลดรูปภาพล้มเหลวทั้งหมด', 'error');
+                    return;
+                }
+                
+                // สร้างและดาวน์โหลดไฟล์ ZIP
+                const content = await zip.generateAsync({ type: 'blob' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(content);
+                link.download = `${type === 'building' ? 'buildings' : 'signs'}_${new Date().toISOString().slice(0, 10)}.zip`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(link.href);
+                
+                showNotificationLeft(`✅ ดาวน์โหลดรูปภาพทั้งหมด (${successCount} รูป) เสร็จสิ้น!`, 'success');
+            } catch (err) {
+                console.error('ข้อผิดพลาด:', err);
+                showNotificationLeft('❌ ดาวน์โหลดล้มเหลว: ' + err.message, 'error');
+            }
+        }
     </script>
 </body>
 
