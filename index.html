@@ -1537,12 +1537,24 @@
                     const checked = data[f.id] === 'TRUE' || data[f.id] === true ? 'checked' : '';
                     html += `<input type="checkbox" name="${f.id}" class="mt-1" ${checked}>`;
                 } else if (f.type === 'select') {
-                    html += `<select name="${f.id}" class="form-input">`;
-                    f.options.forEach(opt => {
-                        const selected = data[f.id] === opt ? 'selected' : '';
-                        html += `<option value="${opt}" ${selected}>${opt}</option>`;
-                    });
-                    html += `</select>`;
+                    // ✅ ตรวจสอบว่ามี allowCustom หรือไม่
+                    if (f.allowCustom) {
+                        // สร้าง <input> พร้อม <datalist> ให้สามารถพิมพ์ได้
+                        html += `<input type="text" name="${f.id}" class="form-input" list="${f.id}-options" value="${data[f.id] || ''}">`;
+                        html += `<datalist id="${f.id}-options">`;
+                        f.options.forEach(opt => {
+                            html += `<option value="${opt}">${opt}</option>`;
+                        });
+                        html += `</datalist>`;
+                    } else {
+                        // สร้าง <select> ธรรมดา
+                        html += `<select name="${f.id}" class="form-input">`;
+                        f.options.forEach(opt => {
+                            const selected = data[f.id] === opt ? 'selected' : '';
+                            html += `<option value="${opt}" ${selected}>${opt}</option>`;
+                        });
+                        html += `</select>`;
+                    }
                 } else {
                     html += `<input type="${f.type}" name="${f.id}" class="form-input" value="${data[f.id] || ''}">`;
                 }
