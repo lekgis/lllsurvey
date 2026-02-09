@@ -20,7 +20,7 @@
     <!-- เพิ่มในส่วน <head> ของไฟล์ HTML -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         body, html { height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: sans-serif; }
         #map { height: 100vh; width: 100vw; z-index: 0; }
@@ -52,6 +52,18 @@
         .line-h { height: 3px; width: 18px; top: 50%; transform: translateY(-50%); }
         .v-top { top: -20px; } .v-bottom { bottom: -20px; }
         .h-left { left: -20px; } .h-right { right: -20px; }
+
+        /* สไตล์พิเศษสำหรับสีพื้นหลังช่องกรอกตามเงื่อนไข */
+        .bg-custom-green { 
+            background-color: rgba(187, 247, 208, 0.9) !important; 
+        }
+        .bg-custom-pink { 
+            background-color: rgba(251, 207, 232, 0.9) !important; 
+        }
+        .bg-custom-check-status { 
+            background-color: rgba(187, 247, 208, 0.9) !important; 
+            font-weight: bold;
+        }
 
         /* สไตล์สำหรับฟิลด์ที่อ่านอย่างเดียว */
         .form-input[readonly] {
@@ -1547,19 +1559,24 @@
                 { id: 'no_floor', label: 'จำนวนชั้น', type: 'select', options: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], defaultValue: 1 },
                 { id: 'b_area', label: 'พื้นที่ทั้งหลัง (ตร.ม.)', type: 'number' },
                 { id: 'b_note', label: 'รายละเอียด', type: 'select', options: ['ยุ้งข้าว', 'คอกวัว', 'เล้าไก่', 'คอกหมู', 'โรงจอดรถ', 'ห้องน้ำ', 'ร้านค้าของชำ', 'กระท่อมนา', 'เพิงพัก', 'โรงเก็บของ', 'เก็บฟาง', 'โรงครัว', 'ศาลาพักผ่อน', 'ตู้เติมเงิน', 'ตู้น้ำมันหยอดเหรียญ', 'ตู้น้ำดื่มหยอดเหรียญ', 'รื้อ'], allowCustom: true },
-                { id: 'b_use', label: 'ใช้ประโยชน์', type: 'select', options: ['', '1-เกษตรกรรม', '2-(1)ที่อยู่อาศัย หลังหลัก', '2-(2)ที่อยู่อาศัย หลังหลักกรณีไม่ได้เป็นเจ้าของกรรมสิทธิ์ที่ดิน)', '2-(3)ที่อยู่อาศัย หลังอื่นๆ เช่น กรณีให้เช่าอยู่อาศัย หรือแบ่งพื้นที่ให้เช่าอยู่อาศัย', '3-อื่นๆ ไม่ใช่เกษตรกรรมหรือที่อยู่อาศัย)', '4-ทิ้งไว้ว่างเปล่า/รกร้าง', '5-ใช้ประโยชน์หลายประเภท'], colorClass: 'green-bg' },
-                { id: 'per_use', label: 'การเช่า', type: 'select', options: ['ใช้ประโยชน์เอง', 'ให้เช่า', 'ผู้อื่นใช้'], colorClass: 'green-bg' },
-                { id: 'full_area', label: 'ใช้ทั้งหลัง', type: 'select', options: ['', 'เต็มพื้นที่', 'บางส่วน'], colorClass: 'green-bg' },
-                { id: 'buse_floor', label: 'ชั้นที่ใช้', type: 'select', options: ['1-1', '1-2', '1-3', '1-4', '1-5'], allowCustom: true, defaultValue: '1-1', colorClass: 'green-bg' },
-                { id: 'buse_area', label: 'พื้นที่ใช้ (ตร.ม.)', type: 'number', colorClass: 'green-bg' },
-                { id: 'ment_use', label: 'รายละเอียด', type: 'select', options: ['ยุ้งข้าว', 'คอกวัว', 'เล้าไก่', 'คอกหมู', 'โรงจอดรถ', 'ห้องน้ำ', 'ร้านค้าของชำ', 'กระท่อมนา', 'เพิงพัก', 'โรงเก็บของ', 'เก็บฟาง', 'โรงครัว', 'ศาลาพักผ่อน', 'ตู้เติมเงิน', 'ตู้น้ำมันหยอดเหรียญ', 'ตู้น้ำดื่มหยอดเหรียญ', 'รื้อ'], allowCustom: true, colorClass: 'green-bg' },
-                { id: 'b_use2', label: 'ใช้ประโยชน์ (2)', type: 'select', options: ['', '1-เกษตรกรรม', '2-(1)ที่อยู่อาศัย หลังหลัก', '2-(2)ที่อยู่อาศัย หลังหลักกรณีไม่ได้เป็นเจ้าของกรรมสิทธิ์ที่ดิน)', '2-(3)ที่อยู่อาศัย หลังอื่นๆ เช่น กรณีให้เช่าอยู่อาศัย หรือแบ่งพื้นที่ให้เช่าอยู่อาศัย', '3-อื่นๆ ไม่ใช่เกษตรกรรมหรือที่อยู่อาศัย)', '4-ทิ้งไว้ว่างเปล่า/รกร้าง', '5-ใช้ประโยชน์หลายประเภท'], colorClass: 'pink-bg' },
-                { id: 'per_use2', label: 'การเช่า (2)', type: 'select', options: ['ใช้ประโยชน์เอง', 'ให้เช่า', 'ผู้อื่นใช้'], colorClass: 'pink-bg' },
-                { id: 'buse_flor2', label: 'ชั้นที่ใช้ (2)', type: 'select', options: ['', '1-1', '1-2', '1-3', '1-4', '1-5'], allowCustom: true, colorClass: 'pink-bg' },
-                { id: 'buse_area2', label: 'พื้นที่ใช้ (2) (ตร.ม.)', type: 'number', colorClass: 'pink-bg' },
-                { id: 'ment_use2', label: 'รายละเอียด (2)', type: 'select', options: ['ยุ้งข้าว', 'คอกวัว', 'เล้าไก่', 'คอกหมู', 'โรงจอดรถ', 'ห้องน้ำ', 'ร้านค้าของชำ', 'กระท่อมนา', 'เพิงพัก', 'โรงเก็บของ', 'เก็บฟาง', 'โรงครัว', 'ศาลาพักผ่อน', 'ตู้เติมเงิน', 'ตู้น้ำมันหยอดเหรียญ', 'ตู้น้ำดื่มหยอดเหรียญ', 'รื้อ'], allowCustom: true, colorClass: 'pink-bg' },
-                { id: 'full_area2', label: 'ใช้ทั้งหลัง (2)', type: 'select', options: ['', 'บางส่วน'], colorClass: 'pink-bg' },
-                { id: 'check', label: 'สถานะการตรวจสอบ', type: 'select', options: ['ยังไม่สำรวจ', 'ถ่ายรูปแล้ว', 'ตรวจสอบแล้ว'], colorClass: 'check-status' }
+                // ✅ กลุ่มที่ 1 - สีเขียว
+                { id: 'b_use', label: 'ใช้ประโยชน์', type: 'select', options: ['', '1-เกษตรกรรม', '2-(1)ที่อยู่อาศัย หลังหลัก', '2-(2)ที่อยู่อาศัย หลังหลักกรณีไม่ได้เป็นเจ้าของกรรมสิทธิ์ที่ดิน)', '2-(3)ที่อยู่อาศัย หลังอื่นๆ เช่น กรณีให้เช่าอยู่อาศัย หรือแบ่งพื้นที่ให้เช่าอยู่อาศัย', '3-อื่นๆ ไม่ใช่เกษตรกรรมหรือที่อยู่อาศัย)', '4-ทิ้งไว้ว่างเปล่า/รกร้าง', '5-ใช้ประโยชน์หลายประเภท'], customClass: 'bg-custom-green' },
+                { id: 'per_use', label: 'การเช่า', type: 'select', options: ['ใช้ประโยชน์เอง', 'ให้เช่า', 'ผู้อื่นใช้'], customClass: 'bg-custom-green' },
+                { id: 'full_area', label: 'ใช้ทั้งหลัง', type: 'select', options: ['', 'เต็มพื้นที่', 'บางส่วน'], customClass: 'bg-custom-green' },
+                { id: 'buse_floor', label: 'ชั้นที่ใช้', type: 'select', options: ['1-1', '1-2', '1-3', '1-4', '1-5'], allowCustom: true, defaultValue: '1-1', customClass: 'bg-custom-green' },
+                { id: 'buse_area', label: 'พื้นที่ใช้ (ตร.ม.)', type: 'number', customClass: 'bg-custom-green' },
+                { id: 'ment_use', label: 'รายละเอียด', type: 'select', options: ['ยุ้งข้าว', 'คอกวัว', 'เล้าไก่', 'คอกหมู', 'โรงจอดรถ', 'ห้องน้ำ', 'ร้านค้าของชำ', 'กระท่อมนา', 'เพิงพัก', 'โรงเก็บของ', 'เก็บฟาง', 'โรงครัว', 'ศาลาพักผ่อน', 'ตู้เติมเงิน', 'ตู้น้ำมันหยอดเหรียญ', 'ตู้น้ำดื่มหยอดเหรียญ', 'รื้อ'], allowCustom: true, customClass: 'bg-custom-green' },
+                
+                // ✅ กลุ่มที่ 2 - สีชมพู
+                { id: 'b_use2', label: 'ใช้ประโยชน์ (2)', type: 'select', options: ['', '1-เกษตรกรรม', '2-(1)ที่อยู่อาศัย หลังหลัก', '2-(2)ที่อยู่อาศัย หลังหลักกรณีไม่ได้เป็นเจ้าของกรรมสิทธิ์ที่ดิน)', '2-(3)ที่อยู่อาศัย หลังอื่นๆ เช่น กรณีให้เช่าอยู่อาศัย หรือแบ่งพื้นที่ให้เช่าอยู่อาศัย', '3-อื่นๆ ไม่ใช่เกษตรกรรมหรือที่อยู่อาศัย)', '4-ทิ้งไว้ว่างเปล่า/รกร้าง', '5-ใช้ประโยชน์หลายประเภท'], customClass: 'bg-custom-pink' },
+                { id: 'per_use2', label: 'การเช่า (2)', type: 'select', options: ['ใช้ประโยชน์เอง', 'ให้เช่า', 'ผู้อื่นใช้'], customClass: 'bg-custom-pink' },
+                { id: 'buse_flor2', label: 'ชั้นที่ใช้ (2)', type: 'select', options: ['', '1-1', '1-2', '1-3', '1-4', '1-5'], allowCustom: true, customClass: 'bg-custom-pink' },
+                { id: 'buse_area2', label: 'พื้นที่ใช้ (2) (ตร.ม.)', type: 'number', customClass: 'bg-custom-pink' },
+                { id: 'ment_use2', label: 'รายละเอียด (2)', type: 'select', options: ['ยุ้งข้าว', 'คอกวัว', 'เล้าไก่', 'คอกหมู', 'โรงจอดรถ', 'ห้องน้ำ', 'ร้านค้าของชำ', 'กระท่อมนา', 'เพิงพัก', 'โรงเก็บของ', 'เก็บฟาง', 'โรงครัว', 'ศาลาพักผ่อน', 'ตู้เติมเงิน', 'ตู้น้ำมันหยอดเหรียญ', 'ตู้น้ำดื่มหยอดเหรียญ', 'รื้อ'], allowCustom: true, customClass: 'bg-custom-pink' },
+                { id: 'full_area2', label: 'ใช้ทั้งหลัง (2)', type: 'select', options: ['', 'บางส่วน'], customClass: 'bg-custom-pink' },
+                
+                // ✅ สถานะการตรวจสอบ - สีเขียว
+                { id: 'check', label: 'สถานะการตรวจสอบ', type: 'select', options: ['ยังไม่สำรวจ', 'ถ่ายรูปแล้ว', 'ตรวจสอบแล้ว'], customClass: 'bg-custom-check-status' }
             ];
 
             
@@ -1598,32 +1615,31 @@
                 { id: 'comment', label: 'หมายเหตุ', type: 'text' },
                 { id: 'fullname', label: 'เจ้าของ', type: 'text' },
                 { id: 'address', label: 'ที่อยู่', type: 'text' },
-                { id: 'check', label: 'สถานะการตรวจสอบ', type: 'select', options: ['ยังไม่สำรวจ', 'ถ่ายรูปแล้ว', 'ตรวจสอบแล้ว'], colorClass: 'check-status' }
+                { id: 'check', label: 'สถานะการตรวจสอบ', type: 'select', options: ['ยังไม่สำรวจ', 'ถ่ายรูปแล้ว', 'ตรวจสอบแล้ว'], customClass: 'bg-custom-check-status' }
             ];
             
             const fields = type === 'building' ? buildingFields : signFields;
             let html = '';
-            
             fields.forEach(f => {
                 html += `<div class="mb-2">`;
+                
                 // ✅ สร้าง <label> เฉพาะฟิลด์ที่ไม่ใช่ 'file'
                 if (f.type !== 'file') {
                     html += `<label class="form-label">${f.label}</label>`;
                 }
                 
-                // ✅ ตรวจสอบฟิลด์ "สถานะการตรวจสอบ" และตั้งค่าอัตโนมัติ
+                // ✅ ตรวจสอบฟิลด์ "สถานะการตรวจสอบ" และตั้งค่าอัตโนมัติถ้ามีรูปภาพ
                 let fieldValue = data[f.id] || '';
                 if (f.id === 'check' && type === 'building' && data.image && data.image.trim() !== '') {
-                    fieldValue = 'ถ่ายรูปแล้ว'; // ถ้ามีรูป ให้ตั้งค่าเป็น "ถ่ายรูปแล้ว"
+                    fieldValue = 'ถ่ายรูปแล้ว';
                 } else if (f.id === 'check' && type === 'sign' && data.picture && data.picture.trim() !== '') {
-                    fieldValue = 'ถ่ายรูปแล้ว'; // ถ้ามีรูป ให้ตั้งค่าเป็น "ถ่ายรูปแล้ว"
+                    fieldValue = 'ถ่ายรูปแล้ว';
                 }
                 
                 if (f.type === 'textarea') {
-                    const colorClass = f.colorClass || '';
-                    html += `<textarea name="${f.id}" class="form-input ${colorClass}" rows="2"${f.readonly ? ' readonly' : ''}>${fieldValue}</textarea>`;
+                    const customClass = f.customClass || '';
+                    html += `<textarea name="${f.id}" class="form-input ${customClass}" rows="2"${f.readonly ? ' readonly' : ''}>${fieldValue}</textarea>`;
                 } else if (f.type === 'file') {
-                    // ✅ ลบบรรทัดที่ซ้ำออก ให้เหลือแค่ใน <div class="mb-3"> เท่านั้น
                     html += `<div class="mb-2">
                         <div class="mb-3">
                             <label class="form-label flex items-center gap-1">
@@ -1640,25 +1656,22 @@
                                 </svg>
                                 <span>เปิดกล้อง</span>
                             </button>
+                            <span id="filename-${f.id}" class="text-[10px] text-gray-600 mt-1 px-2 py-0.5 bg-gray-100 rounded-full hidden"></span>
                         </div>
                     </div>`;
-
                 } else if (f.type === 'select') {
-
-                    // ✅ ตรวจสอบว่ามี allowCustom หรือไม่
+                    const customClass = f.customClass || '';
                     if (f.allowCustom) {
-                        // สร้าง <input> พร้อม <datalist> ให้สามารถพิมพ์ได้
-                        const value = data[f.id] !== undefined && data[f.id] !== null && data[f.id] !== '' ? data[f.id] : (f.defaultValue !== undefined ? f.defaultValue : '');
-                        html += `<input type="text" name="${f.id}" class="form-input" list="${f.id}-options" value="${value}">`;
+                        const value = fieldValue !== undefined && fieldValue !== null && fieldValue !== '' ? fieldValue : (f.defaultValue !== undefined ? f.defaultValue : '');
+                        html += `<input type="text" name="${f.id}" class="form-input ${customClass}" list="${f.id}-options" value="${value}">`;
                         html += `<datalist id="${f.id}-options">`;
                         f.options.forEach(opt => {
                             html += `<option value="${opt}">${opt}</option>`;
                         });
                         html += `</datalist>`;
                     } else {
-                        // สร้าง <select> ธรรมดา
-                        const value = data[f.id] !== undefined && data[f.id] !== null && data[f.id] !== '' ? data[f.id] : (f.defaultValue !== undefined ? f.defaultValue : '');
-                        html += `<select name="${f.id}" class="form-input">`;
+                        const value = fieldValue !== undefined && fieldValue !== null && fieldValue !== '' ? fieldValue : (f.defaultValue !== undefined ? f.defaultValue : '');
+                        html += `<select name="${f.id}" class="form-input ${customClass}">`;
                         f.options.forEach(opt => {
                             const selected = String(value) === String(opt) ? 'selected' : '';
                             html += `<option value="${opt}" ${selected}>${opt}</option>`;
@@ -1666,9 +1679,9 @@
                         html += `</select>`;
                     }
                 } else {
-                    html += `<input type="${f.type}" name="${f.id}" class="form-input" value="${data[f.id] || ''}"${f.readonly ? ' readonly' : ''}>`;
+                    const customClass = f.customClass || '';
+                    html += `<input type="${f.type}" name="${f.id}" class="form-input ${customClass}" value="${fieldValue}"${f.readonly ? ' readonly' : ''}>`;
                 }
-                
                 html += `</div>`;
             });
             
@@ -2291,86 +2304,96 @@
             showNotificationLeft(`ดาวน์โหลด ${filename} สำเร็จ!`, 'success');
         }
 
-        async function downloadAllImagesAsZip(items, type) {
-            showNotificationLeft(`กำลังเตรียมดาวน์โหลด ${items.length} รูป...`, 'info');
+        // ============================================
+        // ดาวน์โหลดรูปทั้งหมดเป็นไฟล์เดียว (ใช้ JSZip) - เวอร์ชันแก้ไขแล้ว
+        // ============================================
+        async function downloadAllImagesAsZip() {
+            showNotificationLeft('กำลังเตรียมดาวน์โหลด...', 'info');
             
             try {
-                // โหลดไลบรารี JSZip
-                if (typeof JSZip === 'undefined') {
-                    alert('กรุณาเพิ่มไลบรารี JSZip ก่อนใช้งานฟีเจอร์นี้');
+                const galleryGrid = document.getElementById('gallery-grid');
+                if (!galleryGrid) {
+                    showNotificationLeft('❌ ไม่พบข้อมูลรูปภาพ', 'error');
                     return;
                 }
                 
-                const zip = new JSZip();
-                const folderName = type === 'building' ? 'buildings' : 'signs';
-                const folder = zip.folder(folderName);
+                const items = [];
+                const type = document.querySelector('#image-gallery-modal h3')?.innerText.includes('สิ่งปลูกสร้าง') ? 'building' : 'sign';
                 
+                galleryGrid.querySelectorAll('.relative.group').forEach((el, index) => {
+                    const img = el.querySelector('img');
+                    const url = img?.src;
+                    const codeEl = el.querySelector('p.font-bold');
+                    const codeText = codeEl?.innerText || '';
+                    const code = codeText.replace(/[^0-9]/g, '');
+                    
+                    // ✅ แก้ไข: ลบช่องว่างพิเศษในสตริงตรวจสอบ
+                    if (url && url !== 'https://via.placeholder.com/150?text=No+Image') {
+                        items.push({
+                            url: url,
+                            filename: `${type === 'building' ? 'B' : 'S'}${code || index + 1}.jpg`
+                        });
+                    }
+                });
+                
+                if (items.length === 0) {
+                    showNotificationLeft('⚠️ ไม่พบรูปภาพให้ดาวน์โหลด', 'warning');
+                    return;
+                }
+                
+                showNotificationLeft(`กำลังดาวน์โหลด ${items.length} รูป...`, 'info');
+                
+                // ✅ แก้ไข: ลบช่องว่างพิเศษใน URL JSZip
+                if (typeof JSZip === 'undefined') {
+                    await new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'; // ✅ ลบช่องว่าง
+                        script.onload = resolve;
+                        script.onerror = () => reject(new Error('Failed to load JSZip'));
+                        document.head.appendChild(script);
+                    });
+                }
+                
+                const zip = new JSZip();
+                const folder = zip.folder(type === 'building' ? 'buildings' : 'signs');
                 let successCount = 0;
-                let failCount = 0;
                 
                 for (let i = 0; i < items.length; i++) {
                     const item = items[i];
-                    const imageUrl = item.url;
-                    const baseFilename = item.filename || `image_${i + 1}`;
-                    
                     try {
-                        // ดาวน์โหลดรูปภาพเป็น Blob
-                        const response = await fetch(imageUrl);
-                        if (!response.ok) {
-                            throw new Error(`HTTP ${response.status}`);
-                        }
+                        const response = await fetch(item.url);
+                        if (!response.ok) throw new Error(`HTTP ${response.status}`);
                         
                         const blob = await response.blob();
-                        
-                        // ตรวจสอบนามสกุลไฟล์
-                        let extension = '.jpg';
-                        const contentType = blob.type;
-                        if (contentType === 'image/png') extension = '.png';
-                        else if (contentType === 'image/jpeg') extension = '.jpg';
-                        else if (contentType === 'image/gif') extension = '.gif';
-                        
-                        // ใช้ชื่อไฟล์เดิม + วันที่เวลาป้องกันชื่อซ้ำ
-                        const timestamp = Date.now();
-                        const filename = `${baseFilename}_${timestamp}${extension}`;
-                        
-                        // เพิ่มไฟล์ลงใน ZIP
-                        folder.file(filename, blob);
+                        folder.file(item.filename, blob);
                         successCount++;
                         
-                        console.log(`✅ ดาวน์โหลด ${filename} สำเร็จ (${i + 1}/${items.length})`);
-                        
+                        if ((i + 1) % 5 === 0 || i === items.length - 1) {
+                            showNotificationLeft(`กำลังดาวน์โหลด (${successCount}/${items.length})...`, 'info');
+                        }
                     } catch (err) {
-                        console.error(`❌ ดาวน์โหลดรูปที่ ${i + 1} ล้มเหลว:`, err);
-                        failCount++;
+                        console.error(`ดาวน์โหลด ${item.filename} ล้มเหลว:`, err);
                     }
-                    
-                    // อัปเดตสถานะ
-                    showNotificationLeft(`กำลังดาวน์โหลด... (${i + 1}/${items.length})`, 'info');
                 }
                 
-                // สร้างไฟล์ ZIP
-                showNotificationLeft('กำลังสร้างไฟล์ ZIP...', 'info');
+                if (successCount === 0) {
+                    showNotificationLeft('❌ ดาวน์โหลดรูปภาพล้มเหลวทั้งหมด', 'error');
+                    return;
+                }
                 
-                const content = await zip.generateAsync({
-                    type: 'blob',
-                    compression: 'DEFLATE',
-                    compressionOptions: { level: 6 }
-                });
+                const content = await zip.generateAsync({ type: 'blob' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(content);
+                link.download = `${type === 'building' ? 'buildings' : 'signs'}_${new Date().toISOString().slice(0, 10)}.zip`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(link.href);
                 
-                // ✅ แก้ไข: แยกตัวแปรให้ถูกต้อง
-                const zipFilename = `${folderName}_${new Date().toISOString().slice(0, 10)}_${items.length}_items.zip`;
-                
-                // ดาวน์โหลดไฟล์ ZIP
-                saveAs(content, zipFilename);
-                
-                showNotificationLeft(
-                    `ดาวน์โหลดสำเร็จ! (${successCount} รูป${failCount > 0 ? `, ล้มเหลว ${failCount} รูป` : ''})`,
-                    failCount > 0 ? 'warning' : 'success'
-                );
-                
+                showNotificationLeft(`✅ ดาวน์โหลดรูปภาพทั้งหมด (${successCount} รูป) เสร็จสิ้น!`, 'success');
             } catch (err) {
-                console.error('Error creating ZIP:', err);
-                showNotificationLeft('เกิดข้อผิดพลาดในการสร้างไฟล์ ZIP', 'error');
+                console.error('ข้อผิดพลาด:', err);
+                showNotificationLeft('❌ ดาวน์โหลดล้มเหลว: ' + err.message, 'error');
             }
         }
 
@@ -2582,15 +2605,13 @@
 
         // เปิดใช้งานการลากมาร์กเกอร์ในโหมดแก้ไข
         function enableMarkerDragging(marker, data) {
-            // ✅ ตรวจสอบว่ามีเมธอดที่จำเป็น
+            // ✅ ตรวจสอบว่ามีเมธอดที่จำเป็นก่อนเรียกใช้
             if (!isEditMode || !marker || !marker.on || !marker.off) return;
             
-            // เปิดใช้งานการลาก
             if (marker.dragging?.enable) {
                 marker.dragging.enable();
             }
             
-            // ผูกเหตุการณ์เมื่อลากเสร็จ
             marker.off('dragend');
             marker.on('dragend', async function(e) {
                 const newLatLng = e.target.getLatLng();
@@ -3980,102 +4001,21 @@
                     .catch(error => console.log('Service Worker registration failed:', error));
             }
         });
-        // ============================================
-        // ดาวน์โหลดรูปทั้งหมดเป็นไฟล์เดียว (ใช้ JSZip)
-        // ============================================
-        async function downloadAllImagesAsZip() {
-            showNotificationLeft('กำลังเตรียมดาวน์โหลด...', 'info');
-            
-            try {
-                // ดึงข้อมูลจากรูปที่แสดงในแกลเลอรี่ปัจจุบัน
-                const galleryGrid = document.getElementById('gallery-grid');
-                if (!galleryGrid) {
-                    showNotificationLeft('❌ ไม่พบข้อมูลรูปภาพ', 'error');
-                    return;
-                }
-                
-                const items = [];
-                const type = document.querySelector('#image-gallery-modal h3')?.innerText.includes('สิ่งปลูกสร้าง') ? 'building' : 'sign';
-                
-                // ดึงข้อมูลจากรูปทั้งหมดในแกลเลอรี่
-                galleryGrid.querySelectorAll('.relative.group').forEach((el, index) => {
-                    const img = el.querySelector('img');
-                    const url = img?.src;
-                    const codeEl = el.querySelector('p.font-bold');
-                    const codeText = codeEl?.innerText || '';
-                    const code = codeText.replace(/[^0-9]/g, '');
-                    
-                    if (url && url !== 'https://via.placeholder.com/150?text=No+Image') {
-                        items.push({
-                            url: url,
-                            filename: `${type === 'building' ? 'B' : 'S'}${code || index + 1}.jpg`
-                        });
-                    }
-                });
-                
-                if (items.length === 0) {
-                    showNotificationLeft('⚠️ ไม่พบรูปภาพให้ดาวน์โหลด', 'warning');
-                    return;
-                }
-                
-                showNotificationLeft(`กำลังดาวน์โหลด ${items.length} รูป...`, 'info');
-                
-                // โหลด JSZip (ถ้ายังไม่มี)
-                if (typeof JSZip === 'undefined') {
-                    await new Promise((resolve, reject) => {
-                        const script = document.createElement('script');
-                        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-                        script.onload = resolve;
-                        script.onerror = () => reject(new Error('Failed to load JSZip'));
-                        document.head.appendChild(script);
-                    });
-                }
-                
-                // สร้างไฟล์ ZIP
-                const zip = new JSZip();
-                const folder = zip.folder(type === 'building' ? 'buildings' : 'signs');
-                let successCount = 0;
-                
-                // ดาวน์โหลดและเพิ่มรูปในไฟล์ ZIP
-                for (let i = 0; i < items.length; i++) {
-                    const item = items[i];
-                    try {
-                        const response = await fetch(item.url);
-                        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                        
-                        const blob = await response.blob();
-                        folder.file(item.filename, blob);
-                        successCount++;
-                        
-                        if ((i + 1) % 5 === 0 || i === items.length - 1) {
-                            showNotificationLeft(`กำลังดาวน์โหลด (${successCount}/${items.length})...`, 'info');
-                        }
-                    } catch (err) {
-                        console.error(`ดาวน์โหลด ${item.filename} ล้มเหลว:`, err);
-                    }
-                }
-                
-                if (successCount === 0) {
-                    showNotificationLeft('❌ ดาวน์โหลดรูปภาพล้มเหลวทั้งหมด', 'error');
-                    return;
-                }
-                
-                // สร้างและดาวน์โหลดไฟล์ ZIP
-                const content = await zip.generateAsync({ type: 'blob' });
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(content);
-                link.download = `${type === 'building' ? 'buildings' : 'signs'}_${new Date().toISOString().slice(0, 10)}.zip`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(link.href);
-                
-                showNotificationLeft(`✅ ดาวน์โหลดรูปภาพทั้งหมด (${successCount} รูป) เสร็จสิ้น!`, 'success');
-            } catch (err) {
-                console.error('ข้อผิดพลาด:', err);
-                showNotificationLeft('❌ ดาวน์โหลดล้มเหลว: ' + err.message, 'error');
-            }
+
+        // ฟังก์ชันแสดงชื่อไฟล์ที่เลือก
+        function updateFileName(input, fieldId) {
+        const filenameSpan = document.getElementById(`filename-${fieldId}`);
+        if (!filenameSpan) return;
+        if (input.files && input.files[0]) {
+        const filename = input.files[0].name;
+        filenameSpan.textContent = filename;
+        filenameSpan.classList.remove('hidden');
+        filenameSpan.classList.add('bg-blue-100', 'text-blue-800');
+        } else {
+        filenameSpan.classList.add('hidden');
         }
+        }
+
     </script>
 </body>
 
