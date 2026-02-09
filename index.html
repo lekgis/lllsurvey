@@ -656,17 +656,15 @@
         let isUpdating = false;
         let isUploadingImage = false; // [cite: 71]
 
-        let canvasRenderer; // ✅ ประกาศตัวแปรระดับโกลบอล
-
         function initMap() {
-            // ✅ สร้าง Canvas Renderer 1 ครั้ง
-            canvasRenderer = L.canvas({ padding: 0.5 });
+            // ✅ ใช้ Canvas Renderer เป็นค่าเริ่มต้น
+            const canvasRenderer = L.canvas({ padding: 0.5 });
             
             const mapOptions = {
                 zoomControl: false,
                 attributionControl: false,
                 preferCanvas: true,
-                renderer: canvasRenderer, // ✅ ใช้ renderer เดียวกัน
+                renderer: canvasRenderer, // ✅ สำคัญมาก!
                 zoomSnap: isMobile() ? 0.5 : 1,
                 wheelDebounceTime: 40,
                 doubleClickZoom: false
@@ -1298,7 +1296,6 @@
         }
 
         // แก้ไขฟังก์ชัน updateMarkerPosition
-        // แก้ไขฟังก์ชัน updateMarkerPosition
         async function updateMarkerPosition(marker, data, newLatLng) {
             const refreshBtn = document.getElementById('btn-refresh');
             const refreshIcon = document.getElementById('refresh-icon');
@@ -1390,7 +1387,7 @@
                         }, 2000);
                         
                         showNotificationLeft('อัปเดตตำแหน่งสำเร็จ!', 'success');
-                    }, 10000); // รอ 1 วินาที
+                    }, 5000); // รอ 1 วินาที
                     
                 } else {
                     throw new Error("อัปเดตตำแหน่งไม่สำเร็จ");
@@ -3758,29 +3755,20 @@
 
         // เมื่อสร้างมาร์กเกอร์ใหม่
         function createCircleMarker(latlng, type, isDraggable = false) {
-            // ✅ ใช้ renderer เดียวกัน (ไม่สร้างใหม่ทุกครั้ง!)
-            const options = {
-                renderer: canvasRenderer, // ✅ ใช้ตัวแปรระดับโกลบอล
-                radius: isMobile() ? 6 : 8,
-                fillColor: type === 'building' ? '#f97316' : '#22c55e',
-                color: '#ffffff',
-                weight: 2,
-                opacity: 1,
-                fillOpacity: 0.9,
-                draggable: isDraggable,
-                bubblingMouseEvents: false
-            };
-            
-            const marker = L.circleMarker(latlng, options);
-            
-            marker.on('click', function(e) {
-                if (activeTool) return;
-                const marker = e.target;
-                if (marker._popupData) {
-                    setupMarkerPopup(marker, marker._popupData, type);
-                    marker.openPopup();
-                }
+            const className = type === 'building' ? 'circle-building' : 'circle-sign';
+            const icon = L.divIcon({
+                className: `circle-marker ${className}`,
+                iconSize: [14, 14],
+                iconAnchor: [7, 7]
             });
+            const marker = L.marker(latlng, {
+                icon: icon,
+                draggable: isDraggable, // ✅ ตั้งค่าให้ลากได้
+                zIndexOffset: 1000
+            });
+            
+            // เก็บข้อมูลไว้ในมาร์กเกอร์
+            marker._popupData = null;
             
             return marker;
         }
