@@ -1324,7 +1324,7 @@
             surveyLayers.eachLayer(layer => {
                 if (layer._popupData) {
                     const layerId = layer._popupData._row_num || layer._popupData.id;
-                    // ตรวจสอบว่าเป็นจุดจริง (ไม่ใช่จุดชั่วคราว) และมี _row_num เดียวกัน
+                    // ✅ ตรวจสอบว่าเป็นจุดจริง (ไม่ใช่จุดชั่วคราว)
                     if (String(layerId) === String(rowKey) && !layer._popupData.tempMarker) {
                         realMarker = layer;
                     }
@@ -2623,7 +2623,7 @@
                     if (layer._popupData && layer._popupData.tempMarker && !layer._popupData.beingMoved) {
                         tempMarkers.push({
                             latlng: layer.getLatLng(),
-                            data: layer._popupData,
+                            data: layer._popupData, // ✅ แก้ไข: เพิ่มชื่อคีย์ 'data:'
                             type: layer._popupData.type
                         });
                     }
