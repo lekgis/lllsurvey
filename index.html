@@ -1715,6 +1715,40 @@
             
             form.innerHTML = html;
             // ✅ เพิ่มหลังจาก form.innerHTML = html; ในฟังก์ชัน openEditPanel()
+            // ✅ ผูกเหตุการณ์เมื่อเลือกค่าใน 'ประเภทสิ่งปลูกสร้าง' เพื่อตั้งค่าวัสดุตามเงื่อนไขใหม่
+            if (type === 'building') {
+                const bTypeSelect = document.querySelector('select[name="b_type"]');
+                const bMatSelect = document.querySelector('select[name="b_mat"]');
+                
+                if (bTypeSelect && bMatSelect) {
+                    const updateBMat = () => {
+                        const selectedValue = bTypeSelect.value;
+                        
+                        // ✅ ตรวจสอบกรณีพิเศษก่อน (106-บ้านพักอาศัยครึ่งตึกครึ่งไม้สองชั้น)
+                        if (selectedValue === '106-บ้านพักอาศัยครึ่งตึกครึ่งไม้สองชั้น') {
+                            bMatSelect.value = 'ตึก/ไม้';
+                        } 
+                        // ✅ ตรวจสอบคำว่า "ไม้" (ไม่รวมกรณีพิเศษเพราะตรวจสอบก่อนแล้ว)
+                        else if (selectedValue.includes('ไม้')) {
+                            bMatSelect.value = 'ไม้';
+                        } 
+                        // ✅ ตรวจสอบคำว่า "ตึก" (ไม่รวมกรณีพิเศษ)
+                        else if (selectedValue.includes('ตึก')) {
+                            bMatSelect.value = 'ตึก';
+                        }
+                        // ถ้าไม่ตรงเงื่อนไขใด ๆ → คงค่าเดิม (ไม่ล้างค่า)
+                    };
+                    
+                    // ผูกเหตุการณ์เมื่อเปลี่ยนค่าใน "ประเภทสิ่งปลูกสร้าง"
+                    bTypeSelect.addEventListener('change', updateBMat);
+                    
+                    // ตั้งค่าเริ่มต้นเมื่อเปิดแผง (ใช้ข้อมูลที่มีอยู่)
+                    updateBMat();
+                    
+                    console.log('✅ ผูกเหตุการณ์ตั้งค่าวัสดุอัตโนมัติจากประเภทสิ่งปลูกสร้าง (เงื่อนไขใหม่)');
+                }
+            }
+
             // ✅ ผูกเหตุการณ์เมื่อเลือกค่าใน 'ใช้ทั้งหลัง' + อัปเดต "ชั้นที่ใช้", "พื้นที่ใช้" และ "ใช้ทั้งหลัง (2)" อัตโนมัติ
             if (type === 'building') {
                 const fullAreaSelect = document.querySelector('select[name="full_area"]');
