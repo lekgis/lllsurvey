@@ -656,7 +656,7 @@
 
     <script>
         const CONFIG = {
-            SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbx_NlwFmiw31BxckLSYI_q0Bu24YXw4XFkwrqvUz1LYvT6W0DcYkdpSIQXoysJhq4gVCQ/exec'
+            SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbyFWpmT-X62o3H_leBlJ35qLJv3I57We_DzlvcmQLwm-NcIwLM3k-GFq_namGrG8zylMw/exec'
         };
 
     // ✅ ประกาศตัวแปร Global ทั้งหมดไว้ที่นี่ที่เดียว
@@ -1021,173 +1021,147 @@
         }
 
         // ============================================
-        // ฟังก์ชันบันทึกข้อมูล (แก้ไขส่วนจัดการรูปภาพ)
+        // ฟังก์ชันบันทึกข้อมูล (แก้ไขส่วนจัดการรูปภาพ - แยกเก็บลิ้งค์และชื่อไฟล์)
         // ============================================
         async function saveSurveyData() {
+            // ✅ ตรวจสอบว่ามีฟอร์มหรือไม่
             const form = document.getElementById('survey-form');
-            const formData = new FormData(form);
+            if (!form) {
+                console.error('❌ ไม่พบฟอร์ม #survey-form');
+                showNotificationLeft('ไม่พบฟอร์มข้อมูล', 'error');
+                return;
+            }
             
-            // ดึงค่าฟอร์ม
+            // ✅ รวบรวมข้อมูลจากฟอร์ม
+            const formData = new FormData(form);
             const data = {};
+            
             for (let [key, value] of formData.entries()) {
-                // ✅ ข้ามฟิลด์ชั่วคราว (ไม่ส่งไปเซิร์ฟเวอร์)
+                // ข้ามฟิลด์ชั่วคราว
                 if (key.endsWith('_temp')) continue;
                 
                 const input = form.querySelector(`[name="${key}"]`);
                 if (input && input.type === 'checkbox') {
                     data[key] = input.checked ? 'TRUE' : 'FALSE';
                 } else if (input && input.type !== 'file') {
-                    data[key] = value;
+                    data[key] = value.trim();
                 }
             }
             
-            // ดึงพิกัด
-            data.lat_long = document.getElementById('latlng-display').innerText;
+            // ✅ ดึงพิกัดจากหน้าจอ
+            const latlngDisplay = document.getElementById('latlng-display')?.innerText;
+            if (!latlngDisplay || latlngDisplay.trim() === '') {
+                showNotificationLeft('ไม่พบพิกัดตำแหน่ง', 'error');
+                return;
+            }
+            data.lat_long = latlngDisplay.trim();
             
-            // ✅ ประกาศตัวแปร
-            const markerType = editingMarker._popupData.type;
-            const rowKey = editingMarker._popupData.id || editingMarker._popupData._row_num;
-            const existingQueueId = editingMarker._popupData.queueId;
+            // ✅ ตรวจสอบประเภท (รองรับทั้งเพิ่มและแก้ไข)
+            let markerType;
+            let rowKey = null;
+            let action = 'quickAdd';
             
-            // ✅ ตรวจสอบ
-            if (!rowKey && !existingQueueId) {
-                alert("ไม่พบข้อมูลสำหรับอัปเดต");
+            if (editingMarker && editingMarker._popupData) {
+                // กำลังแก้ไขจุดเดิม
+                markerType = editingMarker._popupData.type || (editingMarker._popupData.building_c ? 'building' : 'sign');
+                rowKey = editingMarker._popupData.id || editingMarker._popupData._row_num;
+                action = 'update';
+            } else {
+                // กำลังเพิ่มจุดใหม่
+                markerType = document.getElementById('marker-type')?.value || 'building';
+            }
+            
+            // ✅ ตรวจสอบประเภท
+            if (!markerType || !['building', 'sign'].includes(markerType)) {
+                showNotificationLeft('ไม่พบประเภทข้อมูล', 'error');
                 return;
             }
             
             // ============================================
-            // จัดการรูปภาพ - ตั้งชื่อไฟล์อัตโนมัติ
+            // จัดการรูปภาพ - ตั้งชื่อไฟล์อัตโนมัติ + บันทึกลง IndexedDB
             // ============================================
-            let imageFilename = null;
             let imageBase64 = null;
+            let fileNameParam = null;
+            
             const fileInput = form.querySelector('input[type="file"]');
-
             if (fileInput && fileInput.files[0]) {
                 const file = fileInput.files[0];
                 const maxSize = markerType === 'building' ? 1500 : 2000;
                 
-                // ✅ ตั้งชื่อไฟล์อัตโนมัติจากข้อมูลในฟอร์ม
+                // ✅ ตั้งชื่อไฟล์อัตโนมัติ
                 const prefix = markerType === 'building' ? 'B' : 'S';
                 const code = data.building_c || data.s_code || Date.now().toString().slice(-5);
-                const extension = file.name.split('.').pop().toLowerCase();
+                const extension = file.name.split('.').pop().toLowerCase() || 'jpg';
+                fileNameParam = `${prefix}${code}.${extension}`; // เช่น B12345.jpg
                 
-                // ✅ ชื่อไฟล์แบบมาตรฐาน: B00854.jpg หรือ S12345.jpg
-                imageFilename = `${prefix}${code}.${extension}`;
-                
-                // ฟังก์ชันปรับขนาดรูปภาพ (โค้ดเดิม)
-                const resizeImage = (file, maxWidth = maxSize, maxHeight = maxSize) => {
-                    return new Promise((resolve, reject) => {
-                        const reader = new FileReader();
-                        reader.onload = (e) => {
-                            const img = new Image();
-                            img.onload = () => {
-                                let width = img.width;
-                                let height = img.height;
-                                
-                                if (width > height) {
-                                    if (width > maxWidth) {
-                                        height = Math.round(height * maxWidth / width);
-                                        width = maxWidth;
-                                    }
-                                } else {
-                                    if (height > maxHeight) {
-                                        width = Math.round(width * maxHeight / height);
-                                        height = maxHeight;
-                                    }
-                                }
-                                
-                                const canvas = document.createElement('canvas');
-                                canvas.width = width;
-                                canvas.height = height;
-                                const ctx = canvas.getContext('2d');
-                                ctx.drawImage(img, 0, 0, width, height);
-                                
-                                resolve(canvas.toDataURL(file.type, 0.85));
-                            };
-                            img.onerror = reject;
-                            img.src = e.target.result;
-                        };
-                        reader.onerror = reject;
-                        reader.readAsDataURL(file);
-                    });
-                };
-                
+                // ✅ ปรับขนาดรูปภาพ
                 try {
-                    let imageDataUrl = await resizeImage(file, maxSize, maxSize);
-                    const base64Data = imageDataUrl.split(',')[1];
+                    const resizedImage = await resizeImage(file, maxSize, maxSize);
+                    const base64Data = resizedImage.split(',')[1];
                     imageBase64 = `${file.type};base64,${base64Data}`;
                     
-                    // ✅ บันทึกรูปภาพลง IndexedDB
-                    await saveImageToDB(imageBase64, imageFilename, rowKey, markerType);
-                    console.log(`✅ รูปภาพบันทึกใน IndexedDB: ${imageFilename}`);
+                    // ✅ บันทึกรูปภาพลงใน IndexedDB (สร้างคิวรูป)
+                    await saveImageToDB(imageBase64, fileNameParam, rowKey || Date.now(), markerType);
+                    console.log(`✅ รูปภาพบันทึกใน IndexedDB: ${fileNameParam}`);
+                    
+                    // ✅ เก็บชื่อไฟล์ในข้อมูล (สำหรับคอลั่มน์ 'picture')
+                    data.picture = fileNameParam;
                 } catch (err) {
                     console.error('Error resizing image:', err);
-                    // Fallback: บันทึกโดยไม่ปรับขนาด
+                    // Fallback: ใช้รูปภาพต้นฉบับ
                     try {
                         const arrayBuffer = await file.arrayBuffer();
                         const bytes = [...new Uint8Array(arrayBuffer)];
                         const binary = bytes.map(b => String.fromCharCode(b)).join('');
                         imageBase64 = `${file.type};base64,${btoa(binary)}`;
                         
-                        await saveImageToDB(imageBase64, imageFilename, rowKey, markerType);
-                        console.log(`⚠️ รูปภาพบันทึกแบบไม่ปรับขนาด: ${imageFilename}`);
+                        await saveImageToDB(imageBase64, fileNameParam, rowKey || Date.now(), markerType);
+                        console.log(`⚠️ รูปภาพบันทึกแบบไม่ปรับขนาด: ${fileNameParam}`);
+                        data.picture = fileNameParam;
                     } catch (fallbackErr) {
                         console.error('Fallback failed:', fallbackErr);
                         showNotificationLeft('⚠️ ไม่สามารถบันทึกรูปภาพได้', 'warning');
                     }
                 }
             }
-
-            // เพิ่มข้อมูลรูปภาพลงในข้อมูลคิว
-            if (imageFilename && imageBase64) {
-                data.imageFilename = imageFilename; // ✅ ชื่อไฟล์ที่ตั้งไว้แล้ว
-                data.hasImage = true;
-            }
             
-            // ✅ ตรวจสอบว่าเป็นจุดชั่วคราวหรือจุดจริง
-            let finalQueueId;
-            if (existingQueueId) {
-                // ✅ เป็นจุดชั่วคราว - อัปเดตรายการเดิมในคิว
-                const existingQueueItem = syncQueue.find(q => q.id === existingQueueId);
-                if (existingQueueItem) {
-                    // อัปเดตข้อมูลในคิวเดิม
-                    existingQueueItem.data = { ...existingQueueItem.data, ...data };
-                    existingQueueItem.timestamp = new Date().toISOString();
-                    saveSyncQueueToStorage();
-                    finalQueueId = existingQueueId;
-                    console.log(`อัปเดตข้อมูลในคิวเดิม: ${existingQueueId}`);
-                } else {
-                    // ไม่พบคิวเดิม สร้างใหม่
-                    finalQueueId = addToSyncQueue('update', markerType, data, rowKey);
-                }
-            } else {
-                // ✅ เป็นจุดจริง - สร้างคิวใหม่ตามปกติ
-                finalQueueId = addToSyncQueue('update', markerType, data, rowKey);
-            }
+            // ============================================
+            // สร้างคิวสำหรับอัปโหลดข้อมูล
+            // ============================================
+            const queueId = addToSyncQueue(action, markerType, data, rowKey, imageBase64, fileNameParam);
+            console.log(`✅ สร้างคิวสำเร็จ: ${queueId} (${action})`);
             
+            // ============================================
             // อัปเดตข้อมูลในมาร์กเกอร์ทันที (แสดงผลทันที)
-            editingMarker._popupData = {
-                ...editingMarker._popupData,
-                ...data,
-                queued: true,
-                queueId: finalQueueId
-            };
+            // ============================================
+            if (editingMarker) {
+                editingMarker._popupData = {
+                    ...editingMarker._popupData,
+                    ...data,
+                    queued: true,
+                    queueId: queueId
+                };
+                setupMarkerPopup(editingMarker, editingMarker._popupData, markerType);
+            }
             
-            setupMarkerPopup(editingMarker, editingMarker._popupData, markerType);
-            
-            // ปิดหน้าต่าง
+            // ============================================
+            // ปิดแผงและแสดงแจ้งเตือน
+            // ============================================
             closePanel();
+            const actionText = action === 'update' ? 'อัปเดตข้อมูลเรียบร้อยแล้ว!' : 'บันทึกข้อมูลเรียบร้อยแล้ว!';
+            showNotificationLeft(`${actionText} (รออัปโหลด)`, 'success');
             
-            // แสดงแจ้งเตือน
-            showNotificationLeft('บันทึกข้อมูลเรียบร้อยแล้ว! (รออัปโหลด)', 'success');
+            // ============================================
+            // เริ่มกระบวนการซิงค์ทันที (ถ้าออนไลน์)
+            // ============================================
+            if (isOnline && navigator.onLine) {
+                setTimeout(() => {
+                    console.log('🔄 เริ่มซิงค์คิวข้อมูล...');
+                    processSyncQueue();
+                }, 300);
+            }
             
-            // ✅ เริ่มกระบวนการซิงค์ทันที
-            setTimeout(() => {
-                console.log('🔄 เริ่มซิงค์คิวข้อมูล...');
-                processSyncQueue();
-            }, 500);
-            
-            return { queued: true, queueId: finalQueueId };
+            console.log('✅ บันทึกข้อมูลเสร็จสิ้น');
         }
 
         async function processDataSyncQueue() {
@@ -1643,35 +1617,40 @@
                     html += `<label class="form-label">${f.label}</label>`;
                 }
                 
-                // ✅ ตรวจสอบฟิลด์ "สถานะการตรวจสอบ" และตั้งค่าอัตโนมัติถ้ามีรูปภาพ (แต่ไม่ทับถ้าเป็น 'ตรวจสอบแล้ว')
+                // ✅ ตรวจสอบฟิลด์ "สถานะการตรวจสอบ" และตั้งค่าอัตโนมัติถ้ามีชื่อรูปภาพในคอลั่มน์ 'picture' (แต่ไม่ทับถ้าเป็น 'ตรวจสอบแล้ว')
                 let fieldValue = data[f.id] || '';
                 if (f.id === 'check') {
-                    // ⚠️ ถ้าสถานะปัจจุบันคือ 'ตรวจสอบแล้ว' → คงค่าไว้ทันที (ไม่ตรวจสอบรูปภาพ)
+                    // ⚠️ ถ้าสถานะปัจจุบันคือ 'ตรวจสอบแล้ว' → คงค่าไว้ทันที (สถานะสูงสุด ไม่ย้อนกลับ)
                     if (fieldValue === 'ตรวจสอบแล้ว') {
                         // ไม่ทำอะไร → คงค่า 'ตรวจสอบแล้ว' ไว้
                     } 
-                    // ✅ ถ้าไม่ใช่ 'ตรวจสอบแล้ว' และมีรูปภาพ → ตั้งค่าเป็น 'ถ่ายรูปแล้ว'
-                    else if (type === 'building' && data.image && data.image.trim() !== '') {
-                        fieldValue = 'ถ่ายรูปแล้ว';
-                    } 
-                    else if (type === 'sign' && data.picture && data.picture.trim() !== '') {
+                    // ✅ ถ้าไม่ใช่ 'ตรวจสอบแล้ว' และมีชื่อรูปภาพในคอลั่มน์ 'picture' → ตั้งค่าเป็น 'ถ่ายรูปแล้ว'
+                    else if (data.picture && data.picture.trim() !== '') {
                         fieldValue = 'ถ่ายรูปแล้ว';
                     }
-                    // ถ้าไม่มีรูปภาพและไม่ใช่ 'ตรวจสอบแล้ว' → คงค่าเดิม (เช่น 'ยังไม่สำรวจ' หรือค่าว่าง)
+                    // ถ้าไม่มีชื่อรูปภาพและไม่ใช่ 'ตรวจสอบแล้ว' → คงค่าเดิม (เช่น 'ยังไม่สำรวจ' หรือค่าว่าง)
                 }
                 
                 if (f.type === 'textarea') {
                     const customClass = f.customClass || '';
                     html += `<textarea name="${f.id}" class="form-input ${customClass}" rows="2"${f.readonly ? ' readonly' : ''}>${fieldValue}</textarea>`;
                 } else if (f.type === 'file') {
+                    // ✅ ดึงชื่อไฟล์จากคอลั่มน์ 'picture' แทน 'image'
+                    let fileName = '';
+                    if (type === 'building') {
+                        fileName = data.picture || data.image?.split('/').pop()?.split('?')[0] || 'ยังไม่มีรูปภาพ';
+                    } else if (type === 'sign') {
+                        fileName = data.picture || data.image?.split('/').pop()?.split('?')[0] || 'ยังไม่มีรูปภาพ';
+                    }
+                    
                     html += `<div class="mb-2">
                         <div class="mb-3">
                             <label class="form-label flex items-center gap-1">
                                 <i data-lucide="camera" class="w-3 h-3"></i>
                                 ${f.label}
                             </label>
-                            <input type="file" name="${f.id}" accept="image/*" capture="environment" class="hidden">
-                            <button type="button" onclick="this.previousElementSibling.click()" 
+                            <input type="file" name="${f.id}" accept="image/*" capture="environment" class="hidden" id="file-input-${f.id}">
+                            <button type="button" onclick="document.getElementById('file-input-${f.id}').click()" 
                                 class="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2 px-2 rounded-md font-semibold text-sm shadow-sm hover:from-blue-600 hover:to-blue-700 transition-all flex items-center justify-center gap-1">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M14.5 4h-4L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-3.5-3z"></path>
@@ -1680,7 +1659,14 @@
                                 </svg>
                                 <span>เปิดกล้อง</span>
                             </button>
-                            <span id="filename-${f.id}" class="text-[10px] text-gray-600 mt-1 px-2 py-0.5 bg-gray-100 rounded-full hidden"></span>
+                            
+                            <!-- ✅ ป้ายแสดงชื่อรูปภาพ (ใช้ชื่อไฟล์จาก 'picture') -->
+                            <div id="filename-container-${f.id}" class="mt-1.5">
+                                <span id="filename-badge-${f.id}" class="text-[10px] text-blue-600 font-medium px-2 py-0.5 bg-blue-50 rounded-full inline-flex items-center gap-1">
+                                    <i data-lucide="image" class="w-3 h-3"></i>
+                                    <span id="filename-text-${f.id}">${fileName}</span>
+                                </span>
+                            </div>
                         </div>
                     </div>`;
                 } else if (f.type === 'select') {
@@ -1715,6 +1701,39 @@
             
             form.innerHTML = html;
             // ✅ เพิ่มหลังจาก form.innerHTML = html; ในฟังก์ชัน openEditPanel()
+            // ✅ วางโค้ดผูกเหตุการณ์ที่นี่ (หลัง form.innerHTML)
+            // ✅ ผูกเหตุการณ์อัปเดตชื่อรูปภาพเมื่อเลือกไฟล์ใหม่ (วางหลัง form.innerHTML = html;)
+            // ✅ ผูกเหตุการณ์อัปเดตชื่อรูปภาพ + สถานะการตรวจสอบเมื่อเลือกไฟล์ใหม่
+            const fileInputs = form.querySelectorAll('input[type="file"]');
+            fileInputs.forEach(input => {
+                input.addEventListener('change', (e) => {
+                    const fileId = input.id.replace('file-input-', '');
+                    const fileNameBadge = document.getElementById(`filename-text-${fileId}`);
+                    const checkSelect = form.querySelector('select[name="check"]'); // ดึงฟิลด์สถานะ
+                    
+                    if (e.target.files.length > 0) {
+                        // สร้างชื่อไฟล์ใหม่
+                        const file = e.target.files[0];
+                        const prefix = type === 'building' ? 'B' : 'S';
+                        const code = data.building_c || data.s_code || Date.now().toString().slice(-5);
+                        const extension = file.name.split('.').pop().toLowerCase();
+                        const fileName = `${prefix}${code}.${extension}`;
+                        
+                        // ✅ อัปเดตป้ายชื่อรูปภาพ
+                        fileNameBadge.textContent = fileName;
+                        
+                        // ✅ อัปเดตสถานะการตรวจสอบทันที (ถ้าเป็น "ยังไม่สำรวจ")
+                        if (checkSelect && checkSelect.value === 'ยังไม่สำรวจ') {
+                            checkSelect.value = 'ถ่ายรูปแล้ว';
+                            console.log('✅ สถานะเปลี่ยนเป็น: ถ่ายรูปแล้ว');
+                        }
+                        // ⚠️ ถ้าเป็น "ตรวจสอบแล้ว" → ไม่ทำอะไร (คงค่าเดิม)
+                    } else {
+                        fileNameBadge.textContent = 'ยังไม่มีรูปภาพ';
+                    }
+                });
+            });
+
             // ✅ ผูกเหตุการณ์เมื่อเลือกค่าใน 'ประเภทสิ่งปลูกสร้าง' เพื่อตั้งค่าวัสดุตามเงื่อนไขใหม่
             if (type === 'building') {
                 const bTypeSelect = document.querySelector('select[name="b_type"]');
@@ -4002,53 +4021,6 @@
             
             return marker;
         }
-
-        /**
-         * คำแนะนำเพิ่มเติมเพื่อ "ฆ่า" ปัญหาจุดเบิ้ลถาวร:
-         * ในไฟล์หลักของคุณ ตรงส่วน map.on('click', ...) ให้ใส่เงื่อนไขเช็คไว้ด้วยครับ:
-         * * map.on('click', function(e) {
-         * if (!activeTool) return; // ถ้าไม่ได้เลือกเครื่องมือปักจุด "ห้ามทำอะไรทั้งสิ้น"
-         * // ... logic ปักจุดของคุณ ...
-         * });
-         */
-
-        /**
-         * หมายเหตุสำหรับการป้องกันจุดซ้ำ (Double Entry):
-         * นอกจากการดักที่ Marker แล้ว ในส่วนที่ map.on('click', ...) 
-         * คุณควรเช็คเงื่อนไขเพิ่มดังนี้:
-         * * map.on('click', function(e) {
-         * if (activeTool === null) return; // ถ้าไม่ได้เลือกเครื่องมือปักจุด ก็ห้ามบันทึก
-         * // ... logic บันทึกข้อมูล ...
-         * });
-         */
-
-        /**
-         * คำแนะนำเพิ่มเติมสำหรับแก้ปัญหา "อัปโหลดรูปซ้ำซ้อนทั้งที่ไม่ได้ถ่าย"
-         * ให้คุณไปตรวจสอบฟังก์ชัน saveSurveyData() ในไฟล์หลัก และปรับเงื่อนไขดังนี้:
-         */
-
-        /* // ตัวอย่างตรรกะที่ควรมีในฟังก์ชันบันทึกข้อมูล:
-
-        async function saveSurveyData() {
-            if (isSaving) return; // ป้องกันการกดซ้ำซ้อน
-            
-            // ตรวจสอบ Input รูปภาพ
-            const photoInput = document.getElementById('photo-input');
-            const hasPhoto = photoInput && photoInput.files && photoInput.files.length > 0;
-            
-            // ถ้าไม่มีรูป ห้ามเรียกฟังก์ชันที่เกี่ยวกับการอัปโหลดรูปเข้า Google Drive
-            // ให้ส่งแค่ข้อมูล Text ไปยัง Google Sheets เท่านั้น
-            
-            if (!hasPhoto) {
-                console.log("บันทึกเฉพาะข้อมูล: ไม่มีรูปภาพ");
-                // เรียกฟังก์ชันส่งเฉพาะ Data (ไม่ต้องมีรูป)
-                await sendDataOnly(surveyData);
-            } else {
-                // ถ้ามีรูปค่อยเรียก backgroundUpload()
-                await backgroundUpload(surveyData);
-            }
-        }
-        */
 
         // ============================================
         // ดาวน์โหลดรูปทั้งหมดจากสเปรดชีต
