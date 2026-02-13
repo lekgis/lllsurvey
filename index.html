@@ -679,6 +679,27 @@
         </div>
     </div>
 
+    <!-- องค์ประกอบแสดงรูปภาพ (มีขนาดและตำแหน่งเดียวกับตาราง) -->
+    <div id="image-preview-container" class="data-table-panel" style="display: none; z-index: 1004; bottom: 5px; transform: translateY(0);">
+        <div class="table-header" style="background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);">
+            <div class="flex items-center justify-between w-full">
+                <div class="flex items-center gap-2">
+                    <h3 class="font-bold text-white text-sm">รูปภาพ</h3>
+                </div>
+                <!-- ✅ ปุ่มปิดหน้าต่างรูปภาพ -->
+                <button onclick="hideImagePreview()" class="p-2 hover:bg-white/20 rounded-full transition">
+                    <i data-lucide="x" class="w-5 h-5 text-white"></i>
+                </button>
+            </div>
+        </div>
+        <div class="table-content flex items-center justify-center p-4">
+            <img id="image-preview" src="" alt="รูปภาพ" class="max-w-full max-h-full object-contain hidden">
+            <div id="image-preview-placeholder" class="text-gray-300 text-sm">
+                คลิกที่ชื่อรูปภาพในแผงข้อมูลเพื่อดูรูปใหญ่
+            </div>
+        </div>
+    </div>
+
     <!-- หน้าต่างกรอกข้อมูล -->
     <div id="side-panel" class="side-panel fixed top-0 right-0 w-[44vw] sm:w-[280px] h-full z-[1002] shadow-2xl flex flex-col">
         <div class="p-4 border-b flex justify-between items-center bg-gray-50">
@@ -1809,7 +1830,9 @@
                         fileName = data.picture || data.image?.split('/').pop()?.split('?')[0] || 'ยังไม่มีรูปภาพ';
                     }
                     
-                    html += `<div class="mb-2">
+                    // ✅ แทนที่โค้ดเดิม (ประมาณบรรทัด 1800-1820) ด้วยโค้ดนี้
+                    html += `
+                    <div class="mb-2">
                         <div class="mb-3">
                             <label class="form-label flex items-center gap-1">
                                 <i data-lucide="camera" class="w-3 h-3"></i>
@@ -1826,9 +1849,11 @@
                                 <span>เปิดกล้อง</span>
                             </button>
                             
-                            <!-- ✅ ป้ายแสดงชื่อรูปภาพ (ใช้ชื่อไฟล์จาก 'picture') -->
+                            <!-- ✅ ป้ายแสดงชื่อรูปภาพที่คลิกได้ -->
                             <div id="filename-container-${f.id}" class="mt-1.5">
-                                <span id="filename-badge-${f.id}" class="text-[10px] text-blue-600 font-medium px-2 py-0.5 bg-blue-50 rounded-full inline-flex items-center gap-1">
+                                <span id="filename-badge-${f.id}" 
+                                    class="text-[10px] text-blue-600 font-medium px-2 py-0.5 bg-blue-50 rounded-full inline-flex items-center gap-1 cursor-pointer hover:bg-blue-100 transition"
+                                    onclick="handleImageBadgeClick('${data.image || ''}', '${data.picture || 'ไม่มีชื่อรูปภาพ'}')">
                                     <i data-lucide="image" class="w-3 h-3"></i>
                                     <span id="filename-text-${f.id}">${fileName}</span>
                                 </span>
@@ -2197,11 +2222,38 @@
                     updateSCharacte();
                 }
             }
+
+            // ✅ ตรวจสอบว่าหน้าต่างรูปภาพเปิดอยู่หรือไม่ → อัปเดตรูปภาพอัตโนมัติ
+            const imagePreviewContainer = document.getElementById('image-preview-container');
+            if (imagePreviewContainer && imagePreviewContainer.style.display === 'flex') {
+                console.log('🖼️ หน้าต่างรูปภาพเปิดอยู่ → อัปเดตรูปภาพใหม่');
+                if (data.image && data.image.trim() !== '') {
+                    showImagePreview(data.image, data.picture || 'รูปภาพ');
+                } else {
+                    // ถ้าไม่มีรูปภาพ → แสดงข้อความในหน้าต่างรูปภาพแทนการซ่อน
+                    const placeholder = document.getElementById('image-preview-placeholder');
+                    const img = document.getElementById('image-preview');
+                    if (placeholder && img) {
+                        img.classList.add('hidden');
+                        placeholder.textContent = '⚠️ รายการนี้ยังไม่มีรูปภาพ';
+                        placeholder.classList.remove('text-gray-300');
+                        placeholder.classList.add('text-yellow-500', 'font-medium');
+                    }
+                }
+            }
+
             document.getElementById('side-panel').classList.add('open');
             marker.closePopup();
         }
 
-        function closePanel() { document.getElementById('side-panel').classList.remove('open'); }
+        function closePanel() {
+            const panel = document.getElementById('side-panel');
+            if (panel) {
+                panel.classList.remove('open');
+            }
+            // ✅ ซ่อนรูปภาพเมื่อปิดแผง (ยังคงต้องการ)
+            hideImagePreview();
+        }
 
         function locateUser() { 
             map.locate({setView: true, maxZoom: 18}); 
@@ -2281,14 +2333,23 @@
         // ฟังก์ชันสำหรับแสดง/ซ่อนตาราง
         function toggleTable() {
             const panel = document.getElementById('data-table-panel');
+            const imagePreview = document.getElementById('image-preview-container');
             const btn = document.getElementById('btn-show-table');
-            const icon = document.getElementById('table-icon');
             
             panel.classList.toggle('open');
             
+            // ✅ จัดการตำแหน่งองค์ประกอบแสดงรูปภาพตามสถานะของตาราง
             if (panel.classList.contains('open')) {
+                // เปิดตาราง → ย้ายรูปภาพขึ้นเหนือตาราง
+                if (imagePreview && imagePreview.style.display !== 'none') {
+                    imagePreview.style.bottom = `calc(5px + 45vh + 10px)`;
+                }
                 btn.innerHTML = '<i data-lucide="x" class="w-6 h-6 text-red-600"></i>';
             } else {
+                // ปิดตาราง → ย้ายรูปภาพกลับมาที่ตำแหน่งเดิม (แทนที่ตาราง)
+                if (imagePreview && imagePreview.style.display !== 'none') {
+                    imagePreview.style.bottom = '5px';
+                }
                 btn.innerHTML = '<i data-lucide="table" class="w-6 h-6 text-blue-600"></i>';
             }
             
@@ -4525,6 +4586,75 @@
             // เพิ่มมาร์กเกอร์ลงในคลัสเตอร์แทนการเพิ่มลงแผนที่โดยตรง
             markerCluster.addTo(map);
         }
+
+        // แสดงรูปภาพในองค์ประกอบแสดงผล
+        function showImagePreview(imageUrl, fileName) {
+            const container = document.getElementById('image-preview-container');
+            const img = document.getElementById('image-preview');
+            const placeholder = document.getElementById('image-preview-placeholder');
+            
+            if (!imageUrl || !imageUrl.trim()) {
+                hideImagePreview();
+                return;
+            }
+            
+            // ✅ แสดงองค์ประกอบ
+            container.style.display = 'flex';
+            
+            // โหลดรูปภาพ
+            img.src = imageUrl;
+            img.alt = fileName || 'รูปภาพ';
+            img.classList.remove('hidden');
+            placeholder.classList.add('hidden');
+            
+            // จัดการกรณีโหลดรูปภาพล้มเหลว
+            img.onerror = () => {
+                img.classList.add('hidden');
+                placeholder.textContent = '❌ ไม่สามารถโหลดรูปภาพได้';
+                placeholder.classList.remove('hidden');
+                placeholder.classList.add('text-red-400');
+            };
+            
+            // ✅ ปรับตำแหน่งตามสถานะของตาราง
+            const tablePanel = document.getElementById('data-table-panel');
+            if (tablePanel && tablePanel.classList.contains('open')) {
+                container.style.bottom = `calc(5px + 45vh + 10px)`;
+            } else {
+                container.style.bottom = '5px';
+            }
+            
+            // ✅ สร้างไอคอน Lucide สำหรับปุ่มปิด
+            lucide.createIcons();
+        }
+
+        // ซ่อนองค์ประกอบแสดงรูปภาพ
+        function hideImagePreview() {
+            const container = document.getElementById('image-preview-container');
+            if (container) {
+                container.style.display = 'none';
+            }
+        }
+
+        // จัดการการคลิกที่ป้ายชื่อรูปภาพ
+        function handleImageBadgeClick(imageUrl, fileName) {
+            if (!imageUrl || imageUrl.trim() === '') {
+                showNotificationLeft('ไม่มีรูปภาพให้แสดง', 'warning');
+                return;
+            }
+            
+            // แสดงรูปภาพในองค์ประกอบแสดงผล
+            showImagePreview(imageUrl, fileName);
+        }
+
+        function closePanel() {
+            const panel = document.getElementById('side-panel');
+            if (panel) {
+                panel.classList.remove('open');
+            }
+            // ✅ ซ่อนรูปภาพแสดงผลเมื่อปิดแผง
+            hideImagePreview();
+        }
+
 
         // เมื่อสร้างมาร์กเกอร์ใหม่
         function createCircleMarker(latlng, type, isDraggable = false) {
