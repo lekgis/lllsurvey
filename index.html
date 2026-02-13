@@ -1128,18 +1128,48 @@
             data.land_use = computedLandUse;
             console.log('✅ คำนวณค่า land_use ใหม่ก่อนบันทึก:', data.land_use || '(ว่าง)');
 
-            // ✅ ดึงพิกัด (วางต่อจากโค้ดด้านบน)
-            const latlngDisplay = document.getElementById('latlng-display')?.innerText;
-            if (!latlngDisplay || latlngDisplay.trim() === '') {
-                showNotificationLeft('ไม่พบพิกัดตำแหน่ง', 'error');
+            // ✅ ดึงพิกัดจากหลายแหล่ง (สำคัญที่สุด!)
+            let latLongValue = '';
+
+            // ลองดึงจากฟิลด์ซ่อนในฟอร์มก่อน (สำคัญที่สุด!)
+            const latLongInput = form.querySelector('input[name="lat_long"]');
+            if (latLongInput && latLongInput.value.trim() !== '') {
+                latLongValue = latLongInput.value.trim();
+                console.log('📍 พิกัดจากฟิลด์ซ่อน:', latLongValue);
+            }
+
+            // ถ้าไม่มีในฟิลด์ซ่อน ให้ลองดึงจาก #latlng-display
+            if (!latLongValue) {
+                const latlngDisplay = document.getElementById('latlng-display')?.innerText;
+                if (latlngDisplay && latlngDisplay.trim() !== '' && latlngDisplay !== 'กำลังโหลด...') {
+                    latLongValue = latlngDisplay.trim();
+                    console.log('📍 พิกัดจาก #latlng-display:', latLongValue);
+                }
+            }
+
+            // ถ้ายังไม่มี ให้ดึงจากมาร์กเกอร์ที่กำลังแก้ไข
+            if (!latLongValue && editingMarker && editingMarker._popupData) {
+                latLongValue = editingMarker._popupData.lat_long || '';
+                console.log('📍 พิกัดจาก _popupData:', latLongValue);
+            }
+
+            // ตรวจสอบว่าได้พิกัดหรือไม่
+            if (!latLongValue || latLongValue.trim() === '') {
+                showNotificationLeft('❌ ไม่พบพิกัดตำแหน่ง กรุณาตรวจสอบอีกครั้ง', 'error');
+                console.error('❌ ไม่พบพิกัดในทุกแหล่งที่พยายามดึง');
+                console.log('- ฟิลด์ซ่อน:', latLongInput?.value);
+                console.log('- #latlng-display:', document.getElementById('latlng-display')?.innerText);
+                console.log('- editingMarker._popupData:', editingMarker?._popupData);
                 return;
             }
-            data.lat_long = latlngDisplay.trim();
+
+            data.lat_long = latLongValue;
+            console.log('✅ ใช้พิกัด:', data.lat_long);
             
-            // ✅ ตรวจสอบประเภทและ rowKey
+            // ✅ ตรวจสอบประเภทและกำหนดรหัสอัตโนมัติ
             let markerType;
             let rowKey = null;
-            let action = 'quickAdd';
+            let action = 'add';
             
             if (editingMarker && editingMarker._popupData) {
                 markerType = editingMarker._popupData.type || (editingMarker._popupData.building_c ? 'building' : 'sign');
@@ -1147,13 +1177,49 @@
                 action = 'update';
             } else {
                 markerType = document.getElementById('marker-type')?.value || 'building';
+                action = 'add';
             }
             
             if (!markerType || !['building', 'sign'].includes(markerType)) {
                 showNotificationLeft('ไม่พบประเภทข้อมูล', 'error');
                 return;
             }
-            
+
+            // ============================================
+            // ✅ กำหนดรหัสอัตโนมัติถ้าไม่มี (สำคัญมาก!)
+            // ============================================
+            if (markerType === 'building') {
+                // ตรวจสอบว่ามีรหัสสิ่งปลูกสร้างหรือไม่
+                if (!data.building_c || data.building_c.trim() === '') {
+                    // สร้างรหัสสิ่งปลูกสร้างอัตโนมัติ (เช่น B001, B002, ...)
+                    const existingCodes = allBuildings.map(b => b.building_c).filter(c => c);
+                    let maxNum = 0;
+                    existingCodes.forEach(code => {
+                        const match = code.match(/^B(\d+)$/);
+                        if (match) {
+                            maxNum = Math.max(maxNum, parseInt(match[1]));
+                        }
+                    });
+                    data.building_c = `B${String(maxNum + 1).padStart(3, '0')}`;
+                    console.log(`🏷️ สร้างรหัสสิ่งปลูกสร้างอัตโนมัติ: ${data.building_c}`);
+                }
+            } else if (markerType === 'sign') {
+                // ตรวจสอบว่ามีรหัสป้ายหรือไม่
+                if (!data.s_code || data.s_code.trim() === '') {
+                    // สร้างรหัสป้ายอัตโนมัติ (เช่น S001, S002, ...)
+                    const existingCodes = allSigns.map(s => s.s_code).filter(c => c);
+                    let maxNum = 0;
+                    existingCodes.forEach(code => {
+                        const match = code.match(/^S(\d+)$/);
+                        if (match) {
+                            maxNum = Math.max(maxNum, parseInt(match[1]));
+                        }
+                    });
+                    data.s_code = `S${String(maxNum + 1).padStart(3, '0')}`;
+                    console.log(`🏷️ สร้างรหัสป้ายอัตโนมัติ: ${data.s_code}`);
+                }
+            }
+
             // ============================================
             // ✅ จัดการรูปภาพ: เฉพาะเมื่อมีการเลือกไฟล์ใหม่เท่านั้น
             // ============================================
@@ -1704,7 +1770,10 @@
             const fields = type === 'building' ? buildingFields : signFields;
 
     // ✅ เพิ่มฟิลด์ประเภทมาร์กเกอร์เป็นบรรทัดแรกของฟอร์ม
-            let html = `<input type="hidden" id="marker-type" name="marker-type" value="${type}">`;
+            let html = `
+                <input type="hidden" id="marker-type" name="marker-type" value="${type}">
+                <input type="hidden" name="lat_long" value="${data.lat_long || ''}">
+            `;
             fields.forEach(f => {
                 html += `<div class="mb-2">`;
                 
