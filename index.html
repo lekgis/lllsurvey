@@ -4587,6 +4587,59 @@
             markerCluster.addTo(map);
         }
 
+        // แปลงลิงก์ Google Drive เป็นลิงก์썸เนลที่ใช้ได้กับ <img> (วิธีที่ใช้งานได้จริง)
+        function convertDriveUrlToDirect(url) {
+            if (!url) return url;
+            url = url.trim();
+            
+            // ✅ กรณีที่เป็นลิงก์썸เนลแล้ว → คืนค่าเดิม
+            if (url.includes('drive.google.com/thumbnail')) {
+                return url;
+            }
+            
+            // ✅ กรณีที่เป็นลิงก์ตรงจาก Googleusercontent → คืนค่าเดิม
+            if (url.includes('googleusercontent.com')) {
+                return url;
+            }
+            
+            // ✅ ดึง FILE_ID จากลิงก์รูปแบบต่างๆ
+            let fileId = '';
+            
+            // รูปแบบที่ 1: /file/d/FILE_ID/view
+            const pattern1 = /\/file\/d\/([a-zA-Z0-9_-]+)/;
+            const match1 = url.match(pattern1);
+            if (match1 && match1[1]) {
+                fileId = match1[1];
+            }
+            
+            // รูปแบบที่ 2: /uc?export=view&id=FILE_ID
+            if (!fileId) {
+                const pattern2 = /id=([a-zA-Z0-9_-]+)/;
+                const match2 = url.match(pattern2);
+                if (match2 && match2[1]) {
+                    fileId = match2[1];
+                }
+            }
+            
+            // รูปแบบที่ 3: /open?id=FILE_ID
+            if (!fileId) {
+                const pattern3 = /open\?id=([a-zA-Z0-9_-]+)/;
+                const match3 = url.match(pattern3);
+                if (match3 && match3[1]) {
+                    fileId = match3[1];
+                }
+            }
+            
+            // ✅ สร้างลิงก์썸เนล (ใช้งานได้จริงกับ <img>)
+            if (fileId) {
+                // sz=w1000 → ความกว้าง 1000px (ปรับอัตโนมัติ), ใช้ w2000 สำหรับความละเอียดสูงขึ้น
+                return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
+            }
+            
+            // ✅ ถ้าไม่ใช่ลิงก์ Google Drive → คืนค่าเดิม
+            return url;
+        }
+
         // แสดงรูปภาพในองค์ประกอบแสดงผล
         function showImagePreview(imageUrl, fileName) {
             const container = document.getElementById('image-preview-container');
@@ -4601,8 +4654,12 @@
             // ✅ แสดงองค์ประกอบ
             container.style.display = 'flex';
             
-            // โหลดรูปภาพ
-            img.src = imageUrl;
+            // ✅ แปลงลิงก์ Google Drive เป็นลิงก์ดาวน์โหลดตรง (สำคัญที่สุด!)
+            const directUrl = convertDriveUrlToDirect(imageUrl);
+            console.log('🖼️ ลิงก์รูปภาพ (หลังแปลง):', directUrl);
+            
+            // โหลดรูปภาพด้วยลิงก์ที่แปลงแล้ว
+            img.src = directUrl; // ✅ ใช้ directUrl แทน imageUrl
             img.alt = fileName || 'รูปภาพ';
             img.classList.remove('hidden');
             placeholder.classList.add('hidden');
@@ -4613,6 +4670,7 @@
                 placeholder.textContent = '❌ ไม่สามารถโหลดรูปภาพได้';
                 placeholder.classList.remove('hidden');
                 placeholder.classList.add('text-red-400');
+                console.error('❌ โหลดรูปภาพล้มเหลว:', directUrl);
             };
             
             // ✅ ปรับตำแหน่งตามสถานะของตาราง
@@ -4627,11 +4685,12 @@
             lucide.createIcons();
         }
 
-        // ซ่อนองค์ประกอบแสดงรูปภาพ
+        // ซ่อนองค์ประกอบแสดงรูปภาพ (เมื่อผู้ใช้คลิกปุ่มปิด)
         function hideImagePreview() {
             const container = document.getElementById('image-preview-container');
             if (container) {
                 container.style.display = 'none';
+                console.log('🖼️ ซ่อนหน้าต่างรูปภาพ');
             }
         }
 
