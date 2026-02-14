@@ -2001,6 +2001,47 @@
                 }
             }
 
+            // ✅ ผูกเหตุการณ์เมื่อเลือกค่าใน 'ประเภทสิ่งปลูกสร้าง' เพื่อตั้งค่าจำนวนชั้นตามเงื่อนไข
+            if (type === 'building') {
+                const bTypeSelect = document.querySelector('select[name="b_type"]');
+                const noFloorSelect = document.querySelector('select[name="no_floor"]');
+                if (bTypeSelect && noFloorSelect) {
+                    const updateNoFloor = () => {
+                        const selectedValue = bTypeSelect.value;
+                        // ✅ ตรวจสอบคำว่า "ชั้นเดียว"
+                        if (selectedValue.includes('ชั้นเดียว')) {
+                            noFloorSelect.value = '1';
+                        }
+                        // ✅ ตรวจสอบคำว่า "สองชั้น"
+                        else if (selectedValue.includes('สองชั้น')) {
+                            noFloorSelect.value = '2';
+                        }
+                        // ✅ ตรวจสอบคำว่า "สามชั้น"
+                        else if (selectedValue.includes('สามชั้น')) {
+                            noFloorSelect.value = '3';
+                        }
+                        // ✅ ตรวจสอบคำว่า "สี่ชั้น"
+                        else if (selectedValue.includes('สี่ชั้น')) {
+                            noFloorSelect.value = '4';
+                        }
+                        // ✅ ตรวจสอบคำว่า "ห้าชั้น"
+                        else if (selectedValue.includes('ห้าชั้น')) {
+                            noFloorSelect.value = '5';
+                        }
+                        // ✅ ตรวจสอบคำว่า "หกชั้น"
+                        else if (selectedValue.includes('หกชั้น')) {
+                            noFloorSelect.value = '6';
+                        }
+                        // ถ้าไม่ตรงเงื่อนไขใด ๆ → คงค่าเดิม (ไม่ล้างค่า)
+                    };
+                    // ผูกเหตุการณ์เมื่อเปลี่ยนค่าใน "ประเภทสิ่งปลูกสร้าง"
+                    bTypeSelect.addEventListener('change', updateNoFloor);
+                    // ตั้งค่าเริ่มต้นเมื่อเปิดแผง (ใช้ข้อมูลที่มีอยู่)
+                    updateNoFloor();
+                    console.log('✅ ผูกเหตุการณ์ตั้งค่าจำนวนชั้นอัตโนมัติจากประเภทสิ่งปลูกสร้าง');
+                }
+            }
+
             // ✅ ผูกเหตุการณ์เมื่อเลือกค่าใน 'ใช้ทั้งหลัง' + อัปเดต "ชั้นที่ใช้", "พื้นที่ใช้" และ "ใช้ทั้งหลัง (2)" อัตโนมัติ
             if (type === 'building') {
                 const fullAreaSelect = document.querySelector('select[name="full_area"]');
