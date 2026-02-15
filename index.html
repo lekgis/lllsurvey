@@ -1030,91 +1030,110 @@
 
         // แก้ไขฟังก์ชัน backgroundUpload
         async function backgroundUpload(latlng, type, marker) {
-            const refreshBtn = document.getElementById('btn-refresh');
-            const refreshIcon = document.getElementById('refresh-icon');
-            
-            disableRefreshButton();
-            refreshIcon.classList.add('animate-spin');
-            
-            // สร้างข้อมูลพื้นฐาน
-            const data = {
-                lat_long: `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`,
-                date_added: new Date().toISOString(),
-                tempMarker: true
+          const refreshBtn = document.getElementById('btn-refresh');
+          const refreshIcon = document.getElementById('refresh-icon');
+          disableRefreshButton();
+          refreshIcon.classList.add('animate-spin');
+          
+          // ✅ สร้าง ID ที่ไม่ซ้ำกัน
+          const newId = `${type}_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+          
+          // สร้างข้อมูลพื้นฐาน + เพิ่ม id
+          const data = {
+            id: newId, // ✅ ID เดียวกันสำหรับจุดชั่วคราวและจุดจริง
+            lat_long: `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`,
+            date_added: new Date().toISOString(),
+            tempMarker: true
+          };
+          
+          // กำหนดค่าเริ่มต้นตามประเภท
+          // กำหนดค่าเริ่มต้นตามประเภท
+          if (type === 'sign') {
+            data.s_code = `99Z000-S${Date.now().toString().slice(-3)}`;  // ✅ แก้ไข: เพิ่มคำนำหน้า 99Z000-
+            data.s_name = '';
+            data.s_type = '';
+            data.s_wide = '0';
+            data.s_length = '0';
+          } else {
+            data.building_c = `99Z000-B${Date.now().toString().slice(-5)}`;
+            data.full_name = '';
+            data.b_type = '';
+            data.b_area = '0';
+          }
+          
+          // ✅ ทำเครื่องหมายในมาร์กเกอร์ว่าเป็นชั่วคราว
+          marker._popupData = { ...data, type: type, tempMarker: true };
+          setupMarkerPopup(marker, marker._popupData, type);
+          
+          try {
+            // ✅ สร้างคิวทุกกรณี
+            const queueId = addToSyncQueue('quickAdd', type, data);
+            marker._popupData = {
+              ...data,
+              type: type,
+              tempMarker: true,
+              queued: true,
+              queueId: queueId
             };
-            
-            // เพิ่มข้อมูลเริ่มต้น
-            if (type === 'sign') {
-                data.s_code = `99Z000-S${Date.now().toString().slice(-3)}`;
-                data.s_name = '';
-                data.s_type = '';
-                data.s_wide = '0';
-                data.s_length = '0';
-            } else {
-                data.building_c = `99Z000-B${Date.now().toString().slice(-5)}`;
-                data.full_name = '';
-                data.b_type = '';
-                data.b_area = '0';
-            }
-            
-            // ✅ ทำเครื่องหมายในมาร์กเกอร์ว่าเป็นชั่วคราว
-            marker._popupData = { ...data, type: type, tempMarker: true };
             setupMarkerPopup(marker, marker._popupData, type);
             
-            try {
-                // ✅ สร้างคิวทุกกรณี ไม่ต้องตรวจสอบออนไลน์/ออฟไลน์
-                const queueId = addToSyncQueue('quickAdd', type, data);
-                marker._popupData = {
-                    ...data,
-                    type: type,
-                    tempMarker: true,
-                    queued: true,
-                    queueId: queueId
-                };
-                setupMarkerPopup(marker, marker._popupData, type);
-                
-                // ✅ เรียกซิงค์ทันที
-                await processSyncQueue();
-                
-                // ✅ รอให้รายการนี้สำเร็จ
-                const maxWaitTime = 60000; // 30 วินาที
-                const startTime = Date.now();
-                let queueItem = syncQueue.find(q => q.id === queueId);
-                
-                while (queueItem && queueItem.status === 'ยังไม่สำรวจ' && (Date.now() - startTime) < maxWaitTime) {
-                    await new Promise(resolve => setTimeout(resolve, 500)); // รอ 500 มิลลิวินาที
-                    queueItem = syncQueue.find(q => q.id === queueId);
-                }
-                
-                // ✅ โหลดข้อมูลใหม่ก่อน (เพื่อให้มีข้อมูลจริงแสดงบนแผนที่)
-                await loadExistingData();
-                
-                // ✅ ลบจุดชั่วคราวหลังจากโหลดเสร็จ
-                setTimeout(() => {
-                    surveyLayers.eachLayer(layer => {
-                        if (layer._popupData && layer._popupData.tempMarker) {
-                            surveyLayers.removeLayer(layer);
-                        }
-                    });
-                    refreshIcon.classList.remove('animate-spin');
-                    refreshBtn.classList.add('refresh-success');
-                    setTimeout(() => {
-                        refreshBtn.classList.remove('refresh-success');
-                        enableRefreshButton();
-                    }, 2000);
-                    
-                    if (queueItem && queueItem.status === 'success') {
-                        showNotificationLeft('เพิ่มจุดเรียบร้อยแล้ว!', 'success');
-                    } else {
-                        showNotificationLeft('เพิ่มจุดเรียบร้อยแล้ว (รอซิงค์)', 'warning');
-                    }
-                }, 300);
-                
-            } catch (err) {
-                refreshIcon.classList.remove('animate-spin');
-                enableRefreshButton();
-                showNotificationLeft("การบันทึกล้มเหลว: " + err.message, 'error');
+            // ✅ เรียกซิงค์ทันที
+            await processSyncQueue();
+            
+            // ✅ รอให้รายการนี้สำเร็จ (สูงสุด 60 วินาที)
+            const maxWaitTime = 60000;
+            const startTime = Date.now();
+            let queueItem = syncQueue.find(q => q.id === queueId);
+            
+            while (queueItem && queueItem.status === 'ยังไม่สำรวจ' && (Date.now() - startTime) < maxWaitTime) {
+              await new Promise(resolve => setTimeout(resolve, 500));
+              queueItem = syncQueue.find(q => q.id === queueId);
             }
+            
+            // ✅ โหลดข้อมูลใหม่ก่อน (เพื่อให้มีข้อมูลจริงแสดงบนแผนที่)
+            // ⚠️ รอให้เสร็จสมบูรณ์ก่อนลบจุดชั่วคราว
+            await loadExistingData();
+            
+            // ✅ ลบจุดชั่วคราว - รอให้โหลดข้อมูลเสร็จจริงๆ
+            // ตรวจสอบว่าจุดจริงแสดงขึ้นมาแล้วหรือยัง
+            setTimeout(() => {
+              surveyLayers.eachLayer(layer => {
+                if (layer._popupData && layer._popupData.tempMarker) {
+                  // ✅ ตรวจสอบว่าจุดจริงมีอยู่แล้วหรือไม่ (ใช้ ID)
+                  const realMarkerExists = allBuildings.some(b => b.id === layer._popupData.id) || 
+                                           allSigns.some(s => s.id === layer._popupData.id);
+                  
+                  if (realMarkerExists) {
+                    // ✅ จุดจริงมีอยู่แล้ว → ลบจุดชั่วคราว
+                    surveyLayers.removeLayer(layer);
+                    console.log(`✅ ลบจุดชั่วคราว: ${layer._popupData.id} (จุดจริงแสดงแล้ว)`);
+                  } else {
+                    // ⚠️ จุดจริงยังไม่มี → ยังไม่ลบ (รอซิงค์)
+                    console.log(`⚠️ ยังไม่ลบจุดชั่วคราว: ${layer._popupData.id} (จุดจริงยังไม่แสดง)`);
+                  }
+                }
+              });
+              
+              refreshIcon.classList.remove('animate-spin');
+              refreshBtn.classList.add('refresh-success');
+              
+              setTimeout(() => {
+                refreshBtn.classList.remove('refresh-success');
+                enableRefreshButton();
+              }, 2000);
+              
+              if (queueItem && queueItem.status === 'success') {
+                showNotificationLeft('เพิ่มจุดเรียบร้อยแล้ว!', 'success');
+              } else {
+                showNotificationLeft('เพิ่มจุดเรียบร้อยแล้ว (รอซิงค์)', 'warning');
+              }
+            }, 1000); // ✅ เพิ่มเป็น 1000ms ให้แน่ใจว่าโหลดเสร็จ
+            
+          } catch (err) {
+            refreshIcon.classList.remove('animate-spin');
+            enableRefreshButton();
+            showNotificationLeft("การบันทึกล้มเหลว: " + err.message, 'error');
+          }
         }
 
         // ============================================
@@ -3502,43 +3521,47 @@
             updateSortIndicators('sign-table', signSortColumn, signSortDirection);
         });
 
+        // ============================================
+        // โหลดจากฐานข้อมูล
+        // ============================================
         async function loadExistingData() {
-            try {
-                const res = await fetch(`${CONFIG.SCRIPT_URL}?action=getData`);
-                const data = await res.json();
-                
-                // ✅ วางโค้ดตรงนี้ - แปลงค่าชั้นที่ใช้จากวันที่เป็นรูปแบบ "1-1", "1-2"
-                if (data.buildings && Array.isArray(data.buildings)) {
-                    data.buildings.forEach(b => {
-                        b.buse_floor = normalizeFloorValue(b.buse_floor);
-                        b.buse_floor2 = normalizeFloorValue(b.buse_floor2); // ใช้ชื่อถูกต้อง
-                    });
-                }
-
-                // ✅ เก็บเฉพาะจุดชั่วคราวที่ไม่ใช่จุดที่กำลังถูกย้าย
-                const tempMarkers = [];
-                surveyLayers.eachLayer(layer => {
-                    if (layer._popupData && layer._popupData.tempMarker && !layer._popupData.beingMoved) {
-                        tempMarkers.push({
-                            latlng: layer.getLatLng(),
-                            data: layer._popupData,
-                            type: layer._popupData.type
-                        });
-                    }
+          try {
+            const res = await fetch(`${CONFIG.SCRIPT_URL.trim()}?action=getData`);
+            const data = await res.json();
+            
+            // ✅ แปลงค่าชั้นที่ใช้จากวันที่เป็นรูปแบบ "1-1", "1-2"
+            if (data.buildings && Array.isArray(data.buildings)) {
+              data.buildings.forEach(b => {
+                b.buse_floor = normalizeFloorValue(b.buse_floor);
+                b.buse_floor2 = normalizeFloorValue(b.buse_floor2);
+              });
+            }
+            
+            // ✅ เก็บเฉพาะจุดชั่วคราวที่ไม่ใช่จุดที่กำลังถูกย้าย
+            const tempMarkers = [];
+            surveyLayers.eachLayer(layer => {
+              if (layer._popupData && layer._popupData.tempMarker && !layer._popupData.beingMoved) {
+                tempMarkers.push({
+                  latlng: layer.getLatLng(),
+                  data: layer._popupData,
+                  type: layer._popupData.type
                 });
-                
-                surveyLayers.clearLayers();
-                
-                // โหลดข้อมูลจริงจากเซิร์ฟเวอร์
-                allBuildings = data.buildings || [];
-                allSigns = data.signs || [];
-                
-                // แสดงข้อมูลในตาราง
-                renderBuildingTable();
-                renderSignTable();
-                
-                const totalMarkers = allBuildings.length + allSigns.length;
-                const useOptimizedRendering = totalMarkers > 200;
+              }
+            });
+            
+            surveyLayers.clearLayers();
+            
+            // โหลดข้อมูลจริงจากเซิร์ฟเวอร์
+            allBuildings = data.buildings || [];
+            allSigns = data.signs || [];
+            
+            // แสดงข้อมูลในตาราง
+            renderBuildingTable();
+            renderSignTable();
+            
+            const totalMarkers = allBuildings.length + allSigns.length;
+            const useOptimizedRendering = totalMarkers > 200;
+            
                 
                 if (useOptimizedRendering) {
                     map.off('moveend', updateVisibleMarkers);
@@ -3547,57 +3570,67 @@
                     map.on('zoomend', updateVisibleMarkers);
                     updateVisibleMarkers();
                 } else {
-                    // ✅ สร้างจุดจริงทั้งหมด (ไม่เรียก enableMarkerDragging)
-                    allBuildings.forEach(r => {
-                        if (!r.lat_long) return;
-                        const coords = r.lat_long.split(',').map(Number);
-                        if (coords.length < 2 || isNaN(coords[0]) || isNaN(coords[1])) return;
-                        
-                        // ✅ ข้ามจุดที่กำลังถูกย้าย
-                        const recordKey = r._row_num || r.id;
-                        if (markersBeingMoved.has(String(recordKey))) {
-                            return;
-                        }
-                        
-                        const m = createCircleMarker(L.latLng(coords[0], coords[1]), 'building', isEditMode, r.check);
-                        m._popupData = r;
-                        setupMarkerPopup(m, r, 'building');
-                        m.addTo(surveyLayers);
-                        // ❌ ลบบรรทัดนี้ออก: if (isEditMode) enableMarkerDragging(m, r);
-                    });
-                    
-                    allSigns.forEach(r => {
-                        if (!r.lat_long) return;
-                        const coords = r.lat_long.split(',').map(Number);
-                        if (coords.length < 2 || isNaN(coords[0]) || isNaN(coords[1])) return;
-                        
-                        // ✅ ข้ามจุดที่กำลังถูกย้าย
-                        const recordKey = r._row_num || r.id;
-                        if (markersBeingMoved.has(String(recordKey))) {
-                            return;
-                        }
-                        
-                        const m = createCircleMarker(L.latLng(coords[0], coords[1]), 'sign', isEditMode, r.check);
-                        m._popupData = r;
-                        setupMarkerPopup(m, r, 'sign');
-                        m.addTo(surveyLayers);
-                        // ❌ ลบบรรทัดนี้ออก: if (isEditMode) enableMarkerDragging(m, r);
-                    });
+              // ✅ สร้างจุดจริงทั้งหมด
+              allBuildings.forEach(r => {
+                if (!r.lat_long) return;
+                const coords = r.lat_long.split(',').map(Number);
+                if (coords.length < 2 || isNaN(coords[0]) || isNaN(coords[1])) return;
+                
+                // ✅ ข้ามจุดที่กำลังถูกย้าย
+                const recordKey = r._row_num || r.id;
+                if (markersBeingMoved.has(String(recordKey))) {
+                  return;
                 }
                 
-                // ✅ เพิ่มจุดชั่วคราวกลับเข้ามา (ไม่เรียก enableMarkerDragging)
-                tempMarkers.forEach(marker => {
-                    const m = createCircleMarker(marker.latlng, marker.type, isEditMode);
-                    m._popupData = marker.data;
-                    setupMarkerPopup(m, marker.data, marker.type);
-                    m.addTo(surveyLayers);
-                    // ❌ ลบบรรทัดนี้ออก: if (isEditMode) enableMarkerDragging(m, marker.data);
-                });
-            } catch (e) {
-                console.error("Error loading data:", e);
+                const m = createCircleMarker(L.latLng(coords[0], coords[1]), 'building', isEditMode, r.check);
+                m._popupData = r; // ✅ จุดจริงไม่มี tempMarker
+                setupMarkerPopup(m, r, 'building');
+                m.addTo(surveyLayers);
+              });
+              
+              allSigns.forEach(r => {
+                if (!r.lat_long) return;
+                const coords = r.lat_long.split(',').map(Number);
+                if (coords.length < 2 || isNaN(coords[0]) || isNaN(coords[1])) return;
+                
+                // ✅ ข้ามจุดที่กำลังถูกย้าย
+                const recordKey = r._row_num || r.id;
+                if (markersBeingMoved.has(String(recordKey))) {
+                  return;
+                }
+                
+                const m = createCircleMarker(L.latLng(coords[0], coords[1]), 'sign', isEditMode, r.check);
+                m._popupData = r; // ✅ จุดจริงไม่มี tempMarker
+                setupMarkerPopup(m, r, 'sign');
+                m.addTo(surveyLayers);
+              });
             }
+            
+            // ✅ เพิ่มจุดชั่วคราวกลับเข้ามา (แต่ตรวจสอบก่อนว่าจุดจริงมีอยู่แล้วหรือไม่)
+            tempMarkers.forEach(marker => {
+              // ✅ ตรวจสอบว่าจุดจริงมีอยู่แล้วหรือไม่ (ใช้ ID)
+              const realMarkerExists = allBuildings.some(b => b.id === marker.data.id) || 
+                                       allSigns.some(s => s.id === marker.data.id);
+              
+              if (!realMarkerExists) {
+                // ✅ จุดจริงยังไม่มี → แสดงจุดชั่วคราวต่อ
+                const m = createCircleMarker(marker.latlng, marker.type, isEditMode);
+                m._popupData = marker.data;
+                setupMarkerPopup(m, marker.data, marker.type);
+                m.addTo(surveyLayers);
+                console.log(`📌 แสดงจุดชั่วคราวต่อ: ${marker.data.id} (รอซิงค์)`);
+              } else {
+                // ✅ จุดจริงมีอยู่แล้ว → ไม่เพิ่มจุดชั่วคราว
+                console.log(`✅ ข้ามจุดชั่วคราว: ${marker.data.id} (จุดจริงมีอยู่แล้ว)`);
+              }
+            });
+            
             // ✅ อัปเดตจำนวนที่หัวตารางหลังโหลดข้อมูล
             updateTableCounters();
+            
+          } catch (e) {
+            console.error("Error loading data:", e);
+          }
         }
 
         // ============================================
@@ -4334,67 +4367,77 @@
         // Enhanced Sync Process with Image Support
         // ============================================
 
+        let isProcessingQueue = false; // ✅ ตัวแปรล็อกระดับไคลเอนต์
+
         async function processSyncQueue() {
-            if (!navigator.onLine || syncQueue.length === 0) {
-                console.log('ไม่สามารถซิงค์ได้: ไม่มีอินเทอร์เน็ตหรือไม่มีคิว');
-                return;
-            }
-            
+          // ✅ ตรวจสอบล็อกก่อนประมวลผล
+          if (isProcessingQueue || !navigator.onLine || syncQueue.length === 0) {
+            console.log('ข้ามการซิงค์: กำลังประมวลผลอยู่หรือไม่มีอินเทอร์เน็ต');
+            return;
+          }
+          
+          isProcessingQueue = true; // ✅ ล็อก
+          
+          try {
             console.log(`กำลังซิงค์ข้อมูล (${syncQueue.length} รายการ)...`);
-            
             const failedItems = [];
+            
             for (let item of syncQueue) {
-                if (item.status === 'success') continue;
+              if (item.status === 'success') continue;
+              
+              try {
+                // ✅ ตรวจสอบว่ามีรายการอื่นที่มี id เดียวกันและสำเร็จแล้วหรือไม่
+                const duplicateItems = syncQueue.filter(i => 
+                  i.id === item.id && i.status === 'success'
+                );
                 
-                try {
-                    const result = await sendDataWithRetry(
-                        item.action,
-                        item.type,
-                        item.data,
-                        item.rowKey,
-                        3
-                    );
-                    
-                    if (result.success) {
-                        item.status = 'success';
-                        removeFromSyncQueue(item.id);
-                        console.log(`Synced: ${item.id}`);
-                    } else {
-                        item.retryCount++;
-                        if (item.retryCount >= 5) {
-                            item.status = 'failed';
-                            failedItems.push(item);
-                        }
-                    }
-                } catch (err) {
-                    item.retryCount++;
-                    console.error(`Error syncing ${item.id}:`, err);
-                    if (item.retryCount >= 5) {
-                        item.status = 'failed';
-                        failedItems.push(item);
-                    }
+                if (duplicateItems.length > 0) {
+                  console.log(`ข้ามรายการซ้ำ: ${item.id} (มีการบันทึกสำเร็จแล้ว)`);
+                  item.status = 'success';
+                  removeFromSyncQueue(item.id);
+                  continue;
                 }
                 
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                const result = await sendDataWithRetry(
+                  item.action,
+                  item.type,
+                  item.data,
+                  item.rowKey,
+                  3
+                );
+                
+                if (result.success) {
+                  item.status = 'success';
+                  removeFromSyncQueue(item.id);
+                  console.log(`✅ Synced: ${item.id}`);
+                } else {
+                  item.retryCount++;
+                  if (item.retryCount >= 5) {
+                    item.status = 'failed';
+                    failedItems.push(item);
+                  }
+                }
+              } catch (err) {
+                item.retryCount++;
+                console.error(`❌ Error syncing ${item.id}:`, err);
+                if (item.retryCount >= 5) {
+                  item.status = 'failed';
+                  failedItems.push(item);
+                }
+              }
+              
+              await new Promise(resolve => setTimeout(resolve, 1000));
             }
             
             // ซิงค์รูปภาพที่ยังไม่ได้ส่ง
             await syncPendingImages();
             saveSyncQueueToStorage();
             
-            // แจ้งผลลัพธ์
-            const successCount = syncQueue.filter(i => i.status === 'success').length;
-            const ยังไม่สำรวจCount = syncQueue.filter(i => i.status === 'ยังไม่สำรวจ').length;
-            
-            if (ยังไม่สำรวจCount === 0 && failedItems.length === 0) {
-                console.log('ซิงค์ข้อมูลสำเร็จทั้งหมด!');
-            } else if (ยังไม่สำรวจCount > 0) {
-                console.log(`ซิงค์ข้อมูล ${successCount} รายการ (${ยังไม่สำรวจCount} รายการรอซิงค์)`);
-            }
-            
-            if (failedItems.length > 0) {
-                console.log(`มี ${failedItems.length} รายการที่ซิงค์ไม่สำเร็จ`);
-            }
+          } catch (err) {
+            console.error('❌ ข้อผิดพลาดในการซิงค์:', err);
+          } finally {
+            isProcessingQueue = false; // ✅ ปลดล็อก
+          }
         }
 
 
@@ -5794,12 +5837,18 @@
             stopRealtimeAutoUpdate();
         });
 
-        // ตรวจจับการเชื่อมต่อออนไลน์
+        // ✅ ปรับเหตุการณ์ online เพื่อหลีกเลี่ยงการเรียกซ้ำซ้อน
         window.addEventListener('online', () => {
-            isOnline = true;
-            updateConnectionStatus();
-            // เมื่อกลับมาออนไลน์ ให้พยายามส่งข้อมูลที่ค้างอยู่
-            setTimeout(processSyncQueue, 1000);
+          isOnline = true;
+          updateConnectionStatus();
+          
+          // ✅ ใช้ setTimeout เพื่อหลีกเลี่ยงการเรียกทันทีเมื่อกลับมาออนไลน์
+          setTimeout(() => {
+            if (!isProcessingQueue && navigator.onLine) {
+              console.log('ออนไลน์ → เริ่มซิงค์ข้อมูล');
+              processSyncQueue();
+            }
+          }, 2000); // รอ 2 วินาที
         });
 
         // ตรวจจับการออฟไลน์
