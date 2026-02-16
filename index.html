@@ -5372,54 +5372,48 @@
         }
 
         // ============================================
-
-        // ============================================
         // ข้อ 1.1: คำนวณพื้นที่ (กว้าง × ยาว)
         // ============================================
         let areaCalculatorModal = null;
-
         function openAreaCalculator() {
             // ปิดโมดัลเก่าถ้ามี
             if (areaCalculatorModal) {
                 areaCalculatorModal.remove();
             }
-            
             // สร้างหน้าต่างคำนวณพื้นที่
             areaCalculatorModal = document.createElement('div');
-            areaCalculatorModal.className = 'fixed inset-0 bg-black/20 z-[3000] flex items-center justify-center p-4 pointer-events-none'; // ✅ เพิ่ม pointer-events-none
+            areaCalculatorModal.className = 'fixed inset-0 bg-black/20 z-[3000] flex items-center justify-center p-4 pointer-events-none';
             areaCalculatorModal.innerHTML = `
-            <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-2xl w-full max-w-md animate-scale-in pointer-events-auto"> <!-- ✅ เพิ่ม pointer-events-auto -->
-                <div class="p-4 border-b flex justify-between items-center">
-                    <h3 class="font-bold text-lg text-blue-900">คำนวณพื้นที่ประกอบการ</h3>
-                    <button onclick="closeAreaCalculator()" class="p-2 hover:bg-gray-200 rounded-full">
-                        <i data-lucide="x" class="w-5 h-5"></i>
+            <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-2xl w-full max-w-sm animate-scale-in pointer-events-auto">
+                <div class="p-3 border-b flex justify-between items-center">
+                    <h3 class="font-bold text-base text-blue-900">คำนวณพื้นที่ประกอบการ</h3>
+                    <button onclick="closeAreaCalculator()" class="p-1.5 hover:bg-gray-200 rounded-full transition">
+                        <i data-lucide="x" class="w-4 h-4"></i>
                     </button>
                 </div>
-                <div class="p-4 space-y-4">
-                    <div class="grid grid-cols-2 gap-3">
+                <div class="p-3 space-y-3">
+                    <div class="grid grid-cols-2 gap-2">
                         <div>
-                            <label class="form-label">กว้าง (ม.)</label>
-                            <input type="number" id="calc-width" class="form-input text-center" placeholder="" step="0.01" oninput="calculateAreaResult()" style="-webkit-appearance: textfield; -moz-appearance: textfield; appearance: textfield;">
+                            <label class="form-label text-xs">กว้าง (ม.)</label>
+                            <input type="number" id="calc-width" class="form-input text-center text-sm" placeholder="" step="0.01" oninput="calculateAreaResult()" style="-webkit-appearance: textfield; -moz-appearance: textfield; appearance: textfield;">
                         </div>
                         <div>
-                            <label class="form-label">ยาว (ม.)</label>
-                            <input type="number" id="calc-length" class="form-input text-center" placeholder="" step="0.01" oninput="calculateAreaResult()" style="-webkit-appearance: textfield; -moz-appearance: textfield; appearance: textfield;">
+                            <label class="form-label text-xs">ยาว (ม.)</label>
+                            <input type="number" id="calc-length" class="form-input text-center text-sm" placeholder="" step="0.01" oninput="calculateAreaResult()" style="-webkit-appearance: textfield; -moz-appearance: textfield; appearance: textfield;">
                         </div>
                     </div>
                     <div>
-                        <label class="form-label">ผลลัพธ์ (ตร.ม.)</label>
-                        <input type="number" id="calc-result" class="form-input bg-custom-green/80 font-bold text-center" readonly placeholder="ผลลัพธ์พื้นที่ประกอบการ" style="-webkit-appearance: textfield; -moz-appearance: textfield; appearance: textfield;"> <!-- ✅ ลดความทึบของสีเขียว -->
+                        <label class="form-label text-xs">ผลลัพธ์ (ตร.ม.)</label>
+                        <input type="number" id="calc-result" class="form-input bg-custom-green/80 font-bold text-center text-sm" readonly placeholder="ผลลัพธ์พื้นที่ประกอบการ" style="-webkit-appearance: textfield; -moz-appearance: textfield; appearance: textfield;">
                     </div>
                     <div class="flex gap-2">
-                        <button type="button" onclick="clearAreaCalculator()" 
-                            class="flex-1 py-2 bg-gray-500 text-white rounded font-bold hover:bg-gray-600 transition">
-                            <i data-lucide="trash-2" class="w-4 h-4 inline mr-1"></i>
-                            ล้าง
+                        <button type="button" onclick="clearAreaCalculator()"
+                        class="flex-1 py-1.5 bg-gray-500 text-white rounded font-bold text-xs hover:bg-gray-600 transition">
+                        ล้าง
                         </button>
-                        <button type="button" onclick="addAreaToField()" 
-                            class="flex-1 py-2 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 transition">
-                            <i data-lucide="plus" class="w-4 h-4 inline mr-1"></i>
-                            บวกเพิ่ม
+                        <button type="button" onclick="addAreaToField()"
+                        class="flex-1 py-1.5 bg-blue-600 text-white rounded font-bold text-xs hover:bg-blue-700 transition">
+                        บวกเพิ่ม
                         </button>
                     </div>
                 </div>
@@ -5427,14 +5421,12 @@
             `;
             document.body.appendChild(areaCalculatorModal);
             lucide.createIcons();
-            
-            // ✅ ป้องกันการเปลี่ยนค่าโดยการหมุนเมาส์ในช่องกรอกตัวเลขของหน้าต่างคำนวณพื้นที่
+            // ✅ ป้องกันการเปลี่ยนค่าโดยการหมุนเมาส์
             const preventWheel = (e) => e.preventDefault();
             ['calc-width', 'calc-length', 'calc-result'].forEach(id => {
                 const input = document.getElementById(id);
                 if (input) {
                     input.addEventListener('wheel', preventWheel, { passive: false });
-                    // ✅ ป้องกันการกดปุ่มลูกศรบน/ล่างด้วย (เพิ่มเติมเพื่อความสมบูรณ์)
                     input.addEventListener('keydown', (e) => {
                         if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
                             e.preventDefault();
@@ -5442,28 +5434,26 @@
                     });
                 }
             });
-            
-            // โฟกัสที่ช่องกว้าง
             document.getElementById('calc-width')?.focus();
         }
 
         // ============================================
-        // ✅ คำนวณพื้นที่ A (สำหรับ b_area) - เวอร์ชันปรับปรุง
+        // ✅ คำนวณพื้นที่ A (สำหรับ b_area) - เวอร์ชันลากได้
         // ============================================
         let areaCalculatorModalA = null;
-        let areaAccumulatorA = 0; // ตัวแปรเก็บค่าสะสม
-        let areaHistoryA = []; // ✅ ตัวแปรเก็บประวัติการบวก
+        let areaAccumulatorA = 0;
+        let areaHistoryA = [];
 
         function openAreaCalculatorA() {
             if (areaCalculatorModalA) { areaCalculatorModalA.remove(); }
             areaAccumulatorA = 0;
-            areaHistoryA = []; // ✅ รีเซ็ตประวัติเมื่อเปิดใหม่
+            areaHistoryA = [];
             
             areaCalculatorModalA = document.createElement('div');
             areaCalculatorModalA.className = 'fixed inset-0 bg-black/20 z-[3000] flex items-center justify-center p-4 pointer-events-none';
             areaCalculatorModalA.innerHTML = `
             <div id="area-calculator-a-window" class="bg-white/95 backdrop-blur-sm rounded-xl shadow-2xl w-full max-w-sm animate-scale-in pointer-events-auto" 
-                 style="width: 340px;">
+                 style="width: 340px; position: absolute;">
                 <!-- ✅ Header สำหรับลากหน้าต่าง -->
                 <div id="area-calculator-a-header" class="p-3 border-b flex justify-between items-center bg-purple-50 cursor-move rounded-t-lg">
                     <h3 class="font-bold text-sm text-purple-900">คำนวณพื้นที่ทั้งหลัง (A)</h3>
@@ -5474,8 +5464,8 @@
                 <div class="p-3 space-y-3">
                     <!-- ✅ แถวที่ 1: ช่องกรอกค่า + ปุ่มบวกเพิ่ม (แนวนอน) -->
                     <div class="flex gap-2 items-center">
-                        <input type="number" id="calc-input-a" class="form-input flex-1 text-center" 
-                               placeholder="ค่าพื้นที่ (ตร.ม.)" step="0.01" 
+                        <input type="number" id="calc-input-a" class="form-input flex-1 text-center"
+                               placeholder="ค่าพื้นที่ (ตร.ม.)" step="0.01"
                                style="-webkit-appearance: textfield; -moz-appearance: textfield; appearance: textfield;">
                         <button type="button" onclick="addAreaToAccumulatorA()"
                                 class="px-3 py-2 bg-purple-600 text-white rounded font-bold text-sm hover:bg-purple-700 transition whitespace-nowrap">
@@ -5487,7 +5477,7 @@
                     <div class="bg-purple-100 rounded-lg p-2">
                         <div class="flex justify-between items-center mb-1">
                             <label class="text-xs font-bold text-purple-900">ผลลัพธ์สะสม (ตร.ม.)</label>
-                            <input type="text" id="calc-result-a" class="form-input bg-white font-bold text-center w-24 text-sm" 
+                            <input type="text" id="calc-result-a" class="form-input bg-white font-bold text-center w-24 text-sm"
                                    readonly value="0.00"
                                    style="-webkit-appearance: textfield; -moz-appearance: textfield; appearance: textfield;">
                         </div>
@@ -5517,7 +5507,7 @@
             
             // ✅ ทำให้หน้าต่างลากได้
             makeDraggable(
-                areaCalculatorModalA.querySelector('#area-calculator-a-window'), 
+                areaCalculatorModalA.querySelector('#area-calculator-a-window'),
                 areaCalculatorModalA.querySelector('#area-calculator-a-header')
             );
             
@@ -5580,17 +5570,14 @@
             }
             
             areaAccumulatorA += val;
-            areaHistoryA.push(val); // ✅ เพิ่มค่าลงในประวัติ
+            areaHistoryA.push(val);
             
-            // ✅ อัปเดตผลลัพธ์
             resultDisplay.value = areaAccumulatorA.toFixed(2);
             
-            // ✅ อัปเดตประวัติการบวก (แสดงเช่น: 12 + 13.5 + 8)
             if (historyDisplay) {
                 historyDisplay.textContent = areaHistoryA.join(' + ');
             }
             
-            // ✅ ล้างช่องกรอกเพื่อเตรียมกรอกค่าถัดไป
             input.value = '';
             input.focus();
             
@@ -5600,7 +5587,7 @@
         // ✅ ฟังก์ชันล้างค่า
         function clearAreaCalculatorA() {
             areaAccumulatorA = 0;
-            areaHistoryA = []; // ✅ ล้างประวัติ
+            areaHistoryA = [];
             
             const resultDisplay = document.getElementById('calc-result-a');
             const historyDisplay = document.getElementById('area-history-a');
@@ -5633,7 +5620,7 @@
             closeAreaCalculatorA();
         }
 
-        // ✅ ฟังก์ชันปิดหน้าต่าง (คงเดิม)
+        // ✅ ฟังก์ชันปิดหน้าต่าง
         function closeAreaCalculatorA() {
             if (areaCalculatorModalA) {
                 areaCalculatorModalA.classList.add('animate-scale-out');
@@ -5643,7 +5630,59 @@
                     }
                     areaCalculatorModalA = null;
                     areaAccumulatorA = 0;
-                    areaHistoryA = []; // ✅ ล้างประวัติเมื่อปิด
+                    areaHistoryA = [];
+                }, 200);
+            }
+        }
+
+
+        // คำนวณผลลัพธ์เรียลไทม์
+        function calculateAreaResult() {
+            const width = parseFloat(document.getElementById('calc-width').value) || 0;
+            const length = parseFloat(document.getElementById('calc-length').value) || 0;
+            const result = width * length;
+            document.getElementById('calc-result').value = result.toFixed(2);
+        }
+
+        // ล้างค่า
+        function clearAreaCalculator() {
+            document.getElementById('calc-width').value = '';
+            document.getElementById('calc-length').value = '';
+            document.getElementById('calc-result').value = '0';
+        }
+
+        // บวกเพิ่มค่าในช่อง buse_area2
+        function addAreaToField() {
+            const result = parseFloat(document.getElementById('calc-result').value) || 0;
+            const buseArea2Field = document.querySelector('input[name="buse_area2"]');
+            
+            if (!buseArea2Field) {
+                showNotificationLeft('ไม่พบช่องกรอกพื้นที่ใช้ (2)', 'error');
+                return;
+            }
+            
+            const currentValue = parseFloat(buseArea2Field.value) || 0;
+            const newValue = currentValue + result;
+            
+            buseArea2Field.value = newValue.toFixed(2);
+            showNotificationLeft(`เพิ่มพื้นที่ ${result.toFixed(2)} ตร.ม. รวมเป็น ${newValue.toFixed(2)} ตร.ม.`, 'success');
+            
+            // ✅ ล้างค่าช่องกว้างและยาว แต่ไม่ปิดหน้าต่าง เพื่อให้ผู้ใช้สามารถคำนวณเพิ่มได้อีก
+            document.getElementById('calc-width').value = '';
+            document.getElementById('calc-length').value = '';
+            document.getElementById('calc-result').value = '0';
+            document.getElementById('calc-width').focus();
+        }
+
+        // ปิดหน้าต่าง
+        function closeAreaCalculator() {
+            if (areaCalculatorModal) {
+                areaCalculatorModal.classList.add('animate-scale-out');
+                setTimeout(() => {
+                    if (areaCalculatorModal && areaCalculatorModal.parentNode) {
+                        areaCalculatorModal.remove();
+                    }
+                    areaCalculatorModal = null;
                 }, 200);
             }
         }
