@@ -1871,23 +1871,35 @@
                 { id: 's_code', label: 'รหัสป้าย', type: 'text' },
                 { id: 's_name', label: 'ชื่อกิจการ', type: 'text' },
                 { id: 's_type', label: 'ประเภทป้าย', type: 'select', options: ['ป้าย/แสดงโฆษณาทั่วไป', 'ป้าย/ป้ายภายในอาคาร 3 ตร.ม. ขึ้นไป', 'ป้ายตามกฎหมายทะเบียนพาณิชย์'] },
-                { id: 's_wide', label: 'กว้าง (ซ.ม.)', type: 'number', defaultValue: '' },
-                { id: 's_length', label: 'ยาว (ซ.ม.)', type: 'number', defaultValue: '' },
-                { id: 'no_side', label: 'จำนวนด้าน', type: 'select', options: [1, 2], defaultValue: 1 },
-                // ✅ เพิ่ม 2 ฟิลด์ชั่วคราว (ไม่บันทึกลงชีท)
+                // ✅ คู่ที่ 1 - กว้าง + ยาว (แนวนอน)
+                { id: 's_wide', label: 'กว้าง(ซ.ม.)', type: 'number', defaultValue: '', pairWith: 's_length' },
+                { id: 's_length', label: 'ยาว(ซ.ม.)', type: 'number', defaultValue: '', pairWith: 's_wide' },
+
+                // ✅ คู่ที่ 2 - ลักษณะเนื้อหา + ลักษณะตัวป้าย (แนวนอน)
                 { 
                     id: 'content_type_temp', 
                     label: 'ลักษณะเนื้อหา', 
                     type: 'select', 
                     options: ['1.ไทยล้วน', '2.ไทยอยู่บนสุด', '3.ไม่มีไทย', '3.ไทยไม่อยู่บนสุด'],
-                    tempField: true // หมายเหตุ: ฟิลด์นี้ไม่บันทึกลงชีท
+                    tempField: true,
+                    pairWith: 'sign_type_detail_temp'
                 },
                 { 
                     id: 'sign_type_detail_temp', 
                     label: 'ลักษณะตัวป้าย', 
                     type: 'select', 
                     options: ['(ข) ทั่วไป', '(ก) จอ LED', '(ก) มอเตอร์/เคลื่อนไหว'],
-                    tempField: true // หมายเหตุ: ฟิลด์นี้ไม่บันทึกลงชีท
+                    tempField: true,
+                    pairWith: 'content_type_temp'
+                },
+                // ✅ คู่ที่ 3 - จำนวนด้าน + ลักษณะ (แนวนอน)
+                { 
+                    id: 'no_side', 
+                    label: 'จำนวนด้าน', 
+                    type: 'select', 
+                    options: [1, 2], 
+                    defaultValue: 1, 
+                    pairWith: 's_characte'  // ✅ เพิ่มบรรทัดนี้
                 },
                 // ✅ ฟิลด์ "ลักษณะ" แบบอ่านอย่างเดียว (สร้างอัตโนมัติ)
                 { 
@@ -1895,7 +1907,8 @@
                     label: 'ลักษณะ', 
                     type: 'text',
                     readonly: true,
-                    description: 'ค่านี้สร้างอัตโนมัติจาก 2 ฟิลด์ด้านบน'
+                    description: 'ค่านี้สร้างอัตโนมัติจาก 2 ฟิลด์ด้านบน',
+                    pairWith: 'no_side'  // ✅ เพิ่มบรรทัดนี้
                 },
                 { id: 's_text', label: 'ข้อความในป้าย', type: 'text' },
                 { id: 'comment', label: 'หมายเหตุ', type: 'text' },
