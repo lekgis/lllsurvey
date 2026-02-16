@@ -4,14 +4,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Theme Color for Browser -->
+    <meta name="theme-color" content="#2563eb">
+    
+    <!-- Apple Touch Icon -->
+    <link rel="apple-touch-icon" href="static/icons/lb-192.png">
+    
+    <!-- iOS Safari Settings -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="โนนไทย">
-
-    <meta name="theme-color" content="#2563eb">
+    
     <title>โนนไทย</title>
-    <link rel="manifest" href="manifest.json">
-    <link rel="icon" href="static/icons/lb.ico" type="image/x-icon"> <!-- แก้เป็นพาธสัมพัทธ์ -->
+    <link rel="icon" href="static/icons/lb.ico" type="image/x-icon">
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -314,7 +323,20 @@
         }
         .animate-scale-in { animation: scale-in 0.2s ease-out; }
         .animate-scale-out { animation: scale-out 0.2s ease-in; }
+        /* PWA Install Prompt Animation */
+        @keyframes slideUp {
+          from { transform: translate(-50%, 20px); opacity: 0; }
+          to { transform: translate(-50%, 0); opacity: 1; }
+        }
 
+        #installPrompt {
+          animation: slideUp 0.3s ease-out;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        #installPrompt.hidden {
+          display: none;
+        }
         /* แอนิเมชันสำหรับแจ้งเตือน */
         @keyframes fade-in {
             from { opacity: 0; transform: translateY(-20px); }
@@ -635,6 +657,32 @@
         </button>
     </div>
 
+    <!-- PWA Install Prompt -->
+    <div id="installPrompt" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-4 py-3 rounded-lg shadow-lg z-50 hidden max-w-md w-full">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="bg-white p-2 rounded-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600">
+              <path d="M12 20h.01"></path>
+              <path d="M5 12l-3-3 3-3"></path>
+              <path d="M19 12l3-3-3-3"></path>
+              <path d="M5 18l3-3-3-3"></path>
+              <path d="M19 18l-3-3 3-3"></path>
+              <path d="M12 4v.01"></path>
+            </svg>
+          </div>
+          <div>
+            <p class="font-medium">ติดตั้งแอป lSurvey</p>
+            <p class="text-xs opacity-90">ใช้งานออฟไลน์ได้ รวดเร็ว และเต็มหน้าจอ</p>
+          </div>
+        </div>
+        <div class="flex space-x-2">
+          <button id="btnInstallCancel" class="text-blue-100 hover:text-white text-sm px-2 py-1">ไม่ใช่ตอนนี้</button>
+          <button id="btnInstallApp" class="bg-white text-blue-600 font-medium px-3 py-1 rounded-md hover:bg-blue-50 transition">ติดตั้ง</button>
+        </div>
+      </div>
+    </div>
+
     <!-- หน้าต่างตารางข้อมูล -->
     <div id="data-table-panel" class="data-table-panel">
         <div class="table-header">
@@ -767,7 +815,8 @@
         let allBuildings = []; 
         let allSigns = [];   
         let movingMarkerId = null; // ✅ เก็บ ID ของจุดที่กำลังถูกลากอยู่  
-        
+        // ตัวแปรเก็บเหตุการณ์ติดตั้ง
+        let deferredPrompt;
         // ตัวแปรสำหรับระบบอัปเดตอัตโนมัติ
 
         let autoUpdateInterval = null;
@@ -997,6 +1046,107 @@
             btn.style.cursor = 'pointer';
         }
 
+        // ตรวจจับเหตุการณ์ก่อนติดตั้ง
+        window.addEventListener('beforeinstallprompt', (e) => {
+          // ป้องกันเบราว์เซอร์แสดงพรอมต์อัตโนมัติ
+          e.preventDefault();
+          // บันทึกเหตุการณ์เพื่อใช้ภายหลัง
+          deferredPrompt = e;
+          
+          // แสดงปุ่มติดตั้ง (เฉพาะมือถือ)
+          if (isMobile()) {
+            showInstallPrompt();
+          }
+        });
+
+        // แสดงปุ่มติดตั้ง
+        function showInstallPrompt() {
+          const installPrompt = document.getElementById('installPrompt');
+          if (installPrompt && deferredPrompt) {
+            installPrompt.classList.remove('hidden');
+            
+            // ซ่อนหลัง 15 วินาทีถ้าไม่คลิก
+            setTimeout(() => {
+              if (!installPrompt.classList.contains('hidden')) {
+                installPrompt.classList.add('hidden');
+              }
+            }, 15000);
+          }
+        }
+
+        // ซ่อนปุ่มติดตั้ง
+        function hideInstallPrompt() {
+          const installPrompt = document.getElementById('installPrompt');
+          if (installPrompt) {
+            installPrompt.classList.add('hidden');
+          }
+        }
+
+        // ปุ่ม "ไม่ใช่ตอนนี้"
+        document.getElementById('btnInstallCancel')?.addEventListener('click', () => {
+          hideInstallPrompt();
+          // รีเซ็ต deferredPrompt เพื่อไม่ให้แสดงอีกในเซสชันนี้
+          deferredPrompt = null;
+        });
+
+        // ปุ่ม "ติดตั้ง"
+        document.getElementById('btnInstallApp')?.addEventListener('click', async () => {
+          if (deferredPrompt) {
+            // แสดงไดอะล็อกติดตั้งของเบราว์เซอร์
+            deferredPrompt.prompt();
+            
+            // รอผลลัพธ์
+            const { outcome } = await deferredPrompt.userChoice;
+            
+            if (outcome === 'accepted') {
+              console.log('ผู้ใช้ติดตั้งแอปแล้ว');
+              showNotification('✅ ติดตั้งแอปสำเร็จ! คุณสามารถใช้งานผ่านไอคอนบนหน้าจอหลักได้', 'success');
+            } else {
+              console.log('ผู้ใช้ยกเลิกการติดตั้ง');
+              showNotification('ℹ️ คุณสามารถติดตั้งแอปได้ทุกเมื่อจากเมนูเบราว์เซอร์', 'info');
+            }
+            
+            // ซ่อนปุ่มและรีเซ็ต
+            hideInstallPrompt();
+            deferredPrompt = null;
+          }
+        });
+
+        // ตรวจจับว่าติดตั้งแล้วหรือไม่
+        window.addEventListener('appinstalled', () => {
+          console.log('แอปติดตั้งเรียบร้อยแล้ว');
+          hideInstallPrompt();
+          deferredPrompt = null;
+        });
+
+        // ฟังก์ชันตรวจสอบมือถือ
+        function isMobile() {
+          return /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                 (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        }
+
+        // แสดงการแจ้งเตือน (ใช้ฟังก์ชันที่มีอยู่แล้วในระบบของคุณ)
+        function showNotification(message, type = 'info') {
+          // ใช้ฟังก์ชัน showNotificationLeft ที่มีอยู่แล้วในโค้ดของคุณ
+          if (typeof showNotificationLeft === 'function') {
+            showNotificationLeft(message, type);
+          } else {
+            // Fallback
+            alert(message);
+          }
+        }
+
+        // ตรวจจับการโหลดหน้าเว็บ
+        document.addEventListener('DOMContentLoaded', () => {
+          // ตรวจสอบว่ารันผ่าน localhost (จำเป็นสำหรับ PWA)
+          if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            console.log('✅ รันผ่าน localhost - รองรับการติดตั้งแอป');
+          } else if (window.location.protocol === 'https:') {
+            console.log('✅ รันผ่าน HTTPS - รองรับการติดตั้งแอป');
+          } else {
+            console.warn('⚠️ รันผ่าน file:// หรือ HTTP ทั่วไป - ไม่รองรับการติดตั้งแอป');
+          }
+        });
 
         // ข้อ 2: แสดงปุ่มยืนยัน
         function showConfirmButton() {
