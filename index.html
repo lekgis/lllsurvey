@@ -3840,7 +3840,7 @@
                 document.body.appendChild(progressIndicator);
                 
                 // ✅ ดาวน์โหลดไฟล์จากกูเกิ้ลไดร์ฟ
-                const fileUrl = `https://drive.google.com/uc?export=download&id=${MAP_CONFIG.googleDriveFileId}`;
+                const fileUrl = `https://drive.google.com/uc?export=download&id=${MAP_CONFIG.googleDriveFileId.trim()}`;
                 const response = await fetch(fileUrl);
                 
                 if (!response.ok) {
@@ -3964,7 +3964,7 @@
                 }
                 
                 // ✅ ส่งคำขอ HEAD ไปยังลิงก์ดาวน์โหลด (ไม่ดาวน์โหลดไฟล์จริง!)
-                const fileUrl = `https://drive.google.com/uc?export=download&id=${MAP_CONFIG.googleDriveFileId}`;
+                const fileUrl = `https://drive.google.com/uc?export=download&id=${MAP_CONFIG.googleDriveFileId.trim()}`;
                 const headResponse = await fetch(fileUrl, { method: 'HEAD' });
                 
                 if (!headResponse.ok) {
@@ -4519,37 +4519,68 @@
             }
         }
 
-        // ✅ มีเพียงระบบใหม่
-        // ใช้ window.addEventListener แทน  เพื่อป้องกันการทับซ้อน
+        // ============================================
+        // window.addEventListener
+        // ============================================
+
+        // ============================================
+        // เริ่มต้นแอป (รวมโค้ดทั้ง 2 ส่วน)
+        // ============================================
         window.addEventListener('load', async () => {
-            // 1. เริ่มต้นแผนที่และไอคอน
+            // 1. เริ่มต้นแผนที่และไอคอน (จำเป็นสำหรับภาพดาวเทียม)
             initMap();
             lucide.createIcons();
+            
+            // 2. โหลดข้อมูล (จำเป็นสำหรับภาพดาวเทียม)
             loadExistingData();
             
-            // 2. ตรวจสอบและซิงค์ข้อมูลที่ค้างอยู่ (สำคัญสำหรับระบบออฟไลน์)
+            // 3. เริ่มระบบอัปเดตอัตโนมัติ (จำเป็นสำหรับระบบอัปเดต)
+            await loadExistingData(); // ← โหลดอีกครั้งเพื่อให้แน่ใจ
+            startRealtimeAutoUpdate();
+            
+            // 4. ตรวจสอบและซิงค์ข้อมูลที่ค้างอยู่
             await checkAndSyncOnStartup();
             
-            // 3. อัปเดตจุดแจ้งเตือนจำนวนข้อมูลที่รอซิงค์
+            // 5. อัปเดตจุดแจ้งเตือนจำนวนข้อมูลที่รอซิงค์
             setInterval(() => {
                 updateSyncBadge();
-            }, 1000);
-
-        window.addEventListener('beforeunload', () => {
-            stopRealtimeAutoUpdate(); // ✅ หยุดระบบใหม่
-        });
-            
-            // 4. ลงทะเบียน Service Worker สำหรับแคชไทล์
-            if ('serviceWorker' in navigator) {
+            }, 1000);            
+           
+            // 7. ลงทะเบียน Service Worker
+            if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
                 navigator.serviceWorker.register('/sw.js')
-                    .then((registration) => {
-                        console.log('Service Worker registered:', registration.scope);
-                    })
-                    .catch((error) => {
-                        console.log('Service Worker registration failed:', error);
-                    });
+                    .then(() => console.log('Service Worker registered'))
+                    .catch(err => console.error('Service Worker registration failed:', err));
+            } else {
+                console.warn('⚠️ Service Worker ไม่รองรับการทำงานบน file:// protocol');
             }
         });
+
+        // ============================================
+        // ตรวจจับการเชื่อมต่อออนไลน์ (ไม่ซ้ำ)
+        // ============================================
+        window.addEventListener('online', () => {
+            isOnline = true;
+            updateConnectionStatus();
+            setTimeout(() => {
+                if (!isProcessingQueue && navigator.onLine) {
+                    console.log('ออนไลน์ → เริ่มซิงค์ข้อมูล');
+                    processSyncQueue();
+                }
+            }, 2000);
+        });
+
+        // ============================================
+        // ตรวจจับการออฟไลน์ (ไม่ซ้ำ)
+        // ============================================
+        window.addEventListener('offline', () => {
+            isOnline = false;
+            updateConnectionStatus();
+        });
+
+        // ============================================
+        // window.addEventListener
+        // ============================================
 
         // แสดงจำนวนข้อมูลที่รอซิงค์ในปุ่มฟันเฟือง
         function updateSyncBadge() {
@@ -5829,77 +5860,22 @@
         }
 
         // ============================================
-        // 1. วางก่อน `window.addEventListener('load')` ทั้งหมด
-        // ============================================
-
-        // หยุดระบบอัปเดตเมื่อปิดหน้าต่าง
-        window.addEventListener('beforeunload', () => {
-            stopRealtimeAutoUpdate();
-        });
-
-        // ✅ ปรับเหตุการณ์ online เพื่อหลีกเลี่ยงการเรียกซ้ำซ้อน
-        window.addEventListener('online', () => {
-          isOnline = true;
-          updateConnectionStatus();
-          
-          // ✅ ใช้ setTimeout เพื่อหลีกเลี่ยงการเรียกทันทีเมื่อกลับมาออนไลน์
-          setTimeout(() => {
-            if (!isProcessingQueue && navigator.onLine) {
-              console.log('ออนไลน์ → เริ่มซิงค์ข้อมูล');
-              processSyncQueue();
-            }
-          }, 2000); // รอ 2 วินาที
-        });
-
-        // ตรวจจับการออฟไลน์
-        window.addEventListener('offline', () => {
-            isOnline = false;
-            updateConnectionStatus();
-        });
-
-        // ============================================
-        // 2. เริ่มต้นแอป (มีเพียง 1 ครั้งเดียว)
-        // ============================================
-        window.addEventListener('load', async () => {
-            // 1. เริ่มต้นแผนที่และไอคอน
-            initMap();
-            lucide.createIcons();
-            
-            // 2. โหลดข้อมูลและเริ่มระบบอัปเดต
-            await loadExistingData();           // ← โหลดข้อมูลครั้งแรก
-            startRealtimeAutoUpdate();          // ← เริ่มระบบอัปเดตอัตโนมัติ (สำคัญที่สุด!)
-            
-            // 3. ตรวจสอบและซิงค์ข้อมูลที่ค้างอยู่
-            await checkAndSyncOnStartup();
-            
-            // 4. อัปเดตจุดแจ้งเตือนจำนวนข้อมูลที่รอซิงค์
-            setInterval(updateSyncBadge, 1000);
-            
-            // 5. ลงทะเบียน Service Worker
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(registration => console.log('Service Worker registered:', registration.scope))
-                    .catch(error => console.log('Service Worker registration failed:', error));
-            }
-        });
-
         // ฟังก์ชันแสดงชื่อไฟล์ที่เลือก
+        // ============================================
         function updateFileName(input, fieldId) {
-        const filenameSpan = document.getElementById(`filename-${fieldId}`);
-        if (!filenameSpan) return;
-        if (input.files && input.files[0]) {
-        const filename = input.files[0].name;
-        filenameSpan.textContent = filename;
-        filenameSpan.classList.remove('hidden');
-        filenameSpan.classList.add('bg-blue-100', 'text-blue-800');
-        } else {
-        filenameSpan.classList.add('hidden');
-        }
+            const filenameSpan = document.getElementById(`filename-${fieldId}`);
+            if (!filenameSpan) return;
+            if (input.files && input.files[0]) {
+                const filename = input.files[0].name;
+                filenameSpan.textContent = filename;
+                filenameSpan.classList.remove('hidden');
+                filenameSpan.classList.add('bg-blue-100', 'text-blue-800');
+            } else {
+                filenameSpan.classList.add('hidden');
+            }
         }
 
     </script>
 </body>
 
 </html>
-
-
