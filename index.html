@@ -274,6 +274,20 @@
                 font-size: 0.75rem !important;
             }
         }
+        /* ✅ เพิ่มในส่วนของ <style> */
+        @media (max-width: 768px) {
+            .grid.grid-cols-2 {
+                grid-template-columns: 1fr 1fr;
+                gap: 0.5rem;
+            }
+            .grid.grid-cols-2 .form-label {
+                font-size: 0.75rem !important;
+            }
+            .grid.grid-cols-2 .form-input {
+                font-size: 0.8125rem !important;
+                padding: 0.4rem 0.5rem !important;
+            }
+        }
         /* แอนิเมชันสำหรับปุ่มฟันเฟือง */
         @keyframes spin {
           from { transform: rotate(0deg); }
@@ -1765,8 +1779,9 @@
         function openEditPanel(data, type, marker) {
             editingMarker = marker;
             const form = document.getElementById('survey-form');
+            const initialFloor = data.no_floor ? `1-${data.no_floor}` : '1-1';
             //document.getElementById('latlng-display').innerText = data.lat_long;
-            document.getElementById('panel-title').innerText = type === 'building' ? 'รายละเอียดสิ่งปลูกสร้าง' : 'รายละเอียดป้าย';
+            document.getElementById('panel-title').innerText = type === 'building' ? 'ข้อมูลสิ่งปลูกสร้าง' : 'ข้อมูลป้าย';
             // ✅ เพิ่มฟิลด์ประเภทมาร์กเกอร์เป็นบรรทัดแรกของฟอร์ม
             // let html = `<input type="hidden" id="marker-type" name="marker-type" value="${type}">`;
 
@@ -1776,25 +1791,59 @@
                 { id: 'address', label: 'ที่อยู่', type: 'text' },
                 { id: 'building_c', label: 'รหัสสิ่งปลูกสร้าง', type: 'text' },
                 { id: 'b_type', label: 'ประเภทสิ่งปลูกสร้าง', type: 'select', options: [ '000-ไม่ระบุ', '101-บ้านพักอาศัยไม้ชั้นเดียว', '102-บ้านพักอาศัยไม้ชั้นเดียวใต้ถุนสูง', '103-บ้านพักอาศัยตึกชั้นเดียว', '104-บ้านพักอาศัยไม้สองชั้น', '105-บ้านพักอาศัยตึกสองชั้น', '106-บ้านพักอาศัยครึ่งตึกครึ่งไม้สองชั้น', '107-บ้านพักอาศัยตึกสามชั้น', '108-บ้านพักอาศัยแฝดตึกสองชั้น', '109-บ้านพักอาศัยแฝดตึกสามชั้น', '110-บ้านทรงไทยไม้ชั้นเดียวใต้ถุนสูง', '111-บ้านทรงไทยครึ่งตึกครึ่งไม้สองชั้น', '112-บ้านพักอาศัยแฝดตึกชั้นเดียว', '201-บ้านแถว ทาวน์เฮาส์) ชั้นเดียว', '202-บ้านแถว ทาวน์เฮาส์) สองชั้น', '203-บ้านแถว ทาวน์เฮาส์) สามชั้น', '204-บ้านแถว ทาวน์เฮาส์) สี่ชั้น', '301-ห้องแถวไม้ชั้นเดียว', '302-ห้องแถวไม้สองชั้น', '303-ห้องแถวครึ่งตึกครึ่งไม้สองชั้น', '401-ตึกแถวชั้นเดียว', '402-ตึกแถวสองชั้น', '403-ตึกแถวสองชั้นครึ่ง', '404-ตึกแถวสามชั้น', '405-ตึกแถวสามชั้นครึ่ง', '406-ตึกแถวสี่ชั้น', '407-ตึกแถวสี่ชั้นครึ่ง', '408-ตึกแถวห้าชั้น', '409-ตึกแถวหกชั้น', '501-คลังสินค้า พื้นที่ไม่เกิน 300 ตารางเมตร', '502-คลังสินค้าพื้นที่เกินกว่า 300 ตารางเมตรขึ้นไป', '503-เรือนคนใช้ /ครัว', '504-โรงจอดรถ', '505-สถานศึกษา', '506/1-โรงแรม ความสูงไม่เกิน 5 ชั้น', '506/2-โรงแรม ความสูงเกินกว่า 5 ชั้นขึ้นไป', '507-โรงมหรสพ', '508-สถานพยาบาล', '509/1-สำนักงาน ความสูงไม่เกิน 5 ชั้น', '509/2-สำนักงาน ความสูงเกินกว่า 5 ชั้นขึ้นไป', '510-ภัตตาคาร', '511/1-ห้างสรรพสินค้า', '511/2-อาคารพาณิชยกรรม ประเภทค้าปลีกค้าส่ง', '512-สถานีบริการน้ำมันเชื้อเพลิง', '513-โรงงาน', '514-ตลาด พื้นที่ไม่เกิน 1,000 ตารางเมตร', '515-ตลาด พื้นที่เกินกว่า 1,000 ตารางเมตรขึ้นไป', '516-อาคารพาณิชย์ ประเภทโฮมออฟฟิศ', '517-โรงเลี้ยงสัตว์', '518-โรงงานซ่อมรถยนต์', '519-อาคารจอดรถ', '520/1-อาคารอยู่อาศัยรวม ความสูงไม่เกิน 5 ชั้น', '520/2-อาคารอยู่อาศัยรวม ความสูงเกินกว่า 5 ชั้นขึ้นไป', '521-ป้อมยาม', '522-อาคารพาณิชย์ ประเภทโชว์รูมรถยนต์', '523-ห้องน้ำรวม', '601-รั้วคอนกรีต', '602-รั้วลวดหนาม', '603-รั้วสังกะสี', '604-รั้วลวดถัก', '605-รั้วไม้', '606-รั้วเหล็กดัด', '607-รั้วอัลลอยด์', '608-สระว่ายน้ำ', '609-ลานกีฬาอเนกประสงค์', '610-ถนนคอนกรีต', '611-ลานคอนกรีต', '612-ถนนลาดยาง', '613-ป้ายโฆษณา', '614-ท่าเทียบเรือ'] },
-                { id: 'b_mat', label: 'วัสดุ', type: 'select', options: ['ไม้', 'ตึก', 'ตึก/ไม้'], defaultValue: 'ตึก' },
-                { id: 'b_year', label: 'อายุ (ปี)', type: 'select', options: [1, 2, 3, 5, 7, 10, 15, 20, 25, 30, 35, 40, 45, 50, 70, 80, 100], allowCustom: true },
-                { id: 'hs_no', label: 'บ้านเลขที่', type: 'text' },
-                { id: 'hs_moo', label: 'หมู่', type: 'select', options: ['', 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]},
-                { id: 'no_floor', label: 'จำนวนชั้น', type: 'select', options: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], defaultValue: 1 },
-                { id: 'b_area', label: 'พื้นที่ทั้งหลัง (ตร.ม.)', type: 'number', defaultValue: '' },
+                // ✅ คู่ที่ 1 - วัสดุ + อายุ (แนวนอน)
+                { id: 'b_mat', label: 'วัสดุ', type: 'select', options: ['ไม้', 'ตึก', 'ตึก/ไม้'], defaultValue: 'ตึก', pairWith: 'b_year' },
+                { id: 'b_year', label: 'อายุ (ปี)', type: 'select', options: [1, 2, 3, 5, 7, 10, 15, 20, 25, 30, 35, 40, 45, 50, 70, 80, 100], allowCustom: true, pairWith: 'b_mat' },
+                                
+                // ✅ คู่ที่ 2 - บ้านเลขที่ + หมู่ (แนวนอน)
+                { id: 'hs_no', label: 'บ้านเลขที่', type: 'text', pairWith: 'hs_moo' },
+                { id: 'hs_moo', label: 'หมู่', type: 'select', options: ['', 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], pairWith: 'hs_no' },
+                
+                // ✅ คู่ที่ 4 - จำนวนชั้น + พื้นที่ทั้งหลัง (แนวนอน)
+                // ✅ แก้เป็น
+                { 
+                    id: 'no_floor', 
+                    label: 'จำนวนชั้น', 
+                    type: 'select', 
+                    options: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 
+                    defaultValue: 1, 
+                    pairWith: 'b_area'  // ✅ เพิ่มบรรทัดนี้
+                },
+                // ✅ แก้เป็น
+                { 
+                    id: 'b_area', 
+                    label: 'พท.ทั้งหลัง', 
+                    type: 'number', 
+                    defaultValue: '', 
+                    pairWith: 'no_floor',
+                    withButton: true  // ✅ ต้องมีบรรทัดนี้
+                },
+
                 { id: 'b_note', label: 'รายละเอียด', type: 'select', options: ['', 'ยุ้งข้าว', 'คอกวัว', 'เล้าไก่', 'คอกหมู', 'โรงจอดรถ', 'ห้องน้ำ', 'ร้านค้าของชำ', 'ขายอาหาร', 'มินิมาร์ท', 'กระท่อมนา', 'เพิงพัก', 'โรงเก็บของ', 'เก็บฟาง', 'โรงครัว', 'ศาลาพักผ่อน', 'ตู้เติมเงิน', 'ตู้น้ำมันหยอดเหรียญ', 'ตู้น้ำดื่มหยอดเหรียญ', 'ห้องเช่ารายเดือน', 'รีสอร์ท', 'รื้อ'], allowCustom: true },
                 // ✅ กลุ่มที่ 1 - สีเขียว
                 { id: 'b_use', label: 'ใช้ประโยชน์', type: 'select', options: ['', '1-เกษตรกรรม', '2-(1)ที่อยู่อาศัย หลังหลัก', '2-(2)ที่อยู่อาศัย หลังหลักไม่เป็นกรรมสิทธิ์ที่ดิน', '2-(3)ที่อยู่อาศัย หลังอื่นๆ เช่น ให้เช่ารายเดือน', '3-อื่นๆ ประกอบการ', '4-ทิ้งไว้ว่างเปล่า/รกร้าง'], customClass: 'bg-custom-green' },
                 { id: 'per_use', label: 'การเช่า', type: 'select', options: ['ใช้ประโยชน์เอง', 'ให้เช่า', 'ผู้อื่นใช้'], customClass: 'bg-custom-green' },
-                { id: 'full_area', label: 'ใช้ทั้งหลัง', type: 'select', options: ['', 'เต็มพื้นที่', 'บางส่วน'], customClass: 'bg-custom-green' },
-                { id: 'buse_floor', label: 'ชั้นที่ใช้', type: 'select', options: ['1-1', '1-2', '1-3', '1-4', '1-5'], defaultValue: '1-1', allowCustom: true, customClass: 'bg-custom-green' },
+
+                // ✅ คู่ที่ 3 - ใช้ทั้งหลัง + ชั้นที่ใช้ (แนวนอน)
+                { id: 'full_area', label: 'ใช้ทั้งหลัง', type: 'select', options: ['', 'เต็มพื้นที่', 'บางส่วน'], customClass: 'bg-custom-green', pairWith: 'buse_floor' },
+                { 
+                    id: 'buse_floor', 
+                    label: 'ชั้นที่ใช้', 
+                    type: 'select', 
+                    options: ['1-1', '1-2', '1-3', '1-4', '1-5'], 
+                    allowCustom: true, 
+                    customClass: 'bg-custom-green',
+                    defaultValue: initialFloor,
+                    pairWith: 'full_area'
+                },
                 { id: 'buse_area', label: 'พื้นที่ใช้ (ตร.ม.)', type: 'number', customClass: 'bg-custom-green' },
                 { id: 'ment_use', label: 'รายละเอียด', type: 'select', options: ['', 'ยุ้งข้าว', 'คอกวัว', 'เล้าไก่', 'คอกหมู', 'โรงจอดรถ', 'ห้องน้ำ', 'ร้านค้าของชำ', 'ขายอาหาร', 'มินิมาร์ท', 'กระท่อมนา', 'เพิงพัก', 'โรงเก็บของ', 'เก็บฟาง', 'โรงครัว', 'ศาลาพักผ่อน', 'ตู้เติมเงิน', 'ตู้น้ำมันหยอดเหรียญ', 'ตู้น้ำดื่มหยอดเหรียญ', 'ห้องเช่ารายเดือน', 'รีสอร์ท', 'รื้อ'], allowCustom: true, customClass: 'bg-custom-green' },
                 
                 // ✅ กลุ่มที่ 2 - สีชมพู
                 { id: 'b_use2', label: 'ใช้ประโยชน์ (2)', type: 'select', options: ['', '1-เกษตรกรรม', '2-(1)ที่อยู่อาศัย หลังหลัก', '2-(2)ที่อยู่อาศัย หลังหลักไม่เป็นกรรมสิทธิ์ที่ดิน', '2-(3)ที่อยู่อาศัย หลังอื่นๆ เช่น ให้เช่ารายเดือน', '3-อื่นๆ ประกอบการ', '4-ทิ้งไว้ว่างเปล่า/รกร้าง'], defaultValue: '3-อื่นๆ ประกอบการ', customClass: 'bg-custom-pink' },
-                { id: 'per_use2', label: 'การเช่า (2)', type: 'select', options: ['ใช้ประโยชน์เอง', 'ให้เช่า', 'ผู้อื่นใช้'], defaultValue: 'ใช้ประโยชน์เอง' , customClass: 'bg-custom-pink' },
-                { id: 'buse_floor2', label: 'ชั้นที่ใช้ (2)', type: 'select', options: ['', '1-1', '1-2', '1-3', '1-4', '1-5'], defaultValue: '1-1', allowCustom: true, customClass: 'bg-custom-pink' },
+                // ✅ คู่ที่ 5 - การเช่า (2) + ชั้นที่ใช้ (2) (แนวนอน)
+                { id: 'per_use2', label: 'การเช่า (2)', type: 'select', options: ['ใช้ประโยชน์เอง', 'ให้เช่า', 'ผู้อื่นใช้'], defaultValue: 'ใช้ประโยชน์เอง' , customClass: 'bg-custom-pink', pairWith: 'buse_floor2' },
+                { id: 'buse_floor2', label: 'ชั้นที่ใช้ (2)', type: 'select', options: ['', '1-1', '1-2', '1-3', '1-4', '1-5'], defaultValue: '1-1', allowCustom: true, customClass: 'bg-custom-pink', pairWith: 'per_use2' },
                 {
                   id: 'buse_area2', 
                   label: 'พื้นที่ใช้ (2) (ตร.ม.)', 
@@ -1863,25 +1912,35 @@
                 <input type="hidden" name="lat_long" value="${data.lat_long || ''}">
             `;
             fields.forEach(f => {
-                html += `<div class="mb-2">`;
+                // ✅ ข้ามฟิลด์ที่ถูกจับคู่แล้ว (render ในคู่เดียวกัน)
+                if (f.pairWith && fields.findIndex(x => x.id === f.pairWith) < fields.indexOf(f)) {
+                    return; // ข้ามฟิลด์ที่ 2 ของคู่ เพราะ render ไปแล้วในฟิลด์ที่ 1
+                }
                 
-                // ✅ สร้าง <label> เฉพาะฟิลด์ที่ไม่ใช่ 'file'
+                // ✅ ตรวจสอบว่ามีฟิลด์คู่หรือไม่
+                const pairedField = f.pairWith ? fields.find(x => x.id === f.pairWith) : null;
+                
+                // ✅ เริ่ม div wrapper
+                if (pairedField) {
+                    html += `<div class="mb-2 grid grid-cols-2 gap-2">`;
+                } else {
+                    html += `<div class="mb-2">`;
+                }
+                
+                // ✅ สร้างฟิลด์หลัก
+                html += `<div>`;
                 if (f.type !== 'file') {
                     html += `<label class="form-label">${f.label}</label>`;
                 }
                 
-                // ✅ ตรวจสอบฟิลด์ "สถานะการตรวจสอบ" และตั้งค่าอัตโนมัติถ้ามีชื่อรูปภาพในคอลั่มน์ 'picture' (แต่ไม่ทับถ้าเป็น 'ตรวจสอบแล้ว')
+                // ✅ ดึงค่าฟิลด์
                 let fieldValue = data[f.id] || '';
                 if (f.id === 'check') {
-                    // ⚠️ ถ้าสถานะปัจจุบันคือ 'ตรวจสอบแล้ว' → คงค่าไว้ทันที (สถานะสูงสุด ไม่ย้อนกลับ)
                     if (fieldValue === 'ตรวจสอบแล้ว') {
-                        // ไม่ทำอะไร → คงค่า 'ตรวจสอบแล้ว' ไว้
-                    } 
-                    // ✅ ถ้าไม่ใช่ 'ตรวจสอบแล้ว' และมีชื่อรูปภาพในคอลั่มน์ 'picture' → ตั้งค่าเป็น 'ถ่ายรูปแล้ว'
-                    else if (data.picture && data.picture.trim() !== '') {
+                        // คงค่าไว้
+                    } else if (data.picture && data.picture.trim() !== '') {
                         fieldValue = 'ถ่ายรูปแล้ว';
                     }
-                    // ถ้าไม่มีชื่อรูปภาพและไม่ใช่ 'ตรวจสอบแล้ว' → คงค่าเดิม (เช่น 'ยังไม่สำรวจ' หรือค่าว่าง)
                 }
                 
                 if (f.type === 'textarea') {
@@ -1928,9 +1987,7 @@
                     </div>`;
                 } else if (f.type === 'select') {
                     const customClass = f.customClass || '';
-                    // ✅ เพิ่มเงื่อนไข disabled
                     const isDisabled = f.disabled ? 'disabled' : '';
-                    
                     if (f.allowCustom) {
                         const value = fieldValue !== undefined && fieldValue !== null && fieldValue !== '' ? fieldValue : (f.defaultValue !== undefined ? f.defaultValue : '');
                         html += `<input type="text" name="${f.id}" class="form-input ${customClass}" list="${f.id}-options" value="${value}" ${isDisabled}>`;
@@ -1941,49 +1998,106 @@
                         html += `</datalist>`;
                     } else {
                         const value = fieldValue !== undefined && fieldValue !== null && fieldValue !== '' ? fieldValue : (f.defaultValue !== undefined ? f.defaultValue : '');
-                        html += `<select name="${f.id}" class="form-input ${customClass}" ${isDisabled}>`; // ✅ เพิ่ม ${isDisabled}
+                        html += `<select name="${f.id}" class="form-input ${customClass}" ${isDisabled}>`;
                         f.options.forEach(opt => {
                             const selected = String(value) === String(opt) ? 'selected' : '';
                             html += `<option value="${opt}" ${selected}>${opt}</option>`;
                         });
                         html += `</select>`;
                     }
-
-            } else if (f.type === 'number') {
-                const customClass = f.customClass || '';
-                // ✅ ตรวจสอบว่าเป็นฟิลด์ buse_area2 ที่ต้องการปุ่ม
-                if (f.id === 'buse_area2' && f.withButtons) {
-                    html += `
-                    <div class="flex gap-2 items-center">
-                        <input type="number" name="${f.id}" class="form-input ${customClass} flex-1" value="${fieldValue}"${f.readonly ? ' readonly' : ''}>
-                        <div class="flex gap-1">
-                            <!-- ปุ่มแรก: สีส้ม ข้อความ "B" -->
-                            <button type="button" onclick="openAreaCalculator()" 
+                } else if (f.type === 'number') {
+                    const customClass = f.customClass || '';
+                    // ✅ ตรวจสอบปุ่ม A (b_area) - เพิ่มก่อนบรรทัดที่ตรวจสอบ buse_area2
+                    if (f.id === 'b_area' && f.withButton) {
+                        html += `
+                        <div class="flex gap-1 items-center">
+                            <input type="number" name="${f.id}" class="form-input ${customClass} w-20" value="${fieldValue}"${f.readonly ? ' readonly' : ''}>
+                            <button type="button" onclick="openAreaCalculatorA()"
+                            class="px-1 py-2 bg-purple-600 text-white rounded font-bold text-sm hover:bg-purple-700 transition"
+                            title="คำนวณพื้นที่ A">
+                            A
+                            </button>
+                        </div>`;
+                    }
+                    // ✅ ตรวจสอบปุ่ม B (buse_area2)
+                    else if (f.id === 'buse_area2' && f.withButtons) {
+                        html += `
+                        <div class="flex gap-2 items-center">
+                            <input type="number" name="${f.id}" class="form-input ${customClass} flex-1" value="${fieldValue}"${f.readonly ? ' readonly' : ''}>
+                            <div class="flex gap-1">
+                                <button type="button" onclick="openAreaCalculator()"
                                 class="px-3 py-2 bg-orange-500 text-white rounded font-bold text-sm hover:bg-orange-600 transition"
                                 title="คำนวณพื้นที่">
                                 B
-                            </button>
-                            <!-- ปุ่มที่สอง: สีเขียว ไอคอนสามเหลี่ยม (Δ) -->
-                            <button type="button" onclick="calculateDeltaArea()" 
+                                </button>
+                                <button type="button" onclick="calculateDeltaArea()"
                                 class="px-3 py-2 bg-green-500 text-white rounded font-bold text-sm hover:bg-green-600 transition"
                                 title="คำนวณผลต่าง">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M12 2L22 22H2L12 2z"></path>
+                                <path d="M12 2L22 22H2L12 2z"></path>
                                 </svg>
-                            </button>
-                        </div>
-                    </div>
-                    `;
+                                </button>
+                            </div>
+                        </div>`;
+                    } else {
+                        html += `<input type="${f.type}" name="${f.id}" class="form-input ${customClass}" value="${fieldValue}"${f.readonly ? ' readonly' : ''}>`;
+                    }
                 } else {
+                    const customClass = f.customClass || '';
                     html += `<input type="${f.type}" name="${f.id}" class="form-input ${customClass}" value="${fieldValue}"${f.readonly ? ' readonly' : ''}>`;
                 }
-            } else {
-                const customClass = f.customClass || '';
-                html += `<input type="${f.type}" name="${f.id}" class="form-input ${customClass}" value="${fieldValue}"${f.readonly ? ' readonly' : ''}>`;
-            }
+                html += `</div>`;
+
+            
+                // ✅ สร้างฟิลด์คู่ (ถ้ามี)
+                if (pairedField) {
+                    html += `<div>`;
+                    if (pairedField.type !== 'file') {
+                        html += `<label class="form-label">${pairedField.label}</label>`;
+                    }
+                    
+                    let pairedFieldValue = data[pairedField.id] || '';
+                    if (pairedField.id === 'check') {
+                        if (pairedFieldValue === 'ตรวจสอบแล้ว') {
+                            // คงค่าไว้
+                        } else if (data.picture && data.picture.trim() !== '') {
+                            pairedFieldValue = 'ถ่ายรูปแล้ว';
+                        }
+                    }
+                    
+                    if (pairedField.type === 'select') {
+                        const customClass = pairedField.customClass || '';
+                        const isDisabled = pairedField.disabled ? 'disabled' : '';
+                        if (pairedField.allowCustom) {
+                            const value = pairedFieldValue !== undefined && pairedFieldValue !== null && pairedFieldValue !== '' ? pairedFieldValue : (pairedField.defaultValue !== undefined ? pairedField.defaultValue : '');
+                            html += `<input type="text" name="${pairedField.id}" class="form-input ${customClass}" list="${pairedField.id}-options" value="${value}" ${isDisabled}>`;
+                            html += `<datalist id="${pairedField.id}-options">`;
+                            pairedField.options.forEach(opt => {
+                                html += `<option value="${opt}">${opt}</option>`;
+                            });
+                            html += `</datalist>`;
+                        } else {
+                            const value = pairedFieldValue !== undefined && pairedFieldValue !== null && pairedFieldValue !== '' ? pairedFieldValue : (pairedField.defaultValue !== undefined ? pairedField.defaultValue : '');
+                            html += `<select name="${pairedField.id}" class="form-input ${customClass}" ${isDisabled}>`;
+                            pairedField.options.forEach(opt => {
+                                const selected = String(value) === String(opt) ? 'selected' : '';
+                                html += `<option value="${opt}" ${selected}>${opt}</option>`;
+                            });
+                            html += `</select>`;
+                        }
+                    } else if (pairedField.type === 'number') {
+                        const customClass = pairedField.customClass || '';
+                        html += `<input type="${pairedField.type}" name="${pairedField.id}" class="form-input ${customClass}" value="${pairedFieldValue}"${pairedField.readonly ? ' readonly' : ''}>`;
+                    } else {
+                        const customClass = pairedField.customClass || '';
+                        html += `<input type="${pairedField.type}" name="${pairedField.id}" class="form-input ${customClass}" value="${pairedFieldValue}"${pairedField.readonly ? ' readonly' : ''}>`;
+                    }
+                    html += `</div>`;
+                }
+                
                 html += `</div>`;
             });
-            
+
             form.innerHTML = html;
             // ✅ เพิ่มหลังจาก form.innerHTML = html; ในฟังก์ชัน openEditPanel()
             // ✅ วางโค้ดผูกเหตุการณ์ที่นี่ (หลัง form.innerHTML)
@@ -2019,6 +2133,30 @@
                 });
             });
 
+            // ✅ 2. ใส่โค้ดนี้ต่อท้ายทันทีหลังจากสร้าง HTML เสร็จแล้ว (เพื่อจับเหตุการณ์เปลี่ยนค่า)
+            setTimeout(() => { 
+                // 1. หาช่องจำนวนชั้น (เป็น select)
+                const noFloorSelect = document.querySelector('select[name="no_floor"]');
+                
+                // 2. หาช่องชั้นที่ใช้ (เป็น input เพราะ allowCustom: true)
+                const buseFloorInput = document.querySelector('input[name="buse_floor"]');
+
+                if (noFloorSelect && buseFloorInput) {
+                    noFloorSelect.addEventListener('change', function() {
+                        const selectedFloor = this.value;
+                        if (selectedFloor) {
+                            // อัปเดตค่าช่องชั้นที่ใช้ เป็น 1-จำนวนชั้น (ทำงานทุกครั้งไม่ว่าจะเลือกใช้ทั้งหลังหรือไม่)
+                            buseFloorInput.value = `1-${selectedFloor}`;
+                            
+                            // ✅ เพิ่มบรรทัดนี้: บังคับให้ฟอร์มรู้ว่าค่าเปลี่ยนแล้ว (สำคัญสำหรับบางระบบ)
+                            buseFloorInput.dispatchEvent(new Event('input')); 
+                        } else {
+                            buseFloorInput.value = '';
+                        }
+                    });
+                }
+            }, 100);
+        
             // ✅ ผูกเหตุการณ์เมื่อเลือกค่าใน 'ประเภทสิ่งปลูกสร้าง' เพื่อตั้งค่าวัสดุและจำนวนชั้นอัตโนมัติ (รวมเป็นบล็อกเดียว)
             if (type === 'building') {
                 const bTypeSelect = document.querySelector('select[name="b_type"]');
@@ -5261,6 +5399,120 @@
             
             // โฟกัสที่ช่องกว้าง
             document.getElementById('calc-width')?.focus();
+        }
+
+        // ============================================
+        // ✅ คำนวณพื้นที่ A (สำหรับ b_area)
+        // ============================================
+        let areaCalculatorModalA = null;
+
+        function openAreaCalculatorA() {
+            if (areaCalculatorModalA) { areaCalculatorModalA.remove(); }
+            
+            areaCalculatorModalA = document.createElement('div');
+            areaCalculatorModalA.className = 'fixed inset-0 bg-black/20 z-[3000] flex items-center justify-center p-4 pointer-events-none';
+            areaCalculatorModalA.innerHTML = `
+            <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-2xl w-full max-w-md animate-scale-in pointer-events-auto">
+                <div class="p-4 border-b flex justify-between items-center">
+                    <h3 class="font-bold text-lg text-purple-900">คำนวณพื้นที่ทั้งหลัง (A)</h3>
+                    <button onclick="closeAreaCalculatorA()" class="p-2 hover:bg-gray-200 rounded-full">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <div class="p-4 space-y-4">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="form-label">กว้าง (ม.)</label>
+                            <input type="number" id="calc-width-a" class="form-input text-center" step="0.01" oninput="calculateAreaResultA()">
+                        </div>
+                        <div>
+                            <label class="form-label">ยาว (ม.)</label>
+                            <input type="number" id="calc-length-a" class="form-input text-center" step="0.01" oninput="calculateAreaResultA()">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="form-label">ผลลัพธ์ (ตร.ม.)</label>
+                        <input type="number" id="calc-result-a" class="form-input bg-purple-100 font-bold text-center" readonly>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="clearAreaCalculatorA()" class="flex-1 py-2 bg-gray-500 text-white rounded font-bold">ล้าง</button>
+                        <button type="button" onclick="addAreaToFieldA()" class="flex-1 py-2 bg-purple-600 text-white rounded font-bold">ใช้ค่านี้</button>
+                    </div>
+                </div>
+            </div>`;
+            
+            document.body.appendChild(areaCalculatorModalA);
+            lucide.createIcons();
+            document.getElementById('calc-width-a')?.focus();
+        }
+
+        function calculateAreaResultA() {
+            const w = parseFloat(document.getElementById('calc-width-a').value) || 0;
+            const l = parseFloat(document.getElementById('calc-length-a').value) || 0;
+            document.getElementById('calc-result-a').value = (w * l).toFixed(2);
+        }
+
+        function clearAreaCalculatorA() {
+            document.getElementById('calc-width-a').value = '';
+            document.getElementById('calc-length-a').value = '';
+            document.getElementById('calc-result-a').value = '0';
+        }
+
+        function addAreaToFieldA() {
+            const result = parseFloat(document.getElementById('calc-result-a').value) || 0;
+            const field = document.querySelector('input[name="b_area"]');
+            if (field) {
+                field.value = result.toFixed(2);
+                showNotificationLeft(`ตั้งค่าพื้นที่ = ${result.toFixed(2)} ตร.ม.`, 'success');
+            }
+            closeAreaCalculatorA();
+        }
+
+        function closeAreaCalculatorA() {
+            if (areaCalculatorModalA) {
+                areaCalculatorModalA.classList.add('animate-scale-out');
+                setTimeout(() => { 
+                    if (areaCalculatorModalA && areaCalculatorModalA.parentNode) areaCalculatorModalA.remove(); 
+                    areaCalculatorModalA = null; 
+                }, 200);
+            }
+        }
+
+        function calculateAreaResultA() {
+            const width = parseFloat(document.getElementById('calc-width-a').value) || 0;
+            const length = parseFloat(document.getElementById('calc-length-a').value) || 0;
+            const result = width * length;
+            document.getElementById('calc-result-a').value = result.toFixed(2);
+        }
+
+        function clearAreaCalculatorA() {
+            document.getElementById('calc-width-a').value = '';
+            document.getElementById('calc-length-a').value = '';
+            document.getElementById('calc-result-a').value = '0';
+        }
+
+        function addAreaToFieldA() {
+            const result = parseFloat(document.getElementById('calc-result-a').value) || 0;
+            const bAreaField = document.querySelector('input[name="b_area"]');
+            if (!bAreaField) {
+                showNotificationLeft('ไม่พบช่องกรอกพื้นที่ทั้งหลัง', 'error');
+                return;
+            }
+            bAreaField.value = result.toFixed(2);
+            showNotificationLeft(`ตั้งค่าพื้นที่ทั้งหลัง = ${result.toFixed(2)} ตร.ม.`, 'success');
+            closeAreaCalculatorA();
+        }
+
+        function closeAreaCalculatorA() {
+            if (areaCalculatorModalA) {
+                areaCalculatorModalA.classList.add('animate-scale-out');
+                setTimeout(() => {
+                    if (areaCalculatorModalA && areaCalculatorModalA.parentNode) {
+                        areaCalculatorModalA.remove();
+                    }
+                    areaCalculatorModalA = null;
+                }, 200);
+            }
         }
 
         // คำนวณผลลัพธ์เรียลไทม์
