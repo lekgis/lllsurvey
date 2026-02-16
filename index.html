@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="th">
 <head>
@@ -10,7 +11,7 @@
     <meta name="theme-color" content="#2563eb">
     <title>โนนไทย</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="icon" href="static/icons/lb.ico" type="image/x-icon">
+    <link rel="icon" href="static/icons/lb.ico" type="image/x-icon"> <!-- แก้เป็นพาธสัมพัทธ์ -->
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -647,32 +648,6 @@
         </button>
     </div>
 
-    <!-- PWA Install Prompt -->
-    <div id="installPrompt" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-4 py-3 rounded-lg shadow-lg z-50 hidden max-w-md w-full">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center space-x-3">
-          <div class="bg-white p-2 rounded-lg">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600">
-              <path d="M12 20h.01"></path>
-              <path d="M5 12l-3-3 3-3"></path>
-              <path d="M19 12l3-3-3-3"></path>
-              <path d="M5 18l3-3-3-3"></path>
-              <path d="M19 18l-3-3 3-3"></path>
-              <path d="M12 4v.01"></path>
-            </svg>
-          </div>
-          <div>
-            <p class="font-medium">ติดตั้งแอป lSurvey</p>
-            <p class="text-xs opacity-90">ใช้งานออฟไลน์ได้ รวดเร็ว และเต็มหน้าจอ</p>
-          </div>
-        </div>
-        <div class="flex space-x-2">
-          <button id="btnInstallCancel" class="text-blue-100 hover:text-white text-sm px-2 py-1">ไม่ใช่ตอนนี้</button>
-          <button id="btnInstallApp" class="bg-white text-blue-600 font-medium px-3 py-1 rounded-md hover:bg-blue-50 transition">ติดตั้ง</button>
-        </div>
-      </div>
-    </div>
-
     <!-- หน้าต่างตารางข้อมูล -->
     <div id="data-table-panel" class="data-table-panel">
         <div class="table-header">
@@ -805,8 +780,7 @@
         let allBuildings = []; 
         let allSigns = [];   
         let movingMarkerId = null; // ✅ เก็บ ID ของจุดที่กำลังถูกลากอยู่  
-        // ตัวแปรเก็บเหตุการณ์ติดตั้ง
-        let deferredPrompt;
+        
         // ตัวแปรสำหรับระบบอัปเดตอัตโนมัติ
 
         let autoUpdateInterval = null;
@@ -1036,107 +1010,6 @@
             btn.style.cursor = 'pointer';
         }
 
-        // ตรวจจับเหตุการณ์ก่อนติดตั้ง
-        window.addEventListener('beforeinstallprompt', (e) => {
-          // ป้องกันเบราว์เซอร์แสดงพรอมต์อัตโนมัติ
-          e.preventDefault();
-          // บันทึกเหตุการณ์เพื่อใช้ภายหลัง
-          deferredPrompt = e;
-          
-          // แสดงปุ่มติดตั้ง (เฉพาะมือถือ)
-          if (isMobile()) {
-            showInstallPrompt();
-          }
-        });
-
-        // แสดงปุ่มติดตั้ง
-        function showInstallPrompt() {
-          const installPrompt = document.getElementById('installPrompt');
-          if (installPrompt && deferredPrompt) {
-            installPrompt.classList.remove('hidden');
-            
-            // ซ่อนหลัง 15 วินาทีถ้าไม่คลิก
-            setTimeout(() => {
-              if (!installPrompt.classList.contains('hidden')) {
-                installPrompt.classList.add('hidden');
-              }
-            }, 15000);
-          }
-        }
-
-        // ซ่อนปุ่มติดตั้ง
-        function hideInstallPrompt() {
-          const installPrompt = document.getElementById('installPrompt');
-          if (installPrompt) {
-            installPrompt.classList.add('hidden');
-          }
-        }
-
-        // ปุ่ม "ไม่ใช่ตอนนี้"
-        document.getElementById('btnInstallCancel')?.addEventListener('click', () => {
-          hideInstallPrompt();
-          // รีเซ็ต deferredPrompt เพื่อไม่ให้แสดงอีกในเซสชันนี้
-          deferredPrompt = null;
-        });
-
-        // ปุ่ม "ติดตั้ง"
-        document.getElementById('btnInstallApp')?.addEventListener('click', async () => {
-          if (deferredPrompt) {
-            // แสดงไดอะล็อกติดตั้งของเบราว์เซอร์
-            deferredPrompt.prompt();
-            
-            // รอผลลัพธ์
-            const { outcome } = await deferredPrompt.userChoice;
-            
-            if (outcome === 'accepted') {
-              console.log('ผู้ใช้ติดตั้งแอปแล้ว');
-              showNotification('✅ ติดตั้งแอปสำเร็จ! คุณสามารถใช้งานผ่านไอคอนบนหน้าจอหลักได้', 'success');
-            } else {
-              console.log('ผู้ใช้ยกเลิกการติดตั้ง');
-              showNotification('ℹ️ คุณสามารถติดตั้งแอปได้ทุกเมื่อจากเมนูเบราว์เซอร์', 'info');
-            }
-            
-            // ซ่อนปุ่มและรีเซ็ต
-            hideInstallPrompt();
-            deferredPrompt = null;
-          }
-        });
-
-        // ตรวจจับว่าติดตั้งแล้วหรือไม่
-        window.addEventListener('appinstalled', () => {
-          console.log('แอปติดตั้งเรียบร้อยแล้ว');
-          hideInstallPrompt();
-          deferredPrompt = null;
-        });
-
-        // ฟังก์ชันตรวจสอบมือถือ
-        function isMobile() {
-          return /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
-                 (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-        }
-
-        // แสดงการแจ้งเตือน (ใช้ฟังก์ชันที่มีอยู่แล้วในระบบของคุณ)
-        function showNotification(message, type = 'info') {
-          // ใช้ฟังก์ชัน showNotificationLeft ที่มีอยู่แล้วในโค้ดของคุณ
-          if (typeof showNotificationLeft === 'function') {
-            showNotificationLeft(message, type);
-          } else {
-            // Fallback
-            alert(message);
-          }
-        }
-
-        // ตรวจจับการโหลดหน้าเว็บ
-        document.addEventListener('DOMContentLoaded', () => {
-          // ตรวจสอบว่ารันผ่าน localhost (จำเป็นสำหรับ PWA)
-          if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-            console.log('✅ รันผ่าน localhost - รองรับการติดตั้งแอป');
-          } else if (window.location.protocol === 'https:') {
-            console.log('✅ รันผ่าน HTTPS - รองรับการติดตั้งแอป');
-          } else {
-            console.warn('⚠️ รันผ่าน file:// หรือ HTTP ทั่วไป - ไม่รองรับการติดตั้งแอป');
-          }
-        });
 
         // ข้อ 2: แสดงปุ่มยืนยัน
         function showConfirmButton() {
@@ -1892,7 +1765,7 @@
         function openEditPanel(data, type, marker) {
             editingMarker = marker;
             const form = document.getElementById('survey-form');
-            document.getElementById('latlng-display').innerText = data.lat_long;
+            //document.getElementById('latlng-display').innerText = data.lat_long;
             document.getElementById('panel-title').innerText = type === 'building' ? 'รายละเอียดสิ่งปลูกสร้าง' : 'รายละเอียดป้าย';
             // ✅ เพิ่มฟิลด์ประเภทมาร์กเกอร์เป็นบรรทัดแรกของฟอร์ม
             // let html = `<input type="hidden" id="marker-type" name="marker-type" value="${type}">`;
@@ -1903,7 +1776,7 @@
                 { id: 'address', label: 'ที่อยู่', type: 'text' },
                 { id: 'building_c', label: 'รหัสสิ่งปลูกสร้าง', type: 'text' },
                 { id: 'b_type', label: 'ประเภทสิ่งปลูกสร้าง', type: 'select', options: [ '000-ไม่ระบุ', '101-บ้านพักอาศัยไม้ชั้นเดียว', '102-บ้านพักอาศัยไม้ชั้นเดียวใต้ถุนสูง', '103-บ้านพักอาศัยตึกชั้นเดียว', '104-บ้านพักอาศัยไม้สองชั้น', '105-บ้านพักอาศัยตึกสองชั้น', '106-บ้านพักอาศัยครึ่งตึกครึ่งไม้สองชั้น', '107-บ้านพักอาศัยตึกสามชั้น', '108-บ้านพักอาศัยแฝดตึกสองชั้น', '109-บ้านพักอาศัยแฝดตึกสามชั้น', '110-บ้านทรงไทยไม้ชั้นเดียวใต้ถุนสูง', '111-บ้านทรงไทยครึ่งตึกครึ่งไม้สองชั้น', '112-บ้านพักอาศัยแฝดตึกชั้นเดียว', '201-บ้านแถว ทาวน์เฮาส์) ชั้นเดียว', '202-บ้านแถว ทาวน์เฮาส์) สองชั้น', '203-บ้านแถว ทาวน์เฮาส์) สามชั้น', '204-บ้านแถว ทาวน์เฮาส์) สี่ชั้น', '301-ห้องแถวไม้ชั้นเดียว', '302-ห้องแถวไม้สองชั้น', '303-ห้องแถวครึ่งตึกครึ่งไม้สองชั้น', '401-ตึกแถวชั้นเดียว', '402-ตึกแถวสองชั้น', '403-ตึกแถวสองชั้นครึ่ง', '404-ตึกแถวสามชั้น', '405-ตึกแถวสามชั้นครึ่ง', '406-ตึกแถวสี่ชั้น', '407-ตึกแถวสี่ชั้นครึ่ง', '408-ตึกแถวห้าชั้น', '409-ตึกแถวหกชั้น', '501-คลังสินค้า พื้นที่ไม่เกิน 300 ตารางเมตร', '502-คลังสินค้าพื้นที่เกินกว่า 300 ตารางเมตรขึ้นไป', '503-เรือนคนใช้ /ครัว', '504-โรงจอดรถ', '505-สถานศึกษา', '506/1-โรงแรม ความสูงไม่เกิน 5 ชั้น', '506/2-โรงแรม ความสูงเกินกว่า 5 ชั้นขึ้นไป', '507-โรงมหรสพ', '508-สถานพยาบาล', '509/1-สำนักงาน ความสูงไม่เกิน 5 ชั้น', '509/2-สำนักงาน ความสูงเกินกว่า 5 ชั้นขึ้นไป', '510-ภัตตาคาร', '511/1-ห้างสรรพสินค้า', '511/2-อาคารพาณิชยกรรม ประเภทค้าปลีกค้าส่ง', '512-สถานีบริการน้ำมันเชื้อเพลิง', '513-โรงงาน', '514-ตลาด พื้นที่ไม่เกิน 1,000 ตารางเมตร', '515-ตลาด พื้นที่เกินกว่า 1,000 ตารางเมตรขึ้นไป', '516-อาคารพาณิชย์ ประเภทโฮมออฟฟิศ', '517-โรงเลี้ยงสัตว์', '518-โรงงานซ่อมรถยนต์', '519-อาคารจอดรถ', '520/1-อาคารอยู่อาศัยรวม ความสูงไม่เกิน 5 ชั้น', '520/2-อาคารอยู่อาศัยรวม ความสูงเกินกว่า 5 ชั้นขึ้นไป', '521-ป้อมยาม', '522-อาคารพาณิชย์ ประเภทโชว์รูมรถยนต์', '523-ห้องน้ำรวม', '601-รั้วคอนกรีต', '602-รั้วลวดหนาม', '603-รั้วสังกะสี', '604-รั้วลวดถัก', '605-รั้วไม้', '606-รั้วเหล็กดัด', '607-รั้วอัลลอยด์', '608-สระว่ายน้ำ', '609-ลานกีฬาอเนกประสงค์', '610-ถนนคอนกรีต', '611-ลานคอนกรีต', '612-ถนนลาดยาง', '613-ป้ายโฆษณา', '614-ท่าเทียบเรือ'] },
-                { id: 'b_mat', label: 'วัสดุ', type: 'select', options: ['ไม้', 'ตึก', 'ตึก/ไม้'] },
+                { id: 'b_mat', label: 'วัสดุ', type: 'select', options: ['ไม้', 'ตึก', 'ตึก/ไม้'], defaultValue: 'ตึก' },
                 { id: 'b_year', label: 'อายุ (ปี)', type: 'select', options: [1, 2, 3, 5, 7, 10, 15, 20, 25, 30, 35, 40, 45, 50, 70, 80, 100], allowCustom: true },
                 { id: 'hs_no', label: 'บ้านเลขที่', type: 'text' },
                 { id: 'hs_moo', label: 'หมู่', type: 'select', options: ['', 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]},
@@ -1911,17 +1784,17 @@
                 { id: 'b_area', label: 'พื้นที่ทั้งหลัง (ตร.ม.)', type: 'number', defaultValue: '' },
                 { id: 'b_note', label: 'รายละเอียด', type: 'select', options: ['', 'ยุ้งข้าว', 'คอกวัว', 'เล้าไก่', 'คอกหมู', 'โรงจอดรถ', 'ห้องน้ำ', 'ร้านค้าของชำ', 'ขายอาหาร', 'มินิมาร์ท', 'กระท่อมนา', 'เพิงพัก', 'โรงเก็บของ', 'เก็บฟาง', 'โรงครัว', 'ศาลาพักผ่อน', 'ตู้เติมเงิน', 'ตู้น้ำมันหยอดเหรียญ', 'ตู้น้ำดื่มหยอดเหรียญ', 'ห้องเช่ารายเดือน', 'รีสอร์ท', 'รื้อ'], allowCustom: true },
                 // ✅ กลุ่มที่ 1 - สีเขียว
-                { id: 'b_use', label: 'ใช้ประโยชน์', type: 'select', options: ['', '1-เกษตรกรรม', '2-(1)ที่อยู่อาศัย หลังหลัก', '2-(2)ที่อยู่อาศัย หลังหลักไม่เป็นกรรมสิทธิ์ที่ดิน', '2-(3)ที่อยู่อาศัย หลังอื่นๆ เช่น ให้เช่ารายเดือน', '3-อื่นๆ', '4-ทิ้งไว้ว่างเปล่า/รกร้าง'], customClass: 'bg-custom-green' },
+                { id: 'b_use', label: 'ใช้ประโยชน์', type: 'select', options: ['', '1-เกษตรกรรม', '2-(1)ที่อยู่อาศัย หลังหลัก', '2-(2)ที่อยู่อาศัย หลังหลักไม่เป็นกรรมสิทธิ์ที่ดิน', '2-(3)ที่อยู่อาศัย หลังอื่นๆ เช่น ให้เช่ารายเดือน', '3-อื่นๆ ประกอบการ', '4-ทิ้งไว้ว่างเปล่า/รกร้าง'], customClass: 'bg-custom-green' },
                 { id: 'per_use', label: 'การเช่า', type: 'select', options: ['ใช้ประโยชน์เอง', 'ให้เช่า', 'ผู้อื่นใช้'], customClass: 'bg-custom-green' },
                 { id: 'full_area', label: 'ใช้ทั้งหลัง', type: 'select', options: ['', 'เต็มพื้นที่', 'บางส่วน'], customClass: 'bg-custom-green' },
-                { id: 'buse_floor', label: 'ชั้นที่ใช้', type: 'select', options: ['1-1', '1-2', '1-3', '1-4', '1-5'], allowCustom: true, customClass: 'bg-custom-green' },
+                { id: 'buse_floor', label: 'ชั้นที่ใช้', type: 'select', options: ['1-1', '1-2', '1-3', '1-4', '1-5'], defaultValue: '1-1', allowCustom: true, customClass: 'bg-custom-green' },
                 { id: 'buse_area', label: 'พื้นที่ใช้ (ตร.ม.)', type: 'number', customClass: 'bg-custom-green' },
                 { id: 'ment_use', label: 'รายละเอียด', type: 'select', options: ['', 'ยุ้งข้าว', 'คอกวัว', 'เล้าไก่', 'คอกหมู', 'โรงจอดรถ', 'ห้องน้ำ', 'ร้านค้าของชำ', 'ขายอาหาร', 'มินิมาร์ท', 'กระท่อมนา', 'เพิงพัก', 'โรงเก็บของ', 'เก็บฟาง', 'โรงครัว', 'ศาลาพักผ่อน', 'ตู้เติมเงิน', 'ตู้น้ำมันหยอดเหรียญ', 'ตู้น้ำดื่มหยอดเหรียญ', 'ห้องเช่ารายเดือน', 'รีสอร์ท', 'รื้อ'], allowCustom: true, customClass: 'bg-custom-green' },
                 
                 // ✅ กลุ่มที่ 2 - สีชมพู
-                { id: 'b_use2', label: 'ใช้ประโยชน์ (2)', type: 'select', options: ['', '1-เกษตรกรรม', '2-(1)ที่อยู่อาศัย หลังหลัก', '2-(2)ที่อยู่อาศัย หลังหลักไม่เป็นกรรมสิทธิ์ที่ดิน', '2-(3)ที่อยู่อาศัย หลังอื่นๆ เช่น ให้เช่ารายเดือน', '3-อื่นๆ', '4-ทิ้งไว้ว่างเปล่า/รกร้าง'], customClass: 'bg-custom-pink' },
+                { id: 'b_use2', label: 'ใช้ประโยชน์ (2)', type: 'select', options: ['', '1-เกษตรกรรม', '2-(1)ที่อยู่อาศัย หลังหลัก', '2-(2)ที่อยู่อาศัย หลังหลักไม่เป็นกรรมสิทธิ์ที่ดิน', '2-(3)ที่อยู่อาศัย หลังอื่นๆ เช่น ให้เช่ารายเดือน', '3-อื่นๆ ประกอบการ', '4-ทิ้งไว้ว่างเปล่า/รกร้าง'], defaultValue: '3-อื่นๆ ประกอบการ', customClass: 'bg-custom-pink' },
                 { id: 'per_use2', label: 'การเช่า (2)', type: 'select', options: ['ใช้ประโยชน์เอง', 'ให้เช่า', 'ผู้อื่นใช้'], defaultValue: 'ใช้ประโยชน์เอง' , customClass: 'bg-custom-pink' },
-                { id: 'buse_floor2', label: 'ชั้นที่ใช้ (2)', type: 'select', options: ['', '1-1', '1-2', '1-3', '1-4', '1-5'], allowCustom: true, customClass: 'bg-custom-pink' },
+                { id: 'buse_floor2', label: 'ชั้นที่ใช้ (2)', type: 'select', options: ['', '1-1', '1-2', '1-3', '1-4', '1-5'], defaultValue: '1-1', allowCustom: true, customClass: 'bg-custom-pink' },
                 {
                   id: 'buse_area2', 
                   label: 'พื้นที่ใช้ (2) (ตร.ม.)', 
@@ -1930,7 +1803,7 @@
                   withButtons: true // เพิ่มฟลากรูปปุ่ม
                 },
                 { id: 'ment_use2', label: 'รายละเอียด (2)', type: 'select', options: ['', 'ยุ้งข้าว', 'คอกวัว', 'เล้าไก่', 'คอกหมู', 'โรงจอดรถ', 'ห้องน้ำ', 'ร้านค้าของชำ', 'ขายอาหาร', 'มินิมาร์ท', 'กระท่อมนา', 'เพิงพัก', 'โรงเก็บของ', 'เก็บฟาง', 'โรงครัว', 'ศาลาพักผ่อน', 'ตู้เติมเงิน', 'ตู้น้ำมันหยอดเหรียญ', 'ตู้น้ำดื่มหยอดเหรียญ', 'ห้องเช่ารายเดือน', 'รีสอร์ท', 'รื้อ'], allowCustom: true, customClass: 'bg-custom-pink' },
-                { id: 'full_area2', label: 'ใช้ทั้งหลัง (2)', type: 'select', options: ['', 'บางส่วน'], customClass: 'bg-custom-pink' },
+                { id: 'full_area2', label: 'ใช้ทั้งหลัง (2)', type: 'select', options: ['', 'บางส่วน'], defaultValue: 'บางส่วน', customClass: 'bg-custom-pink' },
                 { 
                   id: 'land_use', 
                   label: 'ใช้ประโยชน์ที่ดิน', 
@@ -2164,6 +2037,8 @@
                             bMatSelect.value = 'ตึก/ไม้'; // ✅ ครอบคลุมทุกรายการที่มีคำนี้ (106, 111, 303)
                         } else if (selectedValue.includes('ไม้')) {
                             bMatSelect.value = 'ไม้';
+                        } else if (selectedValue.includes('โรงเลี้ยงสัตว์')) {
+                            bMatSelect.value = 'ไม้';
                         } else if (selectedValue.includes('ทาวน์เฮาส์')) {
                             bMatSelect.value = 'ตึก';
                         } else if (selectedValue.includes('สำนักงาน')) {
@@ -2182,6 +2057,32 @@
                             bMatSelect.value = 'ตึก';
                         } else if (selectedValue.includes('สระว่ายน้ำ')) {
                             bMatSelect.value = 'ตึก';
+                        } else if (selectedValue.includes('คลังสินค้าพื้นที่เกิน')) {
+                            bMatSelect.value = 'ตึก';
+                        } else if (selectedValue.includes('สถานศึกษา')) {
+                            bMatSelect.value = 'ตึก';
+                        } else if (selectedValue.includes('โรงมหรสพ')) {
+                            bMatSelect.value = 'ตึก';
+                        } else if (selectedValue.includes('สถานพยาบาล')) {
+                            bMatSelect.value = 'ตึก';
+                        } else if (selectedValue.includes('ภัตตาคาร')) {
+                            bMatSelect.value = 'ตึก';
+                        } else if (selectedValue.includes('สถานี')) {
+                            bMatSelect.value = 'ตึก';
+                        } else if (selectedValue.includes('ตลาด')) {
+                            bMatSelect.value = 'ตึก';
+                        } else if (selectedValue.includes('อาคารจอดรถ')) {
+                            bMatSelect.value = 'ตึก';
+                        } else if (selectedValue.includes('ป้อมยาม')) {
+                            bMatSelect.value = 'ตึก';
+                        } else if (selectedValue.includes('ลานกีฬา')) {
+                            bMatSelect.value = 'ตึก';
+                        } else if (selectedValue.includes('คอนกรีต')) {
+                            bMatSelect.value = 'ตึก';
+                        } else if (selectedValue.includes('ลาดยาง')) {
+                            bMatSelect.value = 'ตึก';
+                        } else if (selectedValue.includes('ท่าเทียบเรือ')) {
+                            bMatSelect.value = 'ตึก';
                         } else if (selectedValue.includes('ตึก')) {
                             bMatSelect.value = 'ตึก';
                         }
@@ -2191,6 +2092,30 @@
                         // 2. อัปเดตจำนวนชั้น (ตรวจสอบคำที่บ่งบอกจำนวนชั้น)
                         // ============================================
                         if (selectedValue.includes('ชั้นเดียว')) {
+                            noFloorSelect.value = '1';
+                        } else if (selectedValue.includes('โรงจอดรถ')) {
+                            noFloorSelect.value = '1';
+                        } else if (selectedValue.includes('โรงเลี้ยงสัตว์')) {
+                            noFloorSelect.value = '1';
+                        } else if (selectedValue.includes('ห้องน้ำ')) {
+                            noFloorSelect.value = '1';
+                        } else if (selectedValue.includes('คลังสินค้า')) {
+                            noFloorSelect.value = '1';
+                        } else if (selectedValue.includes('สถานีบริการน้ำมัน')) {
+                            noFloorSelect.value = '1';
+                        } else if (selectedValue.includes('ตลาด')) {
+                            noFloorSelect.value = '1';
+                        } else if (selectedValue.includes('โรงงานซ่อมรถ')) {
+                            noFloorSelect.value = '1';
+                        } else if (selectedValue.includes('ป้อมยาม')) {
+                            noFloorSelect.value = '1';
+                        } else if (selectedValue.includes('โชว์รูมรถยนต์')) {
+                            noFloorSelect.value = '1';
+                        } else if (selectedValue.includes('สระว่ายน้ำ')) {
+                            noFloorSelect.value = '1';
+                        } else if (selectedValue.includes('คอนกรีต')) {
+                            noFloorSelect.value = '1';
+                        } else if (selectedValue.includes('ลานกีฬา')) {
                             noFloorSelect.value = '1';
                         } else if (selectedValue.includes('สองชั้น')) {
                             noFloorSelect.value = '2';
@@ -3312,39 +3237,7 @@
           document.body.removeChild(link);
         }
 
-        /**
-         * แสดงแจ้งเตือน
-         */
-        function showNotificationLeft(message, type = 'info') {
-          const colors = {
-            info: 'bg-blue-500',
-            success: 'bg-green-500',
-            error: 'bg-red-500',
-            warning: 'bg-yellow-500'
-          };
-          
-          const icons = {
-            info: 'info',
-            success: 'check-circle',
-            error: 'alert-circle',
-            warning: 'alert-triangle'
-          };
-          
-          const notification = document.createElement('div');
-          notification.className = `fixed top-4 left-4 ${colors[type]} text-white px-6 py-3 rounded-lg shadow-lg z-[2000] animate-fade-in`;
-          notification.innerHTML = `
-            <i data-lucide="${icons[type]}" class="w-5 h-5 inline mr-2"></i>
-            ${message}
-          `;
-          
-          document.body.appendChild(notification);
-          lucide.createIcons();
-          
-          setTimeout(() => {
-            notification.classList.add('animate-fade-out');
-            setTimeout(() => notification.remove(), 300);
-          }, 500);
-        }
+
         /**
          * แสดงมาร์กเกอร์ทั้งหมด (สำหรับข้อมูลน้อย)
          */
@@ -6019,7 +5912,3 @@
 </body>
 
 </html>
-
-
-
-
