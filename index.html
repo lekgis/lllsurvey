@@ -220,15 +220,30 @@
         transform: translateX(-50%);
         z-index: 1005;
         }
-        /* สไตล์สำหรับเมนูฟันเฟือง */
+        /* ✅ สไตล์สำหรับเมนูฟันเฟือง - แอนิเมชันสมูท */
+        #settings-menu {
+            transition: all 0.2s ease-in-out;
+        }
+
         #settings-menu button {
-          opacity: 0;
-          transform: translateY(-20px);
-          transition: all 0.3s ease;
+            opacity: 0;
+            transform: translateY(-20px);
+            /* ✅ ระบุ property เฉพาะ + ใช้ cubic-bezier */
+            transition: 
+                opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            will-change: opacity, transform;  /* ✅ บอกเบราว์เซอร์ให้เตรียม GPU */
         }
 
         #settings-menu button:hover {
-          transform: translateY(0) scale(1.05) !important;
+            transform: translateY(0) scale(1.05) !important;
+            transition: transform 0.2s ease-out !important;
+        }
+
+        /* ✅ ป้องกันการกระตุก */
+        #settings-menu {
+            backface-visibility: hidden;
+            perspective: 1000px;
         }
         /* ============================================
            ซ่อนลูกศรขึ้นลงในช่องกรอกตัวเลขในแผงข้อมูล (เพื่อป้องกันการเปลี่ยนค่าโดยไม่ตั้งใจเมื่อหมุนสกอร์ล)
@@ -1199,7 +1214,13 @@
         // ✅ เพิ่ม Event Listener สำหรับคลิกบนแผนที่ (โหมดเมาส์)
         function initMouseAddMode() {
             console.log('🔧 initMouseAddMode called');
-            
+           
+            // ✅ ตรวจสอบว่า map โหลดเสร็จแล้วหรือไม่
+            if (!map) {
+                console.error('❌ Map not initialized yet');
+                return;
+            }
+
             map.on('click', function(e) {
                 // ✅ ต้องเช็คก่อนว่าเปิดโหมดเมาส์อยู่ไหม
                 if (!mouseAddMode) return;
@@ -3255,35 +3276,35 @@
          * ปิดเมนูเมื่อคลิกที่อื่น
          */
         function closeSettingsMenuOnClickOutside(e) {
-          const settingsBtn = document.getElementById('btn-settings');
-          const settingsMenu = document.getElementById('settings-menu');
-          
-          if (!settingsBtn.contains(e.target) && !settingsMenu.contains(e.target)) {
-            closeSettingsMenu();
-            document.removeEventListener('click', closeSettingsMenuOnClickOutside);
-          }
+            const settingsBtn = document.getElementById('btn-settings');
+            const settingsMenu = document.getElementById('settings-menu');
+            
+            if (!settingsBtn.contains(e.target) && !settingsMenu.contains(e.target)) {
+                closeSettingsMenu();
+                document.removeEventListener('click', closeSettingsMenuOnClickOutside);
+            }
         }
 
         /**
          * ปิดเมนู
          */
         function closeSettingsMenu() {
-          const menu = document.getElementById('settings-menu');
-          const icon = document.getElementById('settings-icon');
-          
-          // แอนิเมชันเลื่อนขึ้นไป
-          const buttons = menu.querySelectorAll('button');
-          buttons.forEach((btn, index) => {
+            const menu = document.getElementById('settings-menu');
+            const icon = document.getElementById('settings-icon');
+            
+            // แอนิเมชันเลื่อนขึ้นไป
+            const buttons = menu.querySelectorAll('button');
+            buttons.forEach((btn, index) => {
+                setTimeout(() => {
+                    btn.style.transform = 'translateY(-20px)';
+                    btn.style.opacity = '0';
+                }, (buttons.length - index - 1) * 50);
+            });
+            
             setTimeout(() => {
-              btn.style.transform = 'translateY(-20px)';
-              btn.style.opacity = '0';
-            }, (buttons.length - index - 1) * 50);
-          });
-          
-          setTimeout(() => {
-            menu.classList.add('hidden');
-            icon.classList.remove('animate-spin');
-          }, buttons.length * 50 + 100);
+                menu.classList.add('hidden');
+                icon.classList.remove('animate-spin');
+            }, buttons.length * 50 + 100);
         }
 
         /**
@@ -4192,8 +4213,12 @@
             // ✅ อัปเดตจำนวนที่หัวตารางหลังโหลดข้อมูล
             updateTableCounters();
             
+            // ✅ สำเร็จ: return ค่าเพื่อให้ Promise resolve
+            return { success: true, buildings: allBuildings.length, signs: allSigns.length };
+
           } catch (e) {
             console.error("Error loading data:", e);
+            throw e;
           }
         }
 
