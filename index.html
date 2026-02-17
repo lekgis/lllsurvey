@@ -1893,6 +1893,7 @@
             }
         }
 
+
         // ข้อ 3: ตั้งค่าป๊อปอัปเพื่อเปิดฟอร์ม (แก้ไขเพิ่มปุ่มลบ + แก้ไขป๊อบอัปไม่ปิดอัตโนมัติ)
         function setupMarkerPopup(marker, data, type) {
             const popupDiv = document.createElement('div');
@@ -1933,6 +1934,49 @@
                     };
                 }
             });
+        }
+
+        // ✅ ฟังก์ชันตรวจสอบและตั้งค่าอัตโนมัติตามเงื่อนไข
+        function autoFillBasedOnConditions() {
+            // ✅ ดึงค่าจากฟิลด์ต่างๆ
+            const bNoteInput = document.querySelector('input[name="b_note"]');
+            const bUseSelect = document.querySelector('select[name="b_use"]');
+            const bUse2Select = document.querySelector('select[name="b_use2"]');
+            const perUseSelect = document.querySelector('select[name="per_use"]');
+            const perUse2Select = document.querySelector('select[name="per_use2"]');
+            
+            // ✅ ดึงค่าปัจจุบัน
+            const bNoteValue = bNoteInput?.value || '';
+            const bUseValue = bUseSelect?.value || '';
+            const bUse2Value = bUse2Select?.value || '';
+            
+            // ✅ ตรวจสอบว่ามีคำว่า "เช่า" ใน b_note หรือไม่
+            const hasChaInNote = bNoteValue.includes('เช่า');
+            
+            // ✅ ตรวจสอบว่า b_use หรือ b_use2 มี "2-(3)" หรือไม่
+            const has23InBUse = bUseValue.includes('2-(3)');
+            const has23InBUse2 = bUse2Value?.includes('2-(3)');
+            
+            // ============================================
+            // ✅ ข้อ 1: ถ้า b_note มี "เช่า" → ตั้งค่า b_use เป็น 2-(3)
+            // ============================================
+            if (hasChaInNote && bUseSelect && !bUseSelect.disabled) {
+                bUseSelect.value = '2-(3)ที่อยู่อาศัย หลังอื่นๆ เช่น ให้เช่ารายเดือน';
+            }
+            
+            // ============================================
+            // ✅ ข้อ 2: ถ้า b_note มี "เช่า" หรือ b_use มี "2-(3)" → ตั้งค่า per_use เป็น 'ให้เช่า'
+            // ============================================
+            if ((hasChaInNote || has23InBUse) && perUseSelect && !perUseSelect.disabled) {
+                perUseSelect.value = 'ให้เช่า';
+            }
+            
+            // ============================================
+            // ✅ ข้อ 3: ถ้า b_note มี "เช่า" หรือ b_use2 มี "2-(3)" → ตั้งค่า per_use2 เป็น 'ให้เช่า'
+            // ============================================
+            if ((hasChaInNote || has23InBUse2) && perUse2Select && !perUse2Select.disabled) {
+                perUse2Select.value = 'ให้เช่า';
+            }
         }
 
         // ฟังก์ชันลบจุดและข้อมูลจาก Google Sheets (ข้อ 1)
@@ -2784,6 +2828,35 @@
                     console.warn('⚠️ ไม่พบฟิลด์ b_note, ment_use หรือ ment_use2');
                 }
             }
+
+            // ✅ ผูก Event Listeners กับฟิลด์ที่เกี่ยวข้อง
+            if (type === 'building') {
+                const bNoteInput = document.querySelector('input[name="b_note"]');
+                const bUseSelect = document.querySelector('select[name="b_use"]');
+                const bUse2Select = document.querySelector('select[name="b_use2"]');
+                
+                // ✅ เมื่อ b_note เปลี่ยน → ตรวจสอบและตั้งค่าอัตโนมัติ
+                if (bNoteInput) {
+                    bNoteInput.addEventListener('change', autoFillBasedOnConditions);
+                    bNoteInput.addEventListener('input', autoFillBasedOnConditions);
+                }
+                
+                // ✅ เมื่อ b_use เปลี่ยน → ตรวจสอบและตั้งค่าอัตโนมัติ
+                if (bUseSelect) {
+                    bUseSelect.addEventListener('change', autoFillBasedOnConditions);
+                }
+                
+                // ✅ เมื่อ b_use2 เปลี่ยน → ตรวจสอบและตั้งค่าอัตโนมัติ
+                if (bUse2Select) {
+                    bUse2Select.addEventListener('change', autoFillBasedOnConditions);
+                }
+                
+                // ✅ เรียกใช้ครั้งแรกเมื่อเปิดฟอร์ม (ตั้งค่าเริ่มต้น)
+                setTimeout(() => {
+                    autoFillBasedOnConditions();
+                }, 100);
+            }
+
             if (type === 'sign') {
                 // ฟังก์ชันอัปเดตค่า s_characte อัตโนมัติ
                 const updateSCharacte = () => {
