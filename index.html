@@ -1110,7 +1110,7 @@
         let mouseAddMode = false;
         let mouseAddType = null; // 'building' หรือ 'sign'
         let mouseClickLatLng = null; // ✅ เพิ่มตัวแปรเก็บตำแหน่งที่คลิก
-
+        let mouseTempMarker = null; // ✅ เพิ่มตัวแปรเก็บจุดชั่วคราว
         // ✅ เปิด/ปิดโหมดเพิ่มจุดด้วยเมาส์
 
         function toggleMouseAddMode() {
@@ -1136,12 +1136,12 @@
                     document.getElementById('btn-sign').classList.remove('active-tool');
                 }
 
-                // ✅ 3. สร้าง Cursor แบบเส้นบาง สีขาว (ไม่มีกรอบ)
+                // ✅ 3. สร้าง Cursor แบบเส้นบาง สีขาว
                 const pixmap = document.createElement('canvas');
                 pixmap.width = 32;
                 pixmap.height = 32;
                 const ctx = pixmap.getContext('2d');
-
+                
                 ctx.strokeStyle = 'white';
                 ctx.lineWidth = 2;
                 ctx.beginPath();
@@ -1152,9 +1152,7 @@
                 ctx.moveTo(4, 16);
                 ctx.lineTo(28, 16);
                 ctx.stroke();
-
-                // ✅ ไม่ต้องวาดกรอบดำแล้ว
-
+                
                 const cursorUrl = pixmap.toDataURL();
                 mapContainer.style.cursor = `url(${cursorUrl}) 16 16, crosshair`;
                 
@@ -1162,13 +1160,14 @@
                 document.getElementById('crosshair').classList.add('hidden');
                 document.getElementById('add-trigger-container').classList.add('hidden');
                 
-                // ✅ กดรีโหลดอัตโนมัติ
-                triggerAutoRefresh();
-
-                // ✅ 4. ซ่อนปุ่มยืนยัน (จะแสดงหลังจากคลิกแผนที่)
+                // ✅ 4. ซ่อนปุ่มยืนยัน
                 document.getElementById('confirm-overlay').classList.add('hidden');
                 
-                // ✅ 5. รีเซ็ตตำแหน่งที่คลิก
+                // ✅ 5. ล้างจุดชั่วคราวเก่า (ถ้ามี)
+                if (mouseTempMarker) {
+                    surveyLayers.removeLayer(mouseTempMarker);
+                    mouseTempMarker = null;
+                }
                 mouseClickLatLng = null;
                 
                 showNotificationLeft(`โหมดเพิ่มจุดด้วยเมาส์: คลิกบนแผนที่เพื่อเลือกตำแหน่ง`, 'info');
@@ -1178,28 +1177,27 @@
                 mapContainer.style.cursor = 'default';
                 mapContainer.classList.remove('cursor-crosshair-add');
                 
+                // ✅ ล้างจุดชั่วคราวเมื่อปิดโหมด
+                if (mouseTempMarker) {
+                    surveyLayers.removeLayer(mouseTempMarker);
+                    mouseTempMarker = null;
+                }
+                mouseClickLatLng = null;
+                
                 // ✅ ซ่อนปุ่มยืนยันเมื่อปิดโหมดเมาส์
                 document.getElementById('confirm-overlay').classList.add('hidden');
                 
-                // ✅ กดรีโหลดอัตโนมัติ
-                triggerAutoRefresh();
-
                 showNotificationLeft('ปิดโหมดเพิ่มจุดด้วยเมาส์', 'info');
             }
         }
 
         // ✅ เพิ่ม Event Listener สำหรับคลิกบนแผนที่ (โหมดเมาส์)
         function initMouseAddMode() {
-            console.log('🔧 initMouseAddMode called'); // ✅ เพิ่ม debug
+            console.log('🔧 initMouseAddMode called');
             
             map.on('click', function(e) {
-                console.log('🖱️ Map clicked, mouseAddMode:', mouseAddMode, 'activeTool:', activeTool); // ✅ debug
-                
                 // ✅ ต้องเช็คก่อนว่าเปิดโหมดเมาส์อยู่ไหม
-                if (!mouseAddMode) {
-                    console.log('❌ Not in mouse add mode');
-                    return;
-                }
+                if (!mouseAddMode) return;
                 
                 // ✅ ต้องเช็คด้วยว่าเลือกประเภทหรือยัง
                 if (!activeTool) {
@@ -1207,11 +1205,25 @@
                     return;
                 }
                 
-                // ✅ 1. เก็บตำแหน่งที่คลิกไว้
-                mouseClickLatLng = e.latlng;
-                console.log('📍 Position saved:', mouseClickLatLng);
+                const latlng = e.latlng;
+                console.log('📍 Map clicked at:', latlng);
                 
-                // ✅ 2. แสดงปุ่มยืนยัน (หลังจากคลิกแผนที่แล้ว)
+                // ✅ 1. ถ้ามีจุดชั่วคราวอยู่แล้ว → ย้ายตำแหน่ง
+                if (mouseTempMarker) {
+                    mouseTempMarker.setLatLng(latlng);
+                    console.log('🔄 Moved temp marker');
+                } 
+                // ✅ 2. ถ้ายังไม่มี → สร้างจุดชั่วคราวใหม่
+                else {
+                    mouseTempMarker = createCircleMarker(latlng, activeTool, false, 'ยังไม่สำรวจ');
+                    mouseTempMarker.addTo(surveyLayers);
+                    console.log('➕ Created temp marker');
+                }
+                
+                // ✅ 3. เก็บตำแหน่งไว้
+                mouseClickLatLng = latlng;
+                
+                // ✅ 4. แสดงปุ่มยืนยัน
                 showConfirmButtonForMouseMode();
                 
                 showNotificationLeft(`เลือกตำแหน่งแล้ว: ${activeTool === 'building' ? 'สิ่งปลูกสร้าง' : 'ป้าย'}`, 'info');
@@ -1304,17 +1316,23 @@
             // ซ่อนปุ่มยืนยัน
             document.getElementById('confirm-overlay').classList.add('hidden');
             
-            // สร้างจุด
-            const tempMarker = createCircleMarker(latlng, activeTool, false, 'ยังไม่สำรวจ');
-            tempMarker.addTo(surveyLayers);
-            
-            // บันทึกข้อมูล
-            backgroundUpload(latlng, activeTool, tempMarker);
-            
-            // ✅ รีเซ็ตตำแหน่งที่คลิก
-            mouseClickLatLng = null;
-            
-            showNotificationLeft(`เพิ่ม${activeTool === 'building' ? 'สิ่งปลูกสร้าง' : 'ป้าย'}แล้ว`, 'success');
+            // ✅ ถ้าเป็นโหมดเมาส์ → จุดชั่วคราวมีอยู่แล้ว ไม่ต้องสร้างใหม่
+            if (mouseAddMode && mouseTempMarker) {
+                // ✅ แค่บันทึกข้อมูล (จุดแสดงอยู่แล้ว)
+                backgroundUpload(latlng, activeTool, mouseTempMarker);
+                
+                // ✅ รีเซ็ตตัวแปร
+                mouseTempMarker = null;
+                mouseClickLatLng = null;
+                
+                showNotificationLeft(`เพิ่ม${activeTool === 'building' ? 'สิ่งปลูกสร้าง' : 'ป้าย'}แล้ว`, 'success');
+            } else {
+                // โหมดเป้าเล็ง → สร้างจุดใหม่
+                const tempMarker = createCircleMarker(latlng, activeTool, false, 'ยังไม่สำรวจ');
+                tempMarker.addTo(surveyLayers);
+                backgroundUpload(latlng, activeTool, tempMarker);
+                showNotificationLeft(`เพิ่ม${activeTool === 'building' ? 'สิ่งปลูกสร้าง' : 'ป้าย'}แล้ว`, 'success');
+            }
         }
 
         // แก้ไขฟังก์ชัน backgroundUpload
