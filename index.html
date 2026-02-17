@@ -988,6 +988,8 @@
             }
 
             document.getElementById('confirm-overlay').classList.add('hidden');
+            // ✅ กดรีโหลดอัตโนมัติ
+            triggerAutoRefresh();
         }
 
         // ระบบแคชแผนที่
@@ -1088,6 +1090,9 @@
                     }
                 });
                 showEditModeModal();
+
+                // ✅ กดรีโหลดอัตโนมัติ
+                triggerAutoRefresh();
             } else {
                 btnEdit.classList.remove('active-edit');
 
@@ -1096,6 +1101,8 @@
                         layer.dragging.disable();
                     }
                 });
+                // ✅ กดรีโหลดอัตโนมัติ
+                triggerAutoRefresh();
             }
         }
 
@@ -1155,6 +1162,9 @@
                 document.getElementById('crosshair').classList.add('hidden');
                 document.getElementById('add-trigger-container').classList.add('hidden');
                 
+                // ✅ กดรีโหลดอัตโนมัติ
+                triggerAutoRefresh();
+
                 // ✅ 4. ซ่อนปุ่มยืนยัน (จะแสดงหลังจากคลิกแผนที่)
                 document.getElementById('confirm-overlay').classList.add('hidden');
                 
@@ -1171,6 +1181,9 @@
                 // ✅ ซ่อนปุ่มยืนยันเมื่อปิดโหมดเมาส์
                 document.getElementById('confirm-overlay').classList.add('hidden');
                 
+                // ✅ กดรีโหลดอัตโนมัติ
+                triggerAutoRefresh();
+
                 showNotificationLeft('ปิดโหมดเพิ่มจุดด้วยเมาส์', 'info');
             }
         }
@@ -3043,6 +3056,8 @@
             }
             
             lucide.createIcons();
+            // ✅ กดรีโหลดอัตโนมัติ
+            triggerAutoRefresh();
         }
 
         // ฟังก์ชันสลับแท็บตาราง
@@ -3179,14 +3194,16 @@
          * เปิด/ปิดเมนูฟันเฟือง
          */
         function toggleSettingsMenu() {
-          const menu = document.getElementById('settings-menu');
-          const icon = document.getElementById('settings-icon');
-          const badge = document.getElementById('settings-badge');
-          
-          if (menu.classList.contains('hidden')) {
-            // เปิดเมนู - ปุ่มย่อยเลื่อนลงมาทีละปุ่ม
-            menu.classList.remove('hidden');
-            icon.classList.add('animate-spin');
+            const menu = document.getElementById('settings-menu');
+            const icon = document.getElementById('settings-icon');
+            const badge = document.getElementById('settings-badge');
+            
+            if (menu.classList.contains('hidden')) {
+                menu.classList.remove('hidden');
+                icon.classList.add('text-blue-600');
+                if (badge) badge.classList.add('hidden');
+                // ✅ กดรีโหลดอัตโนมัติ
+                triggerAutoRefresh();
             
             // ซ่อนจุดแจ้งเตือน (ถ้ามี)
             badge.classList.add('hidden');
@@ -5456,43 +5473,71 @@
             });
         }
 
-        // สร้างฟังก์ชันแสดงแจ้งเตือนฝั่งซ้าย
+        // ✅ ฟังก์ชันแสดงแจ้งเตือน (แก้ไขให้กดรีโหลดอัตโนมัติเมื่อมีการอัปเดต)
         function showNotificationLeft(message, type = 'info') {
-            // ลบแจ้งเตือนเก่า
-            const oldNotif = document.querySelector('.notification-left');
-            if (oldNotif) oldNotif.remove();
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 left-4 z-[9999] px-4 py-3 rounded-lg shadow-lg text-white font-medium transform transition-all duration-300 translate-x-[-150%] ${
+                type === 'success' ? 'bg-green-600' :
+                type === 'error' ? 'bg-red-600' :
+                type === 'warning' ? 'bg-yellow-600' :
+                'bg-blue-600'
+            }`;
             
-            // กำหนดสีตามประเภท
-            let bgColor = 'bg-blue-500';
-            let icon = 'loader';
-            
-            if (type === 'success') {
-                bgColor = 'bg-green-500';
-                icon = 'check-circle';
-            } else if (type === 'error') {
-                bgColor = 'bg-red-500';
-                icon = 'alert-circle';
-            } else if (type === 'warning') {
-                bgColor = 'bg-yellow-500';
-                icon = 'alert-triangle';
-            }
-            
-            // สร้างแจ้งเตือน
-            const notif = document.createElement('div');
-            notif.className = `fixed top-4 left-4 px-6 py-3 rounded-lg shadow-lg z-[2000] animate-fade-in notification-left ${bgColor} text-white font-bold flex items-center gap-2`;
-            notif.innerHTML = `
-                <i data-lucide="${icon}" class="w-5 h-5"></i>
-                <span>${message}</span>
+            notification.innerHTML = `
+                <div class="flex items-center gap-2">
+                    <i data-lucide="${
+                        type === 'success' ? 'check-circle' :
+                        type === 'error' ? 'alert-circle' :
+                        type === 'warning' ? 'alert-triangle' :
+                        'info'
+                    }" class="w-5 h-5"></i>
+                    <span>${message}</span>
+                </div>
             `;
             
-            document.body.appendChild(notif);
-            lucide.createIcons({ elements: notif.querySelectorAll('[data-lucide]') });
+            document.body.appendChild(notification);
+            lucide.createIcons();
             
-            // ซ่อนอัตโนมัติหลัง 3 วินาที
+            // บังคับให้เบราว์เซอร์คำนวณใหม่ก่อนเริ่มแอนิเมชัน
+            void notification.offsetWidth;
+            notification.classList.remove('translate-x-[-150%]');
+            
+            // ✅ ตรวจสอบว่าเป็นแจ้งเตือนเกี่ยวกับการอัปเดตหรือไม่
+            const isUpdateNotification = message.includes('อัปเดต') || 
+                                          message.includes('เพิ่ม') || 
+                                          message.includes('แก้ไข') || 
+                                          message.includes('ลบ') ||
+                                          message.includes('มีการเปลี่ยนแปลง');
+            
+            // ✅ ถ้าเป็นแจ้งเตือนอัปเดต ให้กดปุ่มรีโหลดอัตโนมัติ
+            if (isUpdateNotification && type !== 'error') {
+                setTimeout(() => {
+                    const refreshBtn = document.getElementById('btn-refresh');
+                    if (refreshBtn && !refreshBtn.disabled) {
+                        refreshBtn.click();
+                    }
+                }, 500);
+            }
+            
             setTimeout(() => {
-                notif.classList.add('animate-fade-out');
-                setTimeout(() => notif.remove(), 300);
-            }, 500);
+                notification.classList.add('translate-x-[-150%]');
+                setTimeout(() => {
+                    if (notification && notification.parentNode) {
+                        notification.remove();
+                    }
+                }, 300);
+            }, 3000);
+        }
+
+        // ✅ ฟังก์ชัน Helper: กดปุ่มรีโหลดอัตโนมัติ
+        function triggerAutoRefresh() {
+            const refreshBtn = document.getElementById('btn-refresh');
+            if (refreshBtn && !refreshBtn.disabled) {
+                // ✅ หน่วงเวลาเล็กน้อยเพื่อให้ UI อัปเดตก่อน
+                setTimeout(() => {
+                    refreshBtn.click();
+                }, 300);
+            }
         }
 
         // ============================================
