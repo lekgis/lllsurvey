@@ -3217,21 +3217,15 @@
          * เปิด/ปิดเมนูฟันเฟือง
          */
         function toggleSettingsMenu() {
-            const menu = document.getElementById('settings-menu');
-            const icon = document.getElementById('settings-icon');
-            const badge = document.getElementById('settings-badge');
+          const menu = document.getElementById('settings-menu');
+          const icon = document.getElementById('settings-icon');
+          const badge = document.getElementById('settings-badge');
+          
+          if (menu.classList.contains('hidden')) {
+            // เปิดเมนู - ปุ่มย่อยเลื่อนลงมาทีละปุ่ม
+            menu.classList.remove('hidden');
+            icon.classList.add('animate-spin');
             
-            if (menu.classList.contains('hidden')) {
-                menu.classList.remove('hidden');
-                icon.classList.add('text-blue-600');
-                if (badge) badge.classList.add('hidden');
-                // ✅ กดรีโหลดอัตโนมัติ
-           
-                // ✅ หน่วงเวลา 3 วินาที ก่อนกดรีโหลด (ให้แอนิเมชันเสร็จก่อน)
-                setTimeout(() => {
-                    triggerAutoRefresh();
-                }, 3000);  // ✅ เปลี่ยนจาก 0 เป็น 3000ms
-
             // ซ่อนจุดแจ้งเตือน (ถ้ามี)
             badge.classList.add('hidden');
             
@@ -5525,7 +5519,6 @@
             document.body.appendChild(notification);
             lucide.createIcons();
             
-            // บังคับให้เบราว์เซอร์คำนวณใหม่ก่อนเริ่มแอนิเมชัน
             void notification.offsetWidth;
             notification.classList.remove('translate-x-[-150%]');
             
@@ -5536,12 +5529,12 @@
                                           message.includes('ลบ') ||
                                           message.includes('มีการเปลี่ยนแปลง');
             
-            // ✅ ถ้าเป็นแจ้งเตือนอัปเดต ให้กดปุ่มรีโหลดอัตโนมัติ
+            // ✅ ถ้าเป็นแจ้งเตือนอัปเดต ให้กดปุ่มรีโหลดอัตโนมัติ (ข้าม cooldown)
             if (isUpdateNotification && type !== 'error') {
                 setTimeout(() => {
                     const refreshBtn = document.getElementById('btn-refresh');
                     if (refreshBtn && !refreshBtn.disabled) {
-                        refreshBtn.click();
+                        triggerAutoRefresh(true);  // ✅ ส่ง true เพื่อข้าม cooldown
                     }
                 }, 500);
             }
@@ -5557,7 +5550,7 @@
         }
 
         // ✅ ฟังก์ชัน Helper: กดปุ่มรีโหลดอัตโนมัติ
-        function triggerAutoRefresh() {
+        function triggerAutoRefresh(bypassCooldown = false) {
             const refreshBtn = document.getElementById('btn-refresh');
             
             // ✅ 1. ตรวจสอบว่ากำลังรีโหลดอยู่หรือไม่
@@ -5566,19 +5559,20 @@
                 return;
             }
             
-            // ✅ 2. ตรวจสอบเวลา cooldown (สำหรับอัตโนมัติเท่านั้น)
-            const now = Date.now();
-            if (now - lastAutoRefreshTime < AUTO_REFRESH_COOLDOWN) {
-                const remaining = Math.ceil((AUTO_REFRESH_COOLDOWN - (now - lastAutoRefreshTime)) / 1000);
-                console.log(`⏳ Cooldown: รออีก ${remaining} วินาที`);
-                return;
+            // ✅ 2. ตรวจสอบเวลา cooldown (เฉพาะเมื่อไม่ข้าม)
+            if (!bypassCooldown) {
+                const now = Date.now();
+                if (now - lastAutoRefreshTime < AUTO_REFRESH_COOLDOWN) {
+                    const remaining = Math.ceil((AUTO_REFRESH_COOLDOWN - (now - lastAutoRefreshTime)) / 1000);
+                    console.log(`⏳ Cooldown: รออีก ${remaining} วินาที`);
+                    return;  // ✅ ข้ามเพราะยังไม่ครบ 30 วิ
+                }
             }
             
             // ✅ 3. บันทึกเวลาและเรียกฟังก์ชันรีโหลด
-            lastAutoRefreshTime = now;
+            lastAutoRefreshTime = Date.now();  // ✅ อัปเดตเวลา
             
             if (refreshBtn && !refreshBtn.disabled) {
-                // ✅ หน่วงเวลาเล็กน้อยเพื่อให้ UI อัปเดตก่อน
                 setTimeout(() => {
                     refreshBtn.click();
                 }, 300);
@@ -6534,22 +6528,21 @@
         document.addEventListener('DOMContentLoaded', function() {
             const surveyForm = document.getElementById('survey-form');
             if (surveyForm) {
-                // ใช้ event delegation ครอบคลุมทุกช่องตัวเลขแม้สร้างแบบไดนามิก
                 surveyForm.addEventListener('wheel', function(e) {
                     if (e.target.tagName === 'INPUT' && e.target.type === 'number') {
-                        e.preventDefault(); // ป้องกันการเปลี่ยนค่าเมื่อหมุนสกอร์ล
+                        e.preventDefault();
                     }
                 }, { passive: false });
                 
                 console.log('✅ เปิดใช้งานการป้องกันการเปลี่ยนค่าช่องตัวเลขโดยไม่ตั้งใจ');
             }
             
-            // ✅ เพิ่มส่วนนี้: ติดตามการคลิกปุ่มรีโหลดด้วยตนเอง
+            // ✅ ติดตามการคลิกปุ่มรีโหลดด้วยตนเอง (เพื่อ log เท่านั้น)
             const refreshBtn = document.getElementById('btn-refresh');
             if (refreshBtn) {
                 refreshBtn.addEventListener('click', function() {
-                    // ✅ คลิกด้วยตนเอง → รีเซ็ต cooldown
-                    lastAutoRefreshTime = 0;
+                    // ✅ การคลิกเองจะรีเซ็ต cooldown ใน refreshData() แล้ว
+                    // ตรงนี้แค่ log เพื่อตรวจสอบ
                     console.log('🖱️ ผู้ใช้คลิกปุ่มรีโหลดด้วยตนเอง');
                 });
             }
@@ -6660,7 +6653,7 @@
         map.on('zoomend', loadVisibleMarkers);
 
         // ============================================
-        // 1. แก้ไขฟังก์ชัน refreshData (ใช้ระบบใหม่)
+        // ฟังก์ชัน refreshData (ผู้ใช้คลิกเอง - ทำงานทันที)
         // ============================================
         function refreshData() {
             const refreshBtn = document.getElementById('btn-refresh');
@@ -6675,16 +6668,19 @@
             // ✅ 2. ตั้งสถานะกำลังรีโหลด
             isRefreshing = true;
             
+            // ✅ 3. รีเซ็ต cooldown สำหรับการอัตโนมัติครั้งต่อไป
+            lastAutoRefreshTime = Date.now();  // ✅ แก้เป็นแบบนี้
+            console.log('🖱️ ผู้ใช้คลิกปุ่มรีโหลดด้วยตนเอง - รีเซ็ต cooldown');
+            
             disableRefreshButton();
             refreshIcon.classList.add('animate-spin');
             
-            // ✅ เปลี่ยนจาก smartLoadData() เป็น loadExistingData()
             loadExistingData().finally(() => {
                 setTimeout(() => {
                     refreshIcon.classList.remove('animate-spin');
                     enableRefreshButton();
                     
-                    // ✅ 3. รีเซ็ตสถานะหลังรีโหลดเสร็จ
+                    // ✅ 4. รีเซ็ตสถานะหลังรีโหลดเสร็จ
                     isRefreshing = false;
                     
                     console.log('✅ รีโหลดเสร็จสิ้น');
