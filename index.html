@@ -12,8 +12,7 @@
     <title>โนนไทย</title>
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="static/icons/lb.ico" type="image/x-icon"> <!-- แก้เป็นพาธสัมพัทธ์ -->
-    <!-- ✅ GeoPackage API Library (ต้องอยู่ก่อน script หลัก) -->
-    <script src="https://unpkg.com/@ngageoint/geopackage@4.2.4/dist/geopackage.min.js"></script>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -22,7 +21,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <!-- Leaflet GeoJSON Layer (สำหรับแสดงข้อมูลจาก GeoPackage) -->
-    <script src="https://unpkg.com/leaflet.vectorgrid@1.3.0/dist/Leaflet.VectorGrid.bundled.js"></script>
+
     <style>
         body, html { height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: sans-serif; }
         #map { height: 100vh; width: 100vw; z-index: 0; }
@@ -705,20 +704,21 @@
                 <i data-lucide="download" class="w-5 h-5"></i>
                 <div>
                     <div class="font-semibold text-xs">ดาวน์โหลดแผนที่แปลง</div>
-                    <div class="text-[10px] opacity-90">ไฟล์ ltaxmap.gpkg</div>
+                    <div class="text-[10px] opacity-90">ไฟล์ parcel.geojson</div>
                 </div>
             </button>
-            <!-- ✅ ปุ่ม 6: เลือกไฟล์แผนที่ (แก้สีให้สอดคล้อง) -->
+            <!-- ✅ ปุ่ม 6: ปุ่มเลือกไฟล์แผนที่ (เปลี่ยนจาก .geojson) -->
+            <!-- ✅ ปุ่มเลือกไฟล์แผนที่ (เปลี่ยนจาก .gpkg เป็น .geojson) -->
             <button onclick="selectMapFile()" class="map-btn p-3 w-48 bg-gradient-to-r from-teal-400 to-teal-600 text-white hover:scale-105 transition-all shadow-lg flex items-center justify-start gap-2 text-left">
                 <i data-lucide="folder-open" class="w-5 h-5"></i>
                 <div>
                     <div class="font-semibold text-xs">เลือกไฟล์แผนที่</div>
-                    <div class="text-[10px] opacity-90">นำเข้าไฟล์ .gpkg</div>
+                    <div class="text-[10px] opacity-90">นำเข้าไฟล์ .geojson</div>
                 </div>
             </button>
 
-            <!-- ✅ Input ซ่อนสำหรับเลือกไฟล์ -->
-            <input type="file" id="map-file-input" accept=".gpkg" class="hidden" onchange="handleMapFileSelect(event)">
+            <!-- ✅ Input ซ่อนสำหรับเลือกไฟล์ (เปลี่ยน accept) -->
+            <input type="file" id="map-file-input" accept=".geojson,.json" class="hidden" onchange="handleMapFileSelect(event)">
           </div>
         </div>
 
@@ -4400,32 +4400,29 @@
         // ตั้งค่าไฟล์แผนที่จากกูเกิ้ลไดร์ฟ
         // ============================================
         const MAP_CONFIG = {
-            googleDriveFileId: '12QallaIzfXSnNkyYHtcR0VictuPARY4p', // ✅ แทนที่ด้วยไฟล์ไอดีของคุณ
-            fileName: 'ltaxmap.gpkg',
-            layers: ['parcel', 'boundary', 'building'],
-            localCacheKey: 'ltaxmap_cache',
-            lastModifiedKey: 'ltaxmap_last_modified',
-            lastCheckKey: 'ltaxmap_last_check', // ✅ เพิ่มสำหรับตรวจสอบเวลา
+            googleDriveFileId: '1SMsX1sXaugcy3HMyep85o684S82s6lAm', // ✅ ใส่ไฟล์ไอดีของ .geojson ใหม่
+            fileName: 'ltaxmap.geojson',  // ✅ เปลี่ยนจาก .gpkg เป็น .geojson
+            layers: ['all'],  // ✅ ใช้เป็นชื่อ layer ใน GeoJSON
+            localCacheKey: 'ltaxmap_geojson_cache',  // ✅ เปลี่ยนคีย์แคช
+            lastModifiedKey: 'ltaxmap_geojson_last_modified',
+            lastCheckKey: 'ltaxmap_geojson_last_check',
+            checkTime: 8
         };
 
         // ============================================
-        // ตรวจสอบและโหลดแผนที่แบบออฟไลน์
+        // ตรวจสอบและโหลดแผนที่แบบออฟไลน์ (GeoJSON)
         // ============================================
         async function checkAndLoadMap() {
-            console.log('🔍 ตรวจสอบแผนที่...');
+            console.log('🔍 ตรวจสอบแผนที่ GeoJSON...');
             
             // ✅ ตรวจสอบว่ามีไฟล์แผนที่ในแคชหรือไม่
             const cachedData = await getCachedMapData();
-            
             if (cachedData) {
                 console.log('✅ พบแผนที่ในแคช - โหลดจากแคช');
                 loadMapFromCache(cachedData);
-                
-                // ✅ ตรวจสอบการอัปเดตแบบเบื้องหลัง (ทุกวัน 08:00 น.)
-                //setTimeout(() => checkForMapUpdate(), 1000);
             } else {
-                console.log('⚠️ ไม่พบแผนที่ในแคช - ดาวน์โหลดใหม่');
-                //await downloadAndCacheMap();
+                console.log('⚠️ ไม่พบแผนที่ในแคช - กรุณาดาวน์โหลดด้วยตนเอง');
+                showNotificationLeft('⚠️ ไม่พบแผนที่ - กรุณาเลือก "ดาวน์โหลดแผนที่แปลง" จากเมนูตั้งค่า', 'warning');
             }
         }
 
@@ -4712,24 +4709,53 @@
         }
 
         // ============================================
-        // โหลดแผนที่จากข้อมูลแคช
+        // โหลดแผนที่จากข้อมูลแคช (GeoJSON)
         // ============================================
-        async function loadMapFromCache(arrayBuffer) {
+        async function loadMapFromCache(geoJsonData) {
             try {
-                console.log('🗺️ กำลังโหลดแผนที่จากแคช...');
+                console.log('🗺️ กำลังโหลดแผนที่ GeoJSON จากแคช...');
                 
-                // ✅ ใช้ฟังก์ชันตรวจสอบไลบรารี
-                const { lib, methodName } = getGeoPackageLib();
+                // ✅ GeoJSON โหลดด้วย Leaflet โดยตรง ไม่ต้องใช้ GeoPackageAPI
+                let geoJson;
                 
-                // ✅ เปิดไฟล์ด้วยวิธีที่ถูกต้อง
-                const geoPackage = await lib[methodName](arrayBuffer);
-                
-                // ✅ โหลดแต่ละชั้นข้อมูล
-                for (const layerName of MAP_CONFIG.layers) {
-                    await loadGeoPackageLayer(geoPackage, layerName);
+                // ตรวจสอบว่าข้อมูลเป็น string หรือ object
+                if (typeof geoJsonData === 'string') {
+                    geoJson = JSON.parse(geoJsonData);
+                } else {
+                    geoJson = geoJsonData;
                 }
                 
-                console.log('✅ โหลดแผนที่เรียบร้อย');
+                // ✅ ตรวจสอบโครงสร้าง GeoJSON
+                if (!geoJson.type || geoJson.type !== 'FeatureCollection') {
+                    throw new Error('ไฟล์ไม่ใช่ GeoJSON ที่ถูกต้อง');
+                }
+                
+                // ✅ แสดงแต่ละ layer บนแผนที่
+                if (geoJson.features && Array.isArray(geoJson.features)) {
+                    // กรองและแสดงตาม layerName ที่กำหนดใน MAP_CONFIG
+                    MAP_CONFIG.layers.forEach(layerName => {
+                        const layerFeatures = geoJson.features.filter(f => 
+                            f.properties?.layer === layerName || 
+                            f.properties?.type === layerName ||
+                            layerName === 'all'  // แสดงทั้งหมดถ้าระบุ 'all'
+                        );
+                        
+                        if (layerFeatures.length > 0) {
+                            const layerGeoJson = {
+                                type: 'FeatureCollection',
+                                features: layerFeatures
+                            };
+                            displayGeoJSONLayer(layerGeoJson, layerName);
+                            console.log(`✅ โหลดชั้นข้อมูล ${layerName}: ${layerFeatures.length} รายการ`);
+                        }
+                    });
+                } else {
+                    // ถ้าไม่มี layer แยก → แสดงทั้งหมด
+                    displayGeoJSONLayer(geoJson, 'all');
+                    console.log(`✅ โหลดแผนที่ทั้งหมด: ${geoJson.features?.length || 0} รายการ`);
+                }
+                
+                console.log('✅ โหลดแผนที่ GeoJSON เรียบร้อย');
                 showNotificationLeft('โหลดแผนที่สำเร็จ!', 'success');
                 
             } catch (err) {
@@ -6614,29 +6640,35 @@
         }
 
         // ============================================
-        // จัดการไฟล์แผนที่ที่เลือก
+        // จัดการไฟล์แผนที่ที่เลือก (GeoJSON)
         // ============================================
         async function handleMapFileSelect(event) {
             const file = event.target.files[0];
             if (!file) return;
             
             // ✅ ตรวจสอบนามสกุลไฟล์
-            if (!file.name.toLowerCase().endsWith('.gpkg')) {
-                showNotificationLeft('❌ กรุณาเลือกไฟล์ .gpkg', 'error');
+            if (!file.name.toLowerCase().endsWith('.geojson') && !file.name.toLowerCase().endsWith('.json')) {
+                showNotificationLeft('❌ กรุณาเลือกไฟล์ .geojson หรือ .json', 'error');
                 return;
             }
             
             try {
                 showNotificationLeft('📂 กำลังโหลดแผนที่...', 'info');
                 
-                // ✅ อ่านไฟล์
-                const arrayBuffer = await file.arrayBuffer();
+                // ✅ อ่านไฟล์เป็น text
+                const text = await file.text();
+                const geoJson = JSON.parse(text);
                 
-                // ✅ บันทึกใน IndexedDB
-                await cacheMapData(arrayBuffer, new Date().toISOString());
+                // ✅ ตรวจสอบโครงสร้าง
+                if (!geoJson.type || geoJson.type !== 'FeatureCollection') {
+                    throw new Error('ไฟล์ไม่ใช่ GeoJSON ที่ถูกต้อง');
+                }
+                
+                // ✅ บันทึกใน IndexedDB/LocalStorage
+                await cacheMapData(JSON.stringify(geoJson), new Date().toISOString());
                 
                 // ✅ โหลดแผนที่
-                loadMapFromCache(arrayBuffer);
+                loadMapFromCache(geoJson);
                 
                 showNotificationLeft('✅ โหลดแผนที่สำเร็จ!', 'success');
                 
@@ -6650,27 +6682,25 @@
         }
 
         // ============================================
-        // ดาวน์โหลดแผนที่แปลง (เปิดลิงก์ในเบราว์เซอร์)
+        // ดาวน์โหลดแผนที่แปลง (GeoJSON)
         // ============================================
         function downloadMapFile() {
             closeSettingsMenu();
             
-            // ✅ ลิงก์ดาวน์โหลดโดยตรงจาก Google Drive
-            const downloadUrl = 'https://drive.google.com/uc?export=download&id=12QallaIzfXSnNkyYHtcR0VictuPARY4p';
+            // ✅ ลิงก์ดาวน์โหลด GeoJSON จาก Google Drive
+            const downloadUrl = 'https://drive.google.com/uc?export=download&id=' + MAP_CONFIG.googleDriveFileId;
             
-            // ✅ แสดงคำแนะนำ
             showNotificationLeft('📥 กำลังเปิดลิงก์ดาวน์โหลด...', 'info');
             
             setTimeout(() => {
                 // ✅ เปิดลิงก์ในแท็บใหม่
                 window.open(downloadUrl, '_blank');
                 
-                // ✅ แสดงคำแนะนำเพิ่มเติม
                 setTimeout(() => {
                     alert(
-                        '📥 การดาวน์โหลดแผนที่\n\n' +
+                        '📥 การดาวน์โหลดแผนที่ GeoJSON\n\n' +
                         '1. คลิกปุ่มดาวน์โหลดในเบราว์เซอร์\n' +
-                        '2. บันทึกไฟล์ "ltaxmap.gpkg" ลงในมือถือ\n' +
+                        '2. บันทึกไฟล์ "ltaxmap.geojson" ลงในมือถือ\n' +
                         '3. จำตำแหน่งที่บันทึกไฟล์\n' +
                         '4. กลับมาที่แอปนี้\n' +
                         '5. เลือกเมนู "เลือกไฟล์แผนที่" เพื่อนำเข้าแผนที่\n\n' +
@@ -6682,31 +6712,23 @@
             }, 500);
         }
 
-        // ✅ เพิ่มในส่วน <script> หลังโหลด GeoPackage API
-        document.addEventListener('DOMContentLoaded', function() {
-            if (typeof GeoPackageAPI !== 'undefined') {
-                console.log('✅ GeoPackageAPI โหลดสำเร็จ');
-            } else {
-                console.error('❌ GeoPackageAPI ไม่ถูกโหลด - ตรวจสอบ URL หรือลำดับการโหลด');
-            }
-        });
-
         // ============================================
-        // สไตล์สำหรับเลเยอร์แผนที่ (Polygon)
+        // สไตล์สำหรับป้ายชื่อแปลง (parcel_cod)
         // ============================================
-        function getMapLayerStyle(feature) {
+        function getParcelLabelStyle() {
             return {
-                // ✅ สีเส้นขอบ
-                color: '#2563eb',           // สีน้ำเงิน
-                weight: 2,                  // ความหนาเส้น
-                opacity: 0.8,               // ความโปร่งแสงเส้น
-                
-                // ✅ สีพื้น
-                fillColor: '#3b82f6',       // สีน้ำเงินอ่อน
-                fillOpacity: 0.2,           // ความโปร่งแสงพื้น
-                
-                // ✅ การโต้ตอบ
-                interactive: true
+                // ✅ สีตัวอักษร: แดงเข้ม
+                color: '#991b1b',        // red-800
+                // ✅ ขอบอักษร: ขาว (ใช้ text-shadow จำลอง)
+                textShadow: '-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff',
+                // ✅ ขนาดและฟอนต์
+                fontSize: '11px',
+                fontWeight: 'bold',
+                fontFamily: 'Tahoma, sans-serif',
+                // ✅ การจัดตำแหน่ง
+                textAlign: 'center',
+                // ✅ พื้นหลังโปร่งใส
+                backgroundColor: 'transparent'
             };
         }
 
@@ -6715,7 +6737,7 @@
             const layer = e.target;
             layer.setStyle({
                 weight: 4,
-                color: '#1e40af',
+                color: '#991b1b',
                 fillOpacity: 0.4
             });
             layer.bringToFront();
@@ -6727,44 +6749,6 @@
             layer.setStyle(getMapLayerStyle());
         }
 
-
-        // ✅ Debug: ตรวจสอบ GeoPackage Library
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('🔍 ตรวจสอบ GeoPackage Library...');
-            
-            if (typeof GeoPackageAPI !== 'undefined') {
-                console.log('✅ GeoPackageAPI โหลดสำเร็จ');
-            } else if (typeof GeoPackage !== 'undefined') {
-                console.log('✅ GeoPackage โหลดสำเร็จ (ใช้ชื่อนี้แทน)');
-            } else {
-                console.error('❌ GeoPackage library ไม่ถูกโหลด!');
-                console.error('   ตรวจสอบ:');
-                console.error('   1. อินเทอร์เน็ตเชื่อมต่อหรือไม่');
-                console.error('   2. เปิดผ่าน http://localhost ไม่ใช่ file://');
-                console.error('   3. Script tag ถูกต้องหรือไม่');
-            }
-        });
-
-        // ✅ ฟังก์ชันตรวจสอบและคืนค่าไลบรารี GeoPackage ที่ถูกต้อง
-        function getGeoPackageLib() {
-            if (typeof GeoPackageAPI !== 'undefined' && typeof GeoPackageAPI.open === 'function') {
-                console.log('✅ ใช้ GeoPackageAPI.open()');
-                return { lib: GeoPackageAPI, methodName: 'open' };
-            }
-            if (typeof GeoPackage !== 'undefined' && typeof GeoPackage.open === 'function') {
-                console.log('✅ ใช้ GeoPackage.open()');
-                return { lib: GeoPackage, methodName: 'open' };
-            }
-            if (typeof GeoPackageAPI !== 'undefined' && typeof GeoPackageAPI.GeoPackageAPI?.open === 'function') {
-                console.log('✅ ใช้ GeoPackageAPI.GeoPackageAPI.open()');
-                return { lib: GeoPackageAPI.GeoPackageAPI, methodName: 'open' };
-            }
-            if (typeof GeoPackage !== 'undefined' && typeof GeoPackage.GeoPackage?.open === 'function') {
-                console.log('✅ ใช้ GeoPackage.GeoPackage.open()');
-                return { lib: GeoPackage.GeoPackage, methodName: 'open' };
-            }
-            throw new Error('ไม่พบวิธีที่ถูกต้องในการเปิด GeoPackage - ตรวจสอบการโหลดไลบรารี');
-        }
 
         // ============================================
         // ฟังก์ชันแสดงชื่อไฟล์ที่เลือก
