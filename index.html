@@ -26,6 +26,17 @@
         body, html { height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: sans-serif; }
         #map { height: 100vh; width: 100vw; z-index: 0; }
         
+        /* ✅ เมื่อเปิดโหมดเพิ่มจุดด้วยเมาส์ → เปลี่ยน cursor */
+        .cursor-crosshair-add {
+            cursor: crosshair !important;
+        }
+
+        /* ✅ ป้องกันการเลือกข้อความเมื่อคลิกเร็ว */
+        .leaflet-container {
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
         /* ข้อ 1: ปรับแต่งเป้าเล็งใหม่ (ใหญ่ขึ้น 20%, หนาขึ้น, สูงขึ้น 15%) */
         .crosshair {
             position: absolute;
@@ -884,7 +895,7 @@
             </button>
 
             <!-- ✅ Input ซ่อนสำหรับเลือกไฟล์ (เปลี่ยน accept) -->
-            <input type="file" id="map-file-input" accept=".geojson,.json" class="hidden" onchange="handleMapFileSelect(event)">
+            <input type="file" id="map-file-input" accept=".geojson" class="hidden" onchange="handleMapFileSelect(event)">
           </div>
         </div>
 
@@ -1394,14 +1405,12 @@
         function initMouseAddMode() {
             console.log('🔧 initMouseAddMode called');
             
-            // ✅ ตรวจสอบว่า map โหลดเสร็จแล้วหรือไม่
             if (typeof map === 'undefined' || !map) {
-                console.error('❌ Map not initialized yet - รอ initMap() เสร็จก่อน');
-                // ✅ ลองเรียกใหม่หลังจาก 500ms (fallback)
+                console.error('❌ Map not initialized yet');
                 setTimeout(initMouseAddMode, 500);
                 return;
             }
-
+            
             map.on('click', function(e) {
                 // ✅ ต้องเช็คก่อนว่าเปิดโหมดเมาส์อยู่ไหม
                 if (!mouseAddMode) return;
@@ -1412,28 +1421,34 @@
                     return;
                 }
                 
+                // ✅ สำคัญ: ป้องกัน event รั่วไปยัง layer อื่น
+                if (e.originalEvent) {
+                    L.DomEvent.stopPropagation(e.originalEvent);
+                }
+                
                 const latlng = e.latlng;
                 console.log('📍 Map clicked at:', latlng);
                 
-                // ✅ 1. ถ้ามีจุดชั่วคราวอยู่แล้ว → ย้ายตำแหน่ง
+                // ✅ สร้างจุดชั่วคราว
                 if (mouseTempMarker) {
-                    mouseTempMarker.setLatLng(latlng);
-                    console.log('🔄 Moved temp marker');
-                } 
-                // ✅ 2. ถ้ายังไม่มี → สร้างจุดชั่วคราวใหม่
-                else {
-                    mouseTempMarker = createCircleMarker(latlng, activeTool, false, 'ยังไม่สำรวจ');
-                    mouseTempMarker.addTo(surveyLayers);
-                    console.log('➕ Created temp marker');
+                    surveyLayers.removeLayer(mouseTempMarker);
                 }
                 
-                // ✅ 3. เก็บตำแหน่งไว้
+                mouseTempMarker = L.circleMarker(latlng, {
+                    radius: 8,
+                    color: activeTool === 'building' ? '#f97316' : '#22c55e',
+                    fillColor: activeTool === 'building' ? '#f97316' : '#22c55e',
+                    fillOpacity: 0.8,
+                    weight: 2
+                });
+                
+                mouseTempMarker.addTo(surveyLayers);
                 mouseClickLatLng = latlng;
                 
-                // ✅ 4. แสดงปุ่มยืนยัน
-                showConfirmButtonForMouseMode();
+                // ✅ แสดงปุ่มยืนยัน
+                document.getElementById('confirm-overlay').classList.remove('hidden');
                 
-                showNotificationLeft(`เลือกตำแหน่งแล้ว: ${activeTool === 'building' ? 'สิ่งปลูกสร้าง' : 'ป้าย'}`, 'info');
+                showNotificationLeft(`เลือกตำแหน่งแล้ว - กดปุ่มยืนยันเพื่อเพิ่ม${activeTool === 'building' ? 'สิ่งปลูกสร้าง' : 'ป้าย'}`, 'info');
             });
         }
 
@@ -4984,6 +4999,13 @@
                         mouseover: highlightFeature,
                         mouseout: resetHighlight,
                         click: function(e) {
+
+                            // ✅ 1. ตรวจสอบว่าเปิดโหมดเพิ่มจุดด้วยเมาส์อยู่หรือไม่
+                            if (mouseAddMode) {
+                            // ✅ ถ้าเปิดอยู่ → ไม่แสดง popup แปลง (ให้เพิ่มจุดแทน)
+                                return;
+                            }
+
                             L.DomEvent.stopPropagation(e);
                             
                             // ✅ Popup ง่ายๆ กะทัดรัด (parcel_cod คลิกได้)
@@ -6870,8 +6892,8 @@
             if (!file) return;
             
             // ✅ ตรวจสอบนามสกุลไฟล์
-            if (!file.name.toLowerCase().endsWith('.geojson') && !file.name.toLowerCase().endsWith('.json')) {
-                showNotificationLeft('❌ กรุณาเลือกไฟล์ .geojson หรือ .json', 'error');
+            if (!file.name.toLowerCase().endsWith('.geojson')) {
+                showNotificationLeft('❌ กรุณาเลือกไฟล์ .geojson เท่านั้น', 'error');
                 return;
             }
             
