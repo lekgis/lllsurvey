@@ -4925,7 +4925,6 @@
                             const props = feature.properties;
                             const popupContent = `
                                 <div class="font-bold">${props.parcel_cod || 'ไม่มีรหัส'}</div>
-                                <div class="text-xs">พื้นที่: ${props.area ? props.area + ' ตร.ว.' : '-'}</div>
                             `;
                             e.target.bindPopup(popupContent).openPopup();
                         }
