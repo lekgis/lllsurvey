@@ -136,6 +136,37 @@
             color: #065f46; 
         }
 
+        /* ✅ สไตล์สำหรับป้ายชื่อแปลง */
+        .parcel-label {
+            background: transparent !important;
+            border: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            /* ✅ ป้องกัน label บล็อกการคลิก */
+            pointer-events: none !important;
+        }
+
+        .parcel-label span {
+            display: block;
+            text-align: center;
+            line-height: 1.2;
+            /* ✅ ขอบขาวรอบตัวอักษร */
+            text-shadow: 
+                -1px -1px 0 #fff,
+                1px -1px 0 #fff,
+                -1px 1px 0 #fff,
+                1px 1px 0 #fff,
+                -2px 0 0 #fff,
+                2px 0 0 #fff,
+                0 -2px 0 #fff,
+                0 2px 0 #fff;
+        }
+
+        /* ✅ ซ่อน Label เมื่อซูมออก */
+        .leaflet-zoom-hide {
+            display: none !important;
+        }
+
         /* แก้ไขส่วน .side-panel ให้โปร่งใส */
         .side-panel { 
             transition: transform 0.3s ease-in-out; 
@@ -4812,21 +4843,123 @@
         }
 
         // ============================================
-        // แสดงข้อมูลบนแผนที่
+        // สไตล์สำหรับเลเยอร์แผนที่ (Polygon) - GeoJSON
+        // ============================================
+        function getMapLayerStyle(feature) {
+            return {
+                // ✅ สีเส้นขอบ: แดง (ตามที่ต้องการ)
+                color: '#ef4444',           // 🔴 red-500
+                weight: 2,                  // ความหนาเส้น
+                opacity: 0.9,               // ความโปร่งแสงเส้น
+                
+                // ✅ สีพื้น: แดงจาง (เพื่อให้เส้นเด่น)
+                fillColor: '#fee2e2',       // red-100
+                fillOpacity: 0.15,          // ความโปร่งแสงพื้น
+                
+                // ✅ การโต้ตอบ
+                interactive: true
+            };
+        }
+
+        // ============================================
+        // แสดงเลเยอร์ GeoJSON บนแผนที่ (พร้อม Label)
         // ============================================
         function displayGeoJSONLayer(geoJson, layerName) {
-            // ✅ สร้างเลเยอร์จากข้อมูล
             const layer = L.geoJSON(geoJson, {
-                style: getLayerStyle(layerName),
-                onEachFeature: onEachFeature
+                style: getMapLayerStyle,
+                
+                // ✅ เพิ่ม Label เมื่อสร้างแต่ละฟีเจอร์
+                onEachFeature: function(feature, layer) {
+                    // ✅ ตรวจสอบว่ามี parcel_cod และอยู่ใน zoom ที่กำหนด
+                    const parcelCod = feature.properties?.parcel_cod;
+                    
+                    if (parcelCod) {
+                        // ✅ สร้าง Label ด้วย DivIcon
+                        const labelIcon = L.divIcon({
+                            className: 'parcel-label',
+                            html: `<span style="
+                                color: #991b1b;
+                                text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff;
+                                font-size: 11px;
+                                font-weight: bold;
+                                font-family: Tahoma, sans-serif;
+                                white-space: nowrap;
+                                pointer-events: none;
+                            ">${parcelCod}</span>`,
+                            iconSize: [100, 20],
+                            iconAnchor: [50, 10]  // จุดกึ่งกลางของ label
+                        });
+                        
+                        // ✅ คำนวณจุดกึ่งกลางของ Polygon สำหรับวาง Label
+                        let centroid;
+                        if (feature.geometry.type === 'Polygon') {
+                            const coords = feature.geometry.coordinates[0];
+                            const latLngs = coords.map(c => L.latLng(c[1], c[0]));
+                            const bounds = L.latLngBounds(latLngs);
+                            centroid = bounds.getCenter();
+                        }
+                        
+                        // ✅ เพิ่ม Label ลงแผนที่ (ซ่อนไว้ก่อน)
+                        if (centroid) {
+                            const label = L.marker(centroid, {
+                                icon: labelIcon,
+                                interactive: false,
+                                zIndexOffset: 1000  // อยู่เหนือ polygon
+                            });
+                            
+                            // ✅ เก็บ reference สำหรับแสดง/ซ่อนตาม zoom
+                            label._parcelCod = parcelCod;
+                            label._minZoom = 14;  // ✅ 1:2,000 ≈ zoom 14
+                            label._maxZoom = 20;  // ✅ 1:1 ≈ zoom 18-20
+                            
+                            // ✅ เพิ่ม Label ลงใน layer group เดียวกัน
+                            layer.addLayer(label);
+                        }
+                    }
+                    
+                    // ✅ Popup เมื่อคลิก polygon (คงเดิม)
+                    layer.on({
+                        mouseover: highlightFeature,
+                        mouseout: resetHighlight,
+                        click: function(e) {
+                            const props = feature.properties;
+                            const popupContent = `
+                                <div class="font-bold">${props.parcel_cod || 'ไม่มีรหัส'}</div>
+                                <div class="text-xs">พื้นที่: ${props.area ? props.area + ' ตร.ว.' : '-'}</div>
+                            `;
+                            e.target.bindPopup(popupContent).openPopup();
+                        }
+                    });
+                }
             });
             
-            // ✅ เพิ่มเลเยอร์บนแผนที่
             layer.addTo(map);
             
-            // ✅ เก็บอ้างอิงเลเยอร์ (ถ้าต้องการควบคุมการแสดง/ซ่อน)
-            if (!window.mapLayers) window.mapLayers = {};
-            window.mapLayers[layerName] = layer;
+            // ✅ ฟังก์ชันอัปเดตการแสดงผล Label ตาม zoom
+            function updateLabelVisibility() {
+                const currentZoom = map.getZoom();
+                layer.eachLayer(function(subLayer) {
+                    if (subLayer._parcelCod) {
+                        if (currentZoom >= subLayer._minZoom && currentZoom <= subLayer._maxZoom) {
+                            if (!map.hasLayer(subLayer)) {
+                                subLayer.addTo(map);
+                            }
+                        } else {
+                            if (map.hasLayer(subLayer)) {
+                                map.removeLayer(subLayer);
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // ✅ ผูก event แสดง/ซ่อน Label เมื่อ zoom เปลี่ยน
+            map.on('zoomend', updateLabelVisibility);
+            
+            // ✅ เรียกครั้งแรกเพื่อตั้งค่าเริ่มต้น
+            setTimeout(updateLabelVisibility, 100);
+            
+            return layer;
         }
 
         // ============================================
