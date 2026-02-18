@@ -170,20 +170,31 @@
             display: none; 
         }
 
-        /* ✅ Popup แบบง่าย - มือถือ */
-        .mobile-popup .leaflet-popup-content-wrapper {
+        /* ============================================
+           POPUP STYLES - ชุดเดียวจบ (ทับ Leaflet ทั้งหมด)
+           ============================================ */
+
+        /* ✅ Popup Wrapper - ควบคุมมุมมนและความกว้าง */
+        .mobile-popup .leaflet-popup-content-wrapper,
+        .mobile-popup-raw .leaflet-popup-content-wrapper {
             padding: 0 !important;
-            border-radius: 12px !important;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
-            /* ✅ ความกว้างปรับตามเนื้อหา */
-            width: auto !important;
-            min-width: 120px !important;
-            max-width: 440px !important;
+            margin: 4px !important;
+            border-radius: 6px !important;  /* ✅ มุมมน */
+            box-shadow: 0 4px 20px rgba(0,0,0,0.25) !important;
+            background: #fff !important;
+            overflow: hidden !important;
         }
-        .mobile-popup .leaflet-popup-content {
+
+        /* ✅ Popup Content - ควบคุมความกว้างจริง */
+        .mobile-popup .leaflet-popup-content,
+        .mobile-popup-raw .leaflet-popup-content {
             margin: 0 !important;
             width: auto !important;
-            text-align: center !important;  /* ✅ กึ่งกลางข้อความ */
+            min-width: 150px !important;
+            max-width: 480px !important;
+            text-align: center !important;
+            line-height: 1.5 !important;
+            font-family: 'Sarabun', 'Tahoma', sans-serif !important;
         }
         .popup-simple {
             padding: 8px 12px !important;   /* ✅ ลด padding ให้กะทัดรัด */
@@ -203,16 +214,16 @@
         }
         .popup-simple .parcel-cod {
             font-weight: bold;
-            color: #dc2626;
+            color: black;
             font-size: 13px;
-            display: block;            /* ✅ ให้占据เต็มบรรทัด */
+            display: block;            /* ✅ ให้เต็มบรรทัด */
             text-align: center !important;
             white-space: nowrap;       /* ✅ รหัสแปลงไม่ตัดบรรทัด */
             overflow: hidden;
             text-overflow: ellipsis;   /* ✅ ถ้ายาวเกิน → แสดง ... */
         }
         .popup-simple .popup-owner {
-            font-size: 11px;
+            font-size: 13px;
             color: #3b82f6;
             padding-top: 4px;
             text-align: center !important;  /* ✅ กึ่งกลาง */
@@ -223,7 +234,7 @@
         /* ✅ Popup ข้อมูลดิบ - มือถือ */
         .mobile-popup-raw .leaflet-popup-content-wrapper {
             padding: 0 !important;
-            border-radius: 12px !important;
+            border-radius: 6px !important;
             box-shadow: 0 6px 20px rgba(0,0,0,0.25) !important;
         }
         .mobile-popup-raw .leaflet-popup-content {
@@ -256,6 +267,7 @@
         .popup-raw td {
             padding: 5px 3px;  /* ✅ เพิ่ม padding */
             vertical-align: top;
+            text-align: left !important; 
         }
 
         .popup-raw td.k {
