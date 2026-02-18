@@ -12,7 +12,8 @@
     <title>โนนไทย</title>
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="static/icons/lb.ico" type="image/x-icon"> <!-- แก้เป็นพาธสัมพัทธ์ -->
-
+    <!-- ✅ GeoPackage API Library (ต้องอยู่ก่อน script หลัก) -->
+    <script src="https://unpkg.com/@ngageoint/geopackage@4.2.4/dist/geopackage.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -20,12 +21,8 @@
     <!-- เพิ่มในส่วน <head> ของไฟล์ HTML -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-    <!-- GeoPackage JS Library (สำหรับอ่านไฟล์ .gpkg) -->
-    <script src="https://unpkg.com/@ngageoint/geopackage@4.1.0/dist/geopackage.min.js"></script>
     <!-- Leaflet GeoJSON Layer (สำหรับแสดงข้อมูลจาก GeoPackage) -->
     <script src="https://unpkg.com/leaflet.vectorgrid@1.3.0/dist/Leaflet.VectorGrid.bundled.js"></script>
-    <!-- ✅ GeoPackage API Library (ต้องอยู่ก่อน script หลัก) -->
-    <script src="https://unpkg.com/@ngageoint/geopackage@4.2.4/dist/geopackage.min.js"></script>
     <style>
         body, html { height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: sans-serif; }
         #map { height: 100vh; width: 100vw; z-index: 0; }
@@ -1230,10 +1227,12 @@
         // ✅ เพิ่ม Event Listener สำหรับคลิกบนแผนที่ (โหมดเมาส์)
         function initMouseAddMode() {
             console.log('🔧 initMouseAddMode called');
-           
+            
             // ✅ ตรวจสอบว่า map โหลดเสร็จแล้วหรือไม่
-            if (!map) {
-                console.error('❌ Map not initialized yet');
+            if (typeof map === 'undefined' || !map) {
+                console.error('❌ Map not initialized yet - รอ initMap() เสร็จก่อน');
+                // ✅ ลองเรียกใหม่หลังจาก 500ms (fallback)
+                setTimeout(initMouseAddMode, 500);
                 return;
             }
 
@@ -4407,7 +4406,6 @@
             localCacheKey: 'ltaxmap_cache',
             lastModifiedKey: 'ltaxmap_last_modified',
             lastCheckKey: 'ltaxmap_last_check', // ✅ เพิ่มสำหรับตรวจสอบเวลา
-            checkTime: 8 // ✅ เวลาตรวจสอบ: 08:00 น.
         };
 
         // ============================================
@@ -4538,77 +4536,6 @@
             }
         }
 
-        // ============================================
-        // ตรวจสอบการอัปเดตแผนที่ (ใช้ HEAD request - ไม่มีค่าใช้จ่าย)
-        // ============================================
-        async function checkForMapUpdate() {
-            try {
-                console.log('🔍 ตรวจสอบการอัปเดตแผนที่...');
-                
-                // ✅ ตรวจสอบว่าเคยเช็ควันนี้แล้วหรือยัง
-                const today = new Date().toDateString();
-                const lastCheck = localStorage.getItem(MAP_CONFIG.lastCheckKey);
-                if (lastCheck === today) {
-                    console.log('✅ ตรวจสอบการอัปเดตแล้ววันนี้ - ข้าม');
-                    return;
-                }
-                
-                // ✅ ตรวจสอบว่าถึงเวลา 08:00 น. แล้วหรือยัง
-                const now = new Date();
-                if (now.getHours() < MAP_CONFIG.checkTime) {
-                    console.log(`⏳ ยังไม่ถึงเวลา ${MAP_CONFIG.checkTime}:00 น. - ข้าม`);
-                    return;
-                }
-                
-                // ✅ ดึงเวลาแก้ไขล่าสุดจากไฟล์ในเครื่อง
-                const localLastModifiedStr = localStorage.getItem(MAP_CONFIG.lastModifiedKey);
-                if (!localLastModifiedStr) {
-                    console.log('⚠️ ไม่พบข้อมูลเวลาแก้ไขในเครื่อง - ดาวน์โหลดใหม่');
-                    await downloadAndCacheMap();
-                    localStorage.setItem(MAP_CONFIG.lastCheckKey, today);
-                    return;
-                }
-                
-                // ✅ ส่งคำขอ HEAD ไปยังลิงก์ดาวน์โหลด (ไม่ดาวน์โหลดไฟล์จริง!)
-                const fileUrl = `https://drive.google.com/uc?export=download&id=${MAP_CONFIG.googleDriveFileId.trim()}`;
-                const headResponse = await fetch(fileUrl, { method: 'HEAD' });
-                
-                if (!headResponse.ok) {
-                    throw new Error(`HEAD request ล้มเหลว: ${headResponse.status}`);
-                }
-                
-                // ✅ ดึงเวลาแก้ไขล่าสุดจากหัวข้อ Last-Modified
-                const remoteLastModifiedStr = headResponse.headers.get('last-modified');
-                if (!remoteLastModifiedStr) {
-                    console.warn('⚠️ ไม่พบหัวข้อ Last-Modified จากกูเกิ้ลไดร์ฟ');
-                    localStorage.setItem(MAP_CONFIG.lastCheckKey, today);
-                    return;
-                }
-                
-                const remoteLastModified = new Date(remoteLastModifiedStr);
-                const localLastModified = new Date(localLastModifiedStr);
-                
-                console.log(`🕒 เวลาแก้ไขในเครื่อง: ${localLastModified.toLocaleString('th-TH')}`);
-                console.log(`🌐 เวลาแก้ไขบนไดร์ฟ: ${remoteLastModified.toLocaleString('th-TH')}`);
-                
-                // ✅ เปรียบเทียบเวลา - ดาวน์โหลดเฉพาะเมื่อไฟล์บนไดร์ฟใหม่กว่า
-                if (remoteLastModified > localLastModified) {
-                    console.log('🔄 พบเวอร์ชันใหม่บนกูเกิ้ลไดร์ฟ - กำลังดาวน์โหลด...');
-                    showNotificationLeft('มีแผนที่เวอร์ชันใหม่! กำลังดาวน์โหลด...', 'info');
-                    await downloadAndCacheMap();
-                } else {
-                    console.log('✅ แผนที่ในเครื่องเป็นเวอร์ชันล่าสุดแล้ว');
-                    showNotificationLeft('แผนที่เป็นเวอร์ชันล่าสุดแล้ว', 'success');
-                }
-                
-                // ✅ บันทึกว่าตรวจสอบแล้ววันนี้
-                localStorage.setItem(MAP_CONFIG.lastCheckKey, today);
-                
-            } catch (err) {
-                console.error('❌ ข้อผิดพลาดในการตรวจสอบการอัปเดต:', err);
-                // ไม่แสดงข้อผิดพลาดให้ผู้ใช้ (ไม่รบกวนการทำงานหลัก)
-            }
-        }
 
         // ============================================
         // บันทึกข้อมูลแผนที่ในแคช (IndexedDB)
@@ -4791,16 +4718,11 @@
             try {
                 console.log('🗺️ กำลังโหลดแผนที่จากแคช...');
                 
-                // ✅ ตรวจสอบว่าไลบรารีโหลดสำเร็จหรือไม่
-                if (typeof GeoPackageAPI === 'undefined' && typeof GeoPackage === 'undefined') {
-                    throw new Error('GeoPackage library not loaded. Check your internet connection and script tags.');
-                }
+                // ✅ ใช้ฟังก์ชันตรวจสอบไลบรารี
+                const { lib, methodName } = getGeoPackageLib();
                 
-                // ✅ ใช้ตัวแปรที่ถูกต้อง
-                const GeoPackageLib = typeof GeoPackageAPI !== 'undefined' ? GeoPackageAPI : GeoPackage;
-                
-                // ✅ เปิดไฟล์
-                const geoPackage = await GeoPackageLib.open(arrayBuffer);
+                // ✅ เปิดไฟล์ด้วยวิธีที่ถูกต้อง
+                const geoPackage = await lib[methodName](arrayBuffer);
                 
                 // ✅ โหลดแต่ละชั้นข้อมูล
                 for (const layerName of MAP_CONFIG.layers) {
@@ -4942,40 +4864,9 @@
         // ============================================
         window.addEventListener('load', () => {
             // ✅ ตรวจสอบและโหลดแผนที่
-            checkAndLoadMap();
-            
-            // ✅ ตั้งเวลาตรวจสอบการอัปเดตทุกวัน 08:00 น.
-            scheduleDailyUpdateCheck();
-        });
+            checkAndLoadMap();            
 
-        // ============================================
-        // ตั้งเวลาตรวจสอบอัปเดตทุกวัน 08:00 น.
-        // ============================================
-        function scheduleDailyUpdateCheck() {
-            // ✅ คำนวณเวลาถัดไปที่จะตรวจสอบ (08:00 น. ของวันนี้หรือพรุ่งนี้)
-            const now = new Date();
-            const nextCheck = new Date(now);
-            nextCheck.setHours(MAP_CONFIG.checkTime, 0, 0, 0); // 08:00:00
-            
-            // ถ้าเลยเวลา 08:00 น. แล้ว ให้ตั้งเวลาเป็นพรุ่งนี้
-            if (now > nextCheck) {
-                nextCheck.setDate(nextCheck.getDate() + 1);
-            }
-            
-            // ✅ คำนวณเวลาที่เหลือจนถึงเวลาตรวจสอบ
-            const timeUntilCheck = nextCheck - now;
-            
-            console.log(`⏰ ตั้งเวลาตรวจสอบอัปเดตแผนที่: ${nextCheck.toLocaleString()}`);
-            console.log(`⏳ เวลาที่เหลือ: ${Math.floor(timeUntilCheck / 60000)} นาที`);
-            
-            // ✅ ตั้งเวลาตรวจสอบ
-            setTimeout(() => {
-                checkForMapUpdate();
-                
-                // ✅ ตั้งเวลาตรวจสอบใหม่ทุกวัน (24 ชั่วโมง)
-                setInterval(checkForMapUpdate, 24 * 60 * 60 * 1000);
-            }, timeUntilCheck);
-        }
+        });
 
         // ============================================
         // Enhanced Sync Process with Image Support
@@ -5629,36 +5520,7 @@
             }
         }
 
-        // ============================================
-        // อัปเดตแผนที่ด้วยตนเอง (จากเมนูตั้งค่า)
-        // ============================================
-        async function manualUpdateMap() {
-            closeSettingsMenu();
-            
-            try {
-                showNotificationLeft('กำลังตรวจสอบการอัปเดตแผนที่...', 'info');
-                
-                // ✅ ตรวจสอบว่ามีการเชื่อมต่ออินเทอร์เน็ต
-                if (!navigator.onLine) {
-                    showNotificationLeft('❌ ไม่มีการเชื่อมต่ออินเทอร์เน็ต', 'error');
-                    return;
-                }
-                
-                // ✅ ดาวน์โหลดแผนที่ใหม่ทันที
-                await downloadAndCacheMap();
-                
-                // ✅ บันทึกเวลาตรวจสอบ
-                const today = new Date().toDateString();
-                localStorage.setItem(MAP_CONFIG.lastCheckKey, today);
-                
-                showNotificationLeft('✅ อัปเดตแผนที่สำเร็จ!', 'success');
-                
-            } catch (err) {
-                console.error('❌ ข้อผิดพลาดในการอัปเดตแผนที่:', err);
-                showNotificationLeft('อัปเดตแผนที่ล้มเหลว: ' + err.message, 'error');
-            }
-        }
- 
+
         // ============================================
         // อัปเดตข้อมูลแบบเรียลไทม์
         // ============================================
@@ -5813,9 +5675,9 @@
                 if (!isUpdating && navigator.onLine) {
                     realtimeUpdate();
                 }
-            }, 5000); // 5 วินาที
+            }, 10000); // 10 วินาที
             
-            console.log('✅ เริ่มระบบอัปเดตเรียลไทม์ทุก 5 วินาที');
+            console.log('✅ เริ่มระบบอัปเดตเรียลไทม์ทุก 10 วินาที');
         }
 
         // ============================================
@@ -6865,47 +6727,6 @@
             layer.setStyle(getMapLayerStyle());
         }
 
-        // ✅ ในฟังก์ชัน loadMapFromCache() หรือที่สร้างเลเยอร์แผนที่
-        async function loadMapFromCache(arrayBuffer) {
-            try {
-                // ✅ เปิดไฟล์ GeoPackage
-                const geoPackage = await GeoPackageAPI.open(arrayBuffer);
-                
-                // ✅ ดึงเลเยอร์
-                const layers = await geoPackage.getTileLayers();
-                
-                layers.forEach(layer => {
-                    // ✅ สร้าง Leaflet Layer พร้อมสไตล์
-                    const leafletLayer = L.geoJSON(layer.geojson, {
-                        style: getMapLayerStyle,
-                        onEachFeature: function(feature, layer) {
-                            layer.on({
-                                mouseover: highlightFeature,
-                                mouseout: resetHighlight,
-                                click: function(e) {
-                                    // ✅ แสดงข้อมูลเมื่อคลิก
-                                    const props = feature.properties;
-                                    const popupContent = `
-                                        <div class="font-bold">${props.name || 'ไม่มีชื่อ'}</div>
-                                        <div class="text-xs">รหัส: ${props.code || '-'}</div>
-                                        <div class="text-xs">พื้นที่: ${props.area ? props.area + ' ตร.ว.' : '-'}</div>
-                                    `;
-                                    e.target.bindPopup(popupContent).openPopup();
-                                }
-                            });
-                        }
-                    });
-                    
-                    leafletLayer.addTo(map);
-                });
-                
-                console.log('✅ โหลดแผนที่สำเร็จ');
-                
-            } catch (err) {
-                console.error('❌ ข้อผิดพลาด:', err);
-                showNotificationLeft('โหลดแผนที่ล้มเหลว: ' + err.message, 'error');
-            }
-        }
 
         // ✅ Debug: ตรวจสอบ GeoPackage Library
         document.addEventListener('DOMContentLoaded', function() {
@@ -6923,6 +6744,27 @@
                 console.error('   3. Script tag ถูกต้องหรือไม่');
             }
         });
+
+        // ✅ ฟังก์ชันตรวจสอบและคืนค่าไลบรารี GeoPackage ที่ถูกต้อง
+        function getGeoPackageLib() {
+            if (typeof GeoPackageAPI !== 'undefined' && typeof GeoPackageAPI.open === 'function') {
+                console.log('✅ ใช้ GeoPackageAPI.open()');
+                return { lib: GeoPackageAPI, methodName: 'open' };
+            }
+            if (typeof GeoPackage !== 'undefined' && typeof GeoPackage.open === 'function') {
+                console.log('✅ ใช้ GeoPackage.open()');
+                return { lib: GeoPackage, methodName: 'open' };
+            }
+            if (typeof GeoPackageAPI !== 'undefined' && typeof GeoPackageAPI.GeoPackageAPI?.open === 'function') {
+                console.log('✅ ใช้ GeoPackageAPI.GeoPackageAPI.open()');
+                return { lib: GeoPackageAPI.GeoPackageAPI, methodName: 'open' };
+            }
+            if (typeof GeoPackage !== 'undefined' && typeof GeoPackage.GeoPackage?.open === 'function') {
+                console.log('✅ ใช้ GeoPackage.GeoPackage.open()');
+                return { lib: GeoPackage.GeoPackage, methodName: 'open' };
+            }
+            throw new Error('ไม่พบวิธีที่ถูกต้องในการเปิด GeoPackage - ตรวจสอบการโหลดไลบรารี');
+        }
 
         // ============================================
         // ฟังก์ชันแสดงชื่อไฟล์ที่เลือก
