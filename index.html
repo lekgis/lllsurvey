@@ -170,6 +170,126 @@
             display: none; 
         }
 
+        /* ✅ Popup แบบง่าย - มือถือ */
+        .mobile-popup .leaflet-popup-content-wrapper {
+            padding: 0 !important;
+            border-radius: 12px !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
+            /* ✅ ความกว้างปรับตามเนื้อหา */
+            width: auto !important;
+            min-width: 120px !important;
+            max-width: 440px !important;
+        }
+        .mobile-popup .leaflet-popup-content {
+            margin: 0 !important;
+            width: auto !important;
+            text-align: center !important;  /* ✅ กึ่งกลางข้อความ */
+        }
+        .popup-simple {
+            padding: 8px 12px !important;   /* ✅ ลด padding ให้กะทัดรัด */
+            background: #fff;
+            font-family: 'Sarabun', 'Tahoma', sans-serif;
+            text-align: center !important;  /* ✅ กึ่งกลางทั้งบล็อก */
+            min-width: 120px;
+            max-width: 240px;
+            margin: 0 auto;  /* ✅ จัดกึ่งกลางใน popup */
+        }
+        .popup-simple .popup-header {
+            display: block;            /* ✅ เปลี่ยนจาก flex เป็น block */
+            cursor: pointer;
+            padding-bottom: 4px;
+            border-bottom: 1px solid #eee;
+            text-align: center !important;  /* ✅ กึ่งกลาง */
+        }
+        .popup-simple .parcel-cod {
+            font-weight: bold;
+            color: #dc2626;
+            font-size: 13px;
+            display: block;            /* ✅ ให้占据เต็มบรรทัด */
+            text-align: center !important;
+            white-space: nowrap;       /* ✅ รหัสแปลงไม่ตัดบรรทัด */
+            overflow: hidden;
+            text-overflow: ellipsis;   /* ✅ ถ้ายาวเกิน → แสดง ... */
+        }
+        .popup-simple .popup-owner {
+            font-size: 11px;
+            color: #3b82f6;
+            padding-top: 4px;
+            text-align: center !important;  /* ✅ กึ่งกลาง */
+            word-break: break-word;    /* ✅ ตัดคำยาวไม่ให้ล้น */
+            line-height: 1.3;
+        }
+
+        /* ✅ Popup ข้อมูลดิบ - มือถือ */
+        .mobile-popup-raw .leaflet-popup-content-wrapper {
+            padding: 0 !important;
+            border-radius: 12px !important;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.25) !important;
+        }
+        .mobile-popup-raw .leaflet-popup-content {
+            margin: 0 !important;
+            width: auto !important;
+            min-width: 200px !important;  /* ✅ เพิ่มจาก 280px เป็น 320px */
+            max-width: 300px !important;  /* ✅ เพิ่มจาก 280px เป็น 450px */
+        }
+
+        .popup-raw {
+            background: #fff;
+            font-family: 'Sarabun', 'Tahoma', sans-serif;
+            max-height: 300px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .popup-raw-body {
+            padding: 10px 14px;  /* ✅ เพิ่ม padding ด้านข้าง */
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .popup-raw table {
+            width: 100%;
+            font-size: 12px;  /* ✅ เพิ่มขนาดตัวอักษรเล็กน้อย */
+            border-collapse: collapse;
+        }
+
+        .popup-raw td {
+            padding: 5px 3px;  /* ✅ เพิ่ม padding */
+            vertical-align: top;
+        }
+
+        .popup-raw td.k {
+            font-weight: 600;
+            color: #475569;
+            width: 35%;  /* ✅ ลดจาก 40% ให้พื้นที่ค่ามากขึ้น */
+            white-space: nowrap;
+        }
+
+        .popup-raw td.v {
+            color: #1e293b;
+            word-break: break-word;  /* ✅ ตัดคำยาวไม่ให้ล้น */
+        }
+
+        /* ✅ Scrollbar สำหรับมือถือ */
+        .popup-raw-body::-webkit-scrollbar {
+            width: 4px;
+        }
+        .popup-raw-body::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 2px;
+        }
+
+        /* ✅ ป้องกัน popup ขยายเกินจอ */
+        @media (max-width: 480px) {
+            .mobile-popup .leaflet-popup-content-wrapper,
+            .mobile-popup-raw .leaflet-popup-content-wrapper {
+                margin: 4px !important;
+            }
+            .popup-raw {
+                max-height: 40vh !important;
+            }
+        }
+
         /* แก้ไขส่วน .side-panel ให้โปร่งใส */
         .side-panel { 
             transition: transform 0.3s ease-in-out; 
@@ -4837,96 +4957,87 @@
         }
 
         // ============================================
-        // แสดงเลเยอร์ GeoJSON บนแผนที่ (พร้อม Label อัตโนมัติตาม zoom)
+        // แสดงเลเยอร์ GeoJSON บนแผนที่ (Mobile Optimized)
         // ============================================
         function displayGeoJSONLayer(geoJson, layerName) {
-            const labelMarkers = [];  // ✅ เก็บ reference ของ label markers
-            
             const layer = L.geoJSON(geoJson, {
                 style: getMapLayerStyle,
                 
                 onEachFeature: function(feature, polygonLayer) {
-                    const parcelCod = feature.properties?.parcel_cod;
+                    const props = feature.properties || {};
+                    const parcelCod = props.parcel_cod;
                     
-                    // ✅ สร้าง Label สำหรับ parcel_cod
-                    if (parcelCod && feature.geometry.type === 'Polygon') {
-                        // ✅ คำนวณจุดกึ่งกลาง Polygon
-                        const coords = feature.geometry.coordinates[0];
-                        const latLngs = coords.map(c => L.latLng(c[1], c[0]));
-                        const bounds = L.latLngBounds(latLngs);
-                        const centroid = bounds.getCenter();
-                        
-                        // ✅ สร้าง DivIcon สำหรับ Label
-                        const labelIcon = L.divIcon({
-                            className: 'parcel-label',
-                            html: `<span class="parcel-label-text">${parcelCod}</span>`,
-                            iconSize: [120, 30],
-                            iconAnchor: [60, 15]
-                        });
-                        
-                        // ✅ สร้าง Marker สำหรับ Label (ไม่เพิ่มลง map ทันที)
-                        const labelMarker = L.marker(centroid, {
-                            icon: labelIcon,
-                            interactive: false,
-                            zIndexOffset: 1000
-                        });
-                        
-                        // ✅ เก็บข้อมูลสำหรับควบคุมการแสดงผลตาม zoom
-                        labelMarker._isParcelLabel = true;  // ✅ flag ระบุว่าเป็น label
-                        labelMarker._minZoom = 14;
-                        labelMarker._maxZoom = 22;
-                        
-                        // ✅ เก็บไว้ใน array สำหรับจัดการภายหลัง
-                        labelMarkers.push(labelMarker);
-                    }
-                    
-                    // ✅ Popup เมื่อคลิก polygon (คงเดิม)
+                    // ✅ Popup เมื่อคลิก polygon: แบบมือถือ กะทัดรัด
                     polygonLayer.on({
                         mouseover: highlightFeature,
                         mouseout: resetHighlight,
                         click: function(e) {
-                            const props = feature.properties;
+                            L.DomEvent.stopPropagation(e);
+                            
+                            // ✅ Popup ง่ายๆ กะทัดรัด (parcel_cod คลิกได้)
                             const popupContent = `
-                                <div class="font-bold text-center">${props.parcel_cod || 'ไม่มีรหัส'}</div>
-                                <div class="text-xs text-blue-600 text-center">${props.title + props.fname + ' ' + props.lname}</div>
+                                <div class="popup-simple" onclick="event.stopPropagation()">
+                                    <div class="popup-header" 
+                                         onclick="showRawParcelData(
+                                             '${encodeURIComponent(JSON.stringify(props))}', 
+                                             ${e.latlng.lat}, 
+                                             ${e.latlng.lng}
+                                         )">
+                                        <span class="parcel-cod">${parcelCod || 'ไม่มีรหัส'}</span>
+                                    </div>
+                                    <div class="popup-owner">${props.title || ''}${props.fname || ''} ${props.lname || ''}</div>
+                                </div>
                             `;
-                            e.target.bindPopup(popupContent).openPopup();
+                            
+                            L.popup({ minWidth: 160, maxWidth: 220, className: 'mobile-popup' })
+                                .setLatLng(e.latlng)
+                                .setContent(popupContent)
+                                .openOn(map);
                         }
                     });
                 }
             });
             
-            // ✅ เพิ่ม polygon layer ลงแผนที่
             layer.addTo(map);
-            
-            // ✅ ฟังก์ชันควบคุมการแสดงผล Label ตาม zoom level
-            function updateLabelVisibility() {
-                const currentZoom = map.getZoom();
-                
-                labelMarkers.forEach(labelMarker => {
-                    // ✅ แสดง/ซ่อนตาม zoom range
-                    if (currentZoom >= labelMarker._minZoom && currentZoom <= labelMarker._maxZoom) {
-                        if (!map.hasLayer(labelMarker)) {
-                            labelMarker.addTo(map);  // ✅ แสดงเมื่อ zoom ถึง
-                        }
-                    } else {
-                        if (map.hasLayer(labelMarker)) {
-                            map.removeLayer(labelMarker);  // ✅ ซ่อนเมื่อ zoom ออก
-                        }
-                    }
-                });
-            }
-            
-            // ✅ ผูก event แสดง/ซ่อน Label เมื่อ zoom เปลี่ยน
-            map.on('zoomend', updateLabelVisibility);
-            
-            // ✅ เรียกครั้งแรกเพื่อตั้งค่าเริ่มต้น (หลังโหลดเสร็จ)
-            setTimeout(updateLabelVisibility, 200);
-            
-            // ✅ เก็บ reference สำหรับ cleanup ถ้าจำเป็น
-            layer._labelMarkers = labelMarkers;
-            
             return layer;
+        }
+
+        // ============================================
+        // ฟังก์ชันแสดงข้อมูลดิบทุกคอลัมน์ของแปลง
+        // ============================================
+        function showRawParcelData(props, lat, lng) {
+            // ✅ ปิด popup เดิมก่อน
+            map.closePopup();
+
+            // ✅ สร้างตารางแสดงข้อมูลดิบ (key: value) ไม่แปลชื่อคอลัมน์
+            const rawRows = Object.entries(props || {})
+                .filter(([key, value]) => value !== null && value !== undefined && value !== '')
+                .map(([key, value]) => {
+                    return `<tr class="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                        <td class="py-1.5 px-2 font-mono text-[10px] text-gray-500 align-top whitespace-nowrap">${key}:</td>
+                        <td class="py-1.5 px-2 text-[11px] text-gray-800 break-all">${value}</td>
+                    </tr>`;
+                }).join('');
+            
+            // ✅ สร้าง popup ใหม่แสดงข้อมูลดิบ
+            const rawPopup = L.popup({ maxWidth: 450, minWidth: 300, className: 'raw-data-popup' })
+                .setLatLng(L.latLng(lat, lng))
+                .setContent(`
+                    <div class="raw-popup-content min-w-[280px] max-w-[450px] max-h-[70vh] overflow-y-auto bg-white rounded-lg shadow-lg">
+                        <div class="font-bold text-sm text-center border-b pb-2 mb-2 text-blue-700 sticky top-0 bg-white z-10">
+                            ${props.parcel_cod || 'ไม่มีรหัส'} - ข้อมูลดิบ
+                        </div>
+                        <table class="w-full text-[11px]">
+                            ${rawRows || '<tr><td colspan="2" class="text-center text-gray-400 py-4">ไม่มีข้อมูล</td></tr>'}
+                        </table>
+                        <div class="text-[10px] text-gray-400 text-center mt-3 pt-2 border-t">
+                            คลิกนอก popup เพื่อปิด
+                        </div>
+                    </div>
+                `)
+                .openOn(map);
+            
+            console.log('📋 แสดงข้อมูลดิบ:', props.parcel_cod);
         }
 
         // ============================================
@@ -6810,6 +6921,53 @@
                     );
                 }, 1000);
             }, 500);
+        }
+
+        // ✅ ฟังก์ชันต้องอยู่นอก DOMContentLoaded หรือผูกกับ window
+        function showRawParcelData(propsJson, lat, lng) {
+            try {
+                // ✅ Decode และ parse ข้อมูล
+                const props = JSON.parse(decodeURIComponent(propsJson));
+                
+                // ✅ ปิด popup เดิมก่อน
+                map.closePopup();
+                
+                // ✅ สร้างตารางข้อมูลดิบ
+                const rawRows = Object.entries(props || {})
+                    .filter(([key, value]) => value !== null && value !== undefined && value !== '')
+                    .map(([key, value]) => {
+                        return `<tr><td class="k">${key}:</td><td class="v">${value}</td></tr>`;
+                    }).join('');
+                
+                // ✅ Popup ข้อมูลดิบ
+                const rawContent = `
+                    <div class="popup-raw" onclick="event.stopPropagation()">
+                        <div class="popup-raw-header">
+                            <span>${props.parcel_cod || 'ไม่มีรหัส'}</span>
+                            <button class="popup-close" onclick="map.closePopup()">✕</button>
+                        </div>
+                        <div class="popup-raw-body">
+                            <table>${rawRows || '<tr><td colspan="2">ไม่มีข้อมูล</td></tr>'}</table>
+                        </div>
+                    </div>
+                `;
+                
+                L.popup({ 
+                    minWidth: 200, 
+                    maxWidth: 280, 
+                    maxHeight: 300,
+                    className: 'mobile-popup-raw' 
+                })
+                .setLatLng(L.latLng(lat, lng))
+                .setContent(rawContent)
+                .openOn(map);
+                
+                console.log('📋 แสดงข้อมูลดิบ:', props.parcel_cod);
+                
+            } catch (err) {
+                console.error('❌ Error showing raw data:', err);
+                alert('แสดงข้อมูลล้มเหลว: ' + err.message);
+            }
         }
 
         // ============================================
