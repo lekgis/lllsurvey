@@ -348,7 +348,7 @@
             color: #2563eb; /* สีน้ำเงิน */
             background-color: rgba(255, 255, 255, 0.6); /* พื้นหลังโปร่งใส */
             border: 1.5px solid #d1d5db; /* เส้นหนาขึ้น */
-            border-radius: 0.5rem; 
+            border-radius: 0.3rem; 
             outline: none;
             transition: border-color 0.2s ease;
         }
@@ -1544,6 +1544,16 @@
                 // ✅ แสดงปุ่มยืนยัน
                 document.getElementById('confirm-overlay').classList.remove('hidden');
                 
+                // ✅ เพิ่มบรรทัดนี้: ตั้งค่าสีปุ่มตามประเภท (สำคัญมาก!)
+                const btn = document.getElementById('btn-confirm-action');
+                const text = document.getElementById('confirm-text');
+                if (activeTool === 'building') {
+                    btn.style.backgroundColor = '#f97316';  // 🟠 สีส้ม - สิ่งปลูกสร้าง
+                    text.innerText = "เพิ่มสิ่งปลูกสร้าง";
+                } else {
+                    btn.style.backgroundColor = '#22c55e';  // 🟢 สีเขียว - ป้าย
+                    text.innerText = "ยืนยันเพิ่มป้าย";
+                }
                 showNotificationLeft(`เลือกตำแหน่งแล้ว - กดปุ่มยืนยันเพื่อเพิ่ม${activeTool === 'building' ? 'สิ่งปลูกสร้าง' : 'ป้าย'}`, 'info');
             });
         }
@@ -5119,8 +5129,13 @@
                     if (layerName === 'parcel') {
                         const props = feature.properties || {};
                         const parcelCod = props.parcel_cod;
-                        
+
+                        // ✅ เพิ่มบรรทัดนี้: เก็บ layerName ไว้ให้ resetHighlight ใช้
+                        polygonLayer.layerName = layerName;
+           
                         polygonLayer.on({
+                            mouseover: highlightFeature,
+                           mouseout: resetHighlight,
                             click: function(e) {
                                 if (mouseAddMode) return;
                                 L.DomEvent.stopPropagation(e);
@@ -7274,10 +7289,16 @@
             layer.bringToFront();
         }
 
-        // ✅ ฟังก์ชันเมื่อเลิกโฮเวอร์
+        // ✅ ฟังก์ชันเมื่อเลิกโฮเวอร์ - แก้แค่ 1 บรรทัด
         function resetHighlight(e) {
             const layer = e.target;
-            layer.setStyle(getMapLayerStyle());
+            
+            // ✅ แก้ตรงนี้: ดึง feature + layerName จาก layer ที่เก็บไว้
+            const feature = layer.feature;
+            const layerName = layer.layerName || 'parcel';
+            
+            // ✅ ส่งพารามิเตอร์ครบ ให้ getMapLayerStyle ทำงานได้
+            layer.setStyle(getMapLayerStyle(feature, layerName));
         }
 
         // ฟังก์ชันจัดการการแสดงผล Label ตามระดับการซูม
