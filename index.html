@@ -48,18 +48,18 @@
         }
         .crosshair-center {
             width: 6px; height: 6px;
-            background-color: #ef4444;
+            background-color: #ffffff;
             border-radius: 50%;
             position: absolute;
             top: 50%; left: 50%; transform: translate(-50%, -50%);
         }
         .crosshair-circle {
             width: 60px; height: 60px; /* ใหญ่ขึ้นจาก 50px */
-            border: 3px solid rgba(239, 68, 68, 0.9); /* เส้นหนาขึ้น */
+            border: 3px solid rgba(255, 255, 255, 0.9); /* เส้นหนาขึ้น */
             border-radius: 50%;
             position: relative;
         }
-        .crosshair-line { position: absolute; background-color: rgba(239, 68, 68, 0.9); }
+        .crosshair-line { position: absolute; background-color: rgba(255, 255, 255, 0.9); }
         .line-v { width: 3px; height: 18px; left: 50%; transform: translateX(-50%); }
         .line-h { height: 3px; width: 18px; top: 50%; transform: translateY(-50%); }
         .v-top { top: -20px; } .v-bottom { bottom: -20px; }
@@ -81,8 +81,19 @@
         }
 
         /* ✅ โหมดเพิ่มจุดด้วยเมาส์ (แสดงเฉพาะ Desktop) */
-        .cursor-crosshair-add {
+        /* ✅ เมื่อเปิดโหมดเพิ่มจุดด้วยเมาส์ → บังคับ cursor เป็น crosshair ทุกที่ */
+        #map.cursor-crosshair-add,
+        #map.cursor-crosshair-add .leaflet-container,
+        #map.cursor-crosshair-add .leaflet-pane,
+        #map.cursor-crosshair-add .leaflet-interactive,
+        #map.cursor-crosshair-add .leaflet-path,
+        #map.cursor-crosshair-add .leaflet-poly {
             cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><line x1="16" y1="4" x2="16" y2="28" stroke="white" stroke-width="2" stroke-linecap="round"/><line x1="4" y1="16" x2="28" y2="16" stroke="white" stroke-width="3" stroke-linecap="round"/><rect x="0" y="0" width="36" height="32" fill="none"') 16 16, crosshair !important;
+        }
+
+        /* ✅ ปิด pointer-events บน polygon เมื่อเปิดโหมดเพิ่มจุด (ป้องกันคลิกแปลง) */
+        #map.cursor-crosshair-add .leaflet-interactive {
+            pointer-events: none !important;
         }
 
         /* ✅ ปุ่มโหมดเพิ่มจุดด้วยเมาส์ (ซ่อนบนมือถือ) */
@@ -1378,35 +1389,35 @@
         let mouseTempMarker = null; // ✅ เพิ่มตัวแปรเก็บจุดชั่วคราว
         // ✅ เปิด/ปิดโหมดเพิ่มจุดด้วยเมาส์
 
+        // ✅ เปิด/ปิดโหมดเพิ่มจุดด้วยเมาส์
         function toggleMouseAddMode() {
             mouseAddMode = !mouseAddMode;
             const btn = document.getElementById('btn-mouse-add-mode');
             const mapContainer = document.getElementById('map');
-
+            
             // ✅ 1. ถ้าเปิดโหมดเพิ่มจุดด้วยเมาส์ ให้ปิดโหมดแก้ไข
             if (mouseAddMode && isEditMode) {
                 isEditMode = false;
                 document.getElementById('btn-edit').classList.remove('active-edit');
                 surveyLayers.eachLayer(l => l.dragging && l.dragging.disable());
             }
-
+            
             if (mouseAddMode) {
-                // เปิดโหมด
+                // ✅ เปิดโหมด
                 btn.classList.add('active-tool');
-
+                
                 // ✅ 2. Default: ถ้ายังไม่ได้เลือกเครื่องมือ ให้เปิด 'เพิ่มสิ่งปลูกสร้าง' เป็นค่าเริ่มต้น
                 if (!activeTool) {
                     activeTool = 'building';
                     document.getElementById('btn-building').classList.add('active-tool');
                     document.getElementById('btn-sign').classList.remove('active-tool');
                 }
-
-                // ✅ 3. สร้าง Cursor แบบเส้นบาง สีขาว
+                
+                // ✅ 3. สร้าง Cursor แบบ crosshair
                 const pixmap = document.createElement('canvas');
                 pixmap.width = 32;
                 pixmap.height = 32;
                 const ctx = pixmap.getContext('2d');
-                
                 ctx.strokeStyle = 'white';
                 ctx.lineWidth = 2;
                 ctx.beginPath();
@@ -1417,18 +1428,33 @@
                 ctx.moveTo(4, 16);
                 ctx.lineTo(28, 16);
                 ctx.stroke();
-                
                 const cursorUrl = pixmap.toDataURL();
-                mapContainer.style.cursor = `url(${cursorUrl}) 16 16, crosshair`;
                 
-                // ปิดเป้าเล็งและปุ่มบวก
+                // ✅ 4. ตั้งค่า cursor ให้ map container
+                mapContainer.style.cursor = `url(${cursorUrl}) 16 16, crosshair !important`;
+                mapContainer.classList.add('cursor-crosshair-add');
+                
+                // ✅ 5. ปิดการโต้ตอบกับ parcel layers (สำคัญมาก! ป้องกัน cursor เปลี่ยนเป็นมือ)
+                if (window.parcelLayer) {
+                    window.parcelLayer.eachLayer(function(layer) {
+                        if (layer.options) {
+                            layer.options.interactive = false;
+                        }
+                        // ✅ ปิด pointer-events ด้วย CSS
+                        if (layer._path) {
+                            layer._path.style.pointerEvents = 'none';
+                        }
+                    });
+                }
+                
+                // ✅ 6. ปิดเป้าเล็งและปุ่มบวก
                 document.getElementById('crosshair').classList.add('hidden');
                 document.getElementById('add-trigger-container').classList.add('hidden');
                 
-                // ✅ 4. ซ่อนปุ่มยืนยัน
+                // ✅ 7. ซ่อนปุ่มยืนยัน
                 document.getElementById('confirm-overlay').classList.add('hidden');
                 
-                // ✅ 5. ล้างจุดชั่วคราวเก่า (ถ้ามี)
+                // ✅ 8. ล้างจุดชั่วคราวเก่า (ถ้ามี)
                 if (mouseTempMarker) {
                     surveyLayers.removeLayer(mouseTempMarker);
                     mouseTempMarker = null;
@@ -1436,20 +1462,35 @@
                 mouseClickLatLng = null;
                 
                 showNotificationLeft(`โหมดเพิ่มจุดด้วยเมาส์: คลิกบนแผนที่เพื่อเลือกตำแหน่ง`, 'info');
+                
             } else {
-                // ปิดโหมด
+                // ✅ ปิดโหมด
                 btn.classList.remove('active-tool');
-                mapContainer.style.cursor = 'default';
+                
+                // ✅ 9. รีเซ็ต cursor กลับเป็น default
+                mapContainer.style.cursor = 'default !important';
                 mapContainer.classList.remove('cursor-crosshair-add');
                 
-                // ✅ ล้างจุดชั่วคราวเมื่อปิดโหมด
+                // ✅ 10. เปิดการโต้ตอบกับ parcel layers กลับมา
+                if (window.parcelLayer) {
+                    window.parcelLayer.eachLayer(function(layer) {
+                        if (layer.options) {
+                            layer.options.interactive = true;
+                        }
+                        if (layer._path) {
+                            layer._path.style.pointerEvents = 'auto';
+                        }
+                    });
+                }
+                
+                // ✅ 11. ล้างจุดชั่วคราวเมื่อปิดโหมด
                 if (mouseTempMarker) {
                     surveyLayers.removeLayer(mouseTempMarker);
                     mouseTempMarker = null;
                 }
                 mouseClickLatLng = null;
                 
-                // ✅ ซ่อนปุ่มยืนยันเมื่อปิดโหมดเมาส์
+                // ✅ 12. ซ่อนปุ่มยืนยันเมื่อปิดโหมดเมาส์
                 document.getElementById('confirm-overlay').classList.add('hidden');
                 
                 showNotificationLeft('ปิดโหมดเพิ่มจุดด้วยเมาส์', 'info');
@@ -4943,9 +4984,8 @@
         }
 
         // ============================================
-        // โหลดแผนที่จากข้อมูลแคช (GeoJSON)
+        // โหลดแผนที่จากข้อมูลแคช (GeoJSON) - แก้ไขแล้ว ✅
         // ============================================
-        // 2. โหลด GeoJSON ด้วย Leaflet โดยตรง (ไม่ต้องใช้ GeoPackageAPI)
         async function loadMapFromCache(geoJsonData, layerType = 'all') {
             try {
                 console.log('🗺️ Loading GeoJSON from cache, layerType:', layerType);
@@ -4965,26 +5005,33 @@
                 
                 console.log(`📊 Total features: ${geoJson.features.length}`);
                 
-                // ✅ กำหนด layer ที่จะโหลด
-                const layersToLoad = layerType === 'all' ? ['parcel', 'boundary', 'building'] : [layerType];
-                
-                layersToLoad.forEach(targetLayer => {
-                    // ✅ กรองฟีเจอร์ตาม properties.layer หรือ properties.type
-                    const layerFeatures = geoJson.features.filter(f => {
-                        const fLayer = f.properties?.layer || f.properties?.type;
-                        return !fLayer || fLayer === targetLayer || targetLayer === 'all';
+                // ✅ กรณี 1: โหลดไฟล์เดี่ยว (boundary.geojson, building.geojson, parcel.geojson)
+                // → โหลดทั้งหมดเป็นเลเยอร์นั้น ไม่ต้องกรองตาม properties
+                if (layerType !== 'all') {
+                    displayGeoJSONLayer(geoJson, layerType);
+                    console.log(`✅ โหลดเลเยอร์ ${layerType}: ${geoJson.features.length} features`);
+                } 
+                // ✅ กรณี 2: โหลดไฟล์ผสมที่มีหลายเลเยอร์ (layerType === 'all')
+                // → กรองฟีเจอร์ตาม properties.layer หรือ properties.type
+                else {
+                    ['parcel', 'boundary', 'building'].forEach(targetLayer => {
+                        const layerFeatures = geoJson.features.filter(f => {
+                            const fLayer = f.properties?.layer || f.properties?.type;
+                            // ✅ แก้: ลบ !fLayer ออก → โหลดเฉพาะฟีเจอร์ที่ระบุ layer ชัดเจน
+                            return fLayer === targetLayer;
+                        });
+                        
+                        console.log(`🔍 ${targetLayer}: filtered ${layerFeatures.length} features`);
+                        
+                        if (layerFeatures.length > 0) {
+                            const layerGeoJson = {
+                                type: 'FeatureCollection',
+                                features: layerFeatures
+                            };
+                            displayGeoJSONLayer(layerGeoJson, targetLayer);
+                        }
                     });
-                    
-                    console.log(`🔍 ${targetLayer}: filtered ${layerFeatures.length} features`);
-                    
-                    if (layerFeatures.length > 0) {
-                        const layerGeoJson = {
-                            type: 'FeatureCollection',
-                            features: layerFeatures
-                        };
-                        displayGeoJSONLayer(layerGeoJson, targetLayer);
-                    }
-                });
+                }
                 
                 console.log('✅ Map loaded successfully');
                 showNotificationLeft('โหลดแผนที่สำเร็จ!', 'success');
@@ -5034,7 +5081,7 @@
             // ✅ Building Layer - สีส้ม
             if (layerName === 'building') {
                 return {
-                    color: '#ea580c',
+                    color: '#2A3439',
                     weight: 1,
                     opacity: 1.0,
                     fillColor: '#fdba74',
@@ -5104,17 +5151,31 @@
 
 
         // ============================================
-        // แสดงเลเยอร์ Boundary (สไตล์อย่างเดียว)
+        // แสดงเลเยอร์ Boundary แบบมีเส้นขาวล้อมดำ (Minimal)
         // ============================================
         function displayBoundaryLayer(geoJson) {
-            const layer = L.geoJSON(geoJson, {
-                style: function(feature) {
-                    return getMapLayerStyle(feature, 'boundary');
+            // ✅ ชั้นที่ 1: เส้นขาวหนา (Buffer)
+            const white = L.geoJSON(geoJson, {
+                style: {
+                    color: '#ffff00',  // 🔶 ทดสอบ: เหลืองสด (เห็นชัดกว่าขาว)
+                    weight: 10,         // หนา 10px
+                    opacity: 1,
+                    fill: false
                 }
-                // ✅ ไม่ผูก event ใดๆ สำหรับ boundary
-            });
-            layer.addTo(map);
-            return layer;
+            }).addTo(map);
+            
+            // ✅ ชั้นที่ 2: เส้นดำบาง (เส้นจริง)
+            const black = L.geoJSON(geoJson, {
+                style: {
+                    color: '#000000',  // ⚫ ดำ
+                    weight: 2,
+                    opacity: 1,
+                    fill: false
+                }
+            }).addTo(map);
+            
+            // ✅ คืนค่าเป็น LayerGroup
+            return L.layerGroup([white, black]);
         }
 
         // ============================================
