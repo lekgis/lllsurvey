@@ -81,18 +81,21 @@
         }
 
         /* ✅ โหมดเพิ่มจุดด้วยเมาส์ (แสดงเฉพาะ Desktop) */
-        /* ✅ เมื่อเปิดโหมดเพิ่มจุดด้วยเมาส์ → บังคับ cursor เป็น crosshair ทุกที่ */
+        /* ✅ เพิ่มใน <style> */
         #map.cursor-crosshair-add,
         #map.cursor-crosshair-add .leaflet-container,
         #map.cursor-crosshair-add .leaflet-pane,
         #map.cursor-crosshair-add .leaflet-interactive,
         #map.cursor-crosshair-add .leaflet-path,
-        #map.cursor-crosshair-add .leaflet-poly {
-            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><line x1="16" y1="4" x2="16" y2="28" stroke="white" stroke-width="2" stroke-linecap="round"/><line x1="4" y1="16" x2="28" y2="16" stroke="white" stroke-width="3" stroke-linecap="round"/><rect x="0" y="0" width="36" height="32" fill="none"') 16 16, crosshair !important;
+        #map.cursor-crosshair-add .leaflet-poly,
+        #map.cursor-crosshair-add .leaflet-marker-pane {
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><line x1="16" y1="4" x2="16" y2="28" stroke="white" stroke-width="2" stroke-linecap="round"/><line x1="4" y1="16" x2="28" y2="16" stroke="white" stroke-width="3" stroke-linecap="round"/></svg>') 16 16, crosshair !important;
         }
 
-        /* ✅ ปิด pointer-events บน polygon เมื่อเปิดโหมดเพิ่มจุด (ป้องกันคลิกแปลง) */
-        #map.cursor-crosshair-add .leaflet-interactive {
+        /* ✅ บังคับปิด pointer-events */
+        #map.cursor-crosshair-add .leaflet-interactive,
+        #map.cursor-crosshair-add .leaflet-path,
+        #map.cursor-crosshair-add .leaflet-poly {
             pointer-events: none !important;
         }
 
@@ -827,6 +830,44 @@
         </div>
     </div>
 </div>
+<!-- ✅ Modal คัดรูปไม่ได้ใช้ -->
+<div id="unused-modal" class="fixed inset-0 bg-black/90 z-[4000] hidden flex flex-col p-4">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-4 bg-gray-800 p-3 rounded-lg">
+        <h3 class="font-bold text-white text-lg">🗑️ คัดรูปไม่ได้ใช้</h3>
+        <button onclick="closeUnusedImageModal()" class="text-white hover:text-gray-300">
+            <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+    </div>
+    
+    <!-- Content -->
+    <div class="flex-1 overflow-y-auto">
+        <!-- Step 1: สแกน -->
+        <div id="scan-step">
+            <p class="text-gray-300 mb-4">กดปุ่มเพื่อสแกนหารูปที่ไม่มีลิงก์ในฐานข้อมูล</p>
+            <button onclick="scanUnusedImages()" id="btn-scan" class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition font-bold">
+                🔍 เริ่มสแกน
+            </button>
+            <div id="scan-result" class="mt-4 hidden">
+                <p class="text-green-400 font-bold">✅ พบรูปไม่ได้ใช้: <span id="unused-count">0</span> รูป</p>
+                <div id="unused-list" class="max-h-32 overflow-y-auto bg-gray-700 rounded p-2 text-xs text-gray-300 my-3"></div>
+                <button onclick="processUnusedImages()" id="btn-process" class="w-full bg-red-600 text-white py-3 rounded-lg hover:bg-red-700 transition font-bold">
+                    ⚠️ เติม ZZZZ_ (<span id="process-count">0</span> รูป)
+                </button>
+            </div>
+        </div>
+        
+        <!-- Step 2: Progress -->
+        <div id="progress-step" class="hidden">
+            <p class="text-gray-300 mb-2">กำลังดำเนินการ...</p>
+            <div class="w-full bg-gray-700 rounded-full h-3 mb-2">
+                <div id="progress-bar" class="bg-green-500 h-3 rounded-full transition-all" style="width:0%"></div>
+            </div>
+            <p class="text-sm text-gray-400" id="progress-text">0/0</p>
+            <div id="progress-log" class="mt-3 max-h-32 overflow-y-auto bg-gray-700 rounded p-2 text-xs"></div>
+        </div>
+    </div>
+</div>
 <body class="bg-gray-100">
 
     <div id="map"></div>
@@ -876,6 +917,14 @@
             <button onclick="exportSignGeoJSON()" class="map-btn p-3 w-48 bg-gradient-to-r from-green-400 to-green-600 text-white hover:scale-105 transition-all shadow-lg flex items-center justify-start gap-2 text-left">
               <i data-lucide="map-pin" class="w-5 h-5"></i>
               <span class="text-xs font-bold">ดาวน์โหลดป้าย</span>
+            </button>
+            <!-- ✅ ปุ่มคัดรูปไม่ได้ใช้ (เติม ZZZZ_) -->
+            <button onclick="openUnusedImageModal()" class="map-btn p-3 w-48 bg-gradient-to-r from-gray-500 to-gray-700 text-white hover:scale-105 transition-all shadow-lg flex items-center justify-start gap-2 text-left">
+                <i data-lucide="filter" class="w-5 h-5"></i>
+                <div>
+                    <div class="font-semibold text-xs">คัดรูปไม่ได้ใช้</div>
+                    <div class="text-[10px] opacity-90">เติม ZZZZ_ หน้าชื่อ</div>
+                </div>
             </button>
             <!-- ปุ่ม 3: ดาวน์โหลดรูปสิ่งปลูกสร้าง -->
             <button onclick="loadBuildingImages()" class="map-btn p-3 w-48 bg-gradient-to-r from-blue-400 to-blue-600 text-white hover:scale-105 transition-all shadow-lg flex items-center justify-start gap-2 text-left">
@@ -3685,6 +3734,187 @@
           }
         }
 
+        // ============================================
+        // คัดรูปไม่ได้ใช้ - เติม ZZZZ_ หน้าชื่อ
+        // ============================================
+        function openUnusedImageModal() {
+            closeSettingsMenu();
+            document.getElementById('unused-modal').classList.remove('hidden');
+            document.getElementById('scan-step').classList.remove('hidden');
+            document.getElementById('progress-step').classList.add('hidden');
+            document.getElementById('scan-result').classList.add('hidden');
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+        function closeUnusedImageModal() {
+            document.getElementById('unused-modal').classList.add('hidden');
+            window.unusedFiles = null;
+        }
+
+        // ============================================
+        // แยกไฟล์ไอดีจาก Google Drive URL
+        // ============================================
+        function extractGoogleDriveFileId(url) {
+            if (!url || typeof url !== 'string') return null;
+            const match1 = url.match(/\/file\/d\/([^\/\?]+)/);
+            if (match1?.[1]) return match1[1];
+            const match2 = url.match(/[?&]id=([^&]+)/);
+            if (match2?.[1]) return match2[1];
+            return null;
+        }
+
+        // ============================================
+        // สแกนหารูปไม่ได้ใช้ (แก้ไขแล้ว - เปรียบเทียบด้วย ID)
+        // ============================================
+        async function scanUnusedImages() {
+            const btn = document.getElementById('btn-scan');
+            btn.disabled = true;
+            btn.innerHTML = '⏳ กำลังสแกน...';
+            
+            try {
+                // ✅ 1. ดึงข้อมูลจากฐานข้อมูล
+                const res = await fetch(`${CONFIG.SCRIPT_URL}?action=getData`);
+                const data = await res.json();
+                
+                // ✅ 2. รวบรวมไฟล์ ID ที่ถูกใช้ (จากคอลัมน์ 'image' เท่านั้น)
+                const usedIds = new Set();
+                
+                // ดึงจาก buildings - ใช้คอลัมน์ 'image' (URL)
+                if (data.buildings) {
+                    data.buildings.forEach(b => {
+                        if (b.image && b.image.includes('drive.google.com')) {
+                            const id = extractFileId(b.image);
+                            if (id) {
+                                usedIds.add(id);
+                                console.log('✅ Used ID (building):', id, '→', b.picture);
+                            }
+                        }
+                    });
+                }
+                
+                // ดึงจาก signs - ใช้คอลัมน์ 'image' (URL)
+                if (data.signs) {
+                    data.signs.forEach(s => {
+                        if (s.image && s.image.includes('drive.google.com')) {
+                            const id = extractFileId(s.image);
+                            if (id) {
+                                usedIds.add(id);
+                                console.log('✅ Used ID (sign):', id, '→', s.picture);
+                            }
+                        }
+                    });
+                }
+                
+                console.log('📊 ไฟล์ ID ที่ถูกใช้:', usedIds.size, 'ไฟล์');
+                
+                // ✅ 3. ดึงไฟล์ทั้งหมดจาก Drive
+                const filesRes = await fetch(`${CONFIG.SCRIPT_URL}?action=getDriveImageFiles&folderType=all`);
+                const allFiles = await filesRes.json();
+                
+                console.log('📁 ไฟล์ทั้งหมดใน Drive:', allFiles.length);
+                
+                // ✅ 4. หารูปที่ไม่ได้ใช้ (เปรียบเทียบด้วย ID เท่านั้น)
+                const unused = allFiles.filter(f => {
+                    const isUsed = usedIds.has(f.id);
+                    if (!isUsed) {
+                        console.log('❌ Unused:', f.id, f.name);
+                    }
+                    return !isUsed;
+                });
+                
+                window.unusedFiles = unused;
+                
+                // ✅ 5. แสดงผล
+                document.getElementById('unused-count').textContent = unused.length;
+                document.getElementById('process-count').textContent = unused.length;
+                
+                const listEl = document.getElementById('unused-list');
+                if (unused.length > 0) {
+                    listEl.innerHTML = unused.map(f => 
+                        `<div class="truncate text-xs">${f.name} <span class="text-gray-500">(${f.folderType})</span></div>`
+                    ).join('');
+                } else {
+                    listEl.innerHTML = '<div class="text-green-400">✅ ไม่พบรูปไม่ได้ใช้</div>';
+                }
+                
+                document.getElementById('scan-result').classList.remove('hidden');
+                showNotificationLeft(`✅ พบรูปไม่ได้ใช้: ${unused.length} รูป`, 'info');
+                
+            } catch (err) {
+                console.error('❌ Scan error:', err);
+                showNotificationLeft('❌ สแกนล้มเหลว: ' + err.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '🔍 เริ่มสแกน';
+            }
+        }
+
+        // ✅ แยกไฟล์ไอดีจาก Google Drive URL
+        function extractFileId(url) {
+            if (!url || typeof url !== 'string') return null;
+            const m1 = url.match(/\/file\/d\/([^\/\?]+)/);
+            if (m1?.[1]) return m1[1];
+            const m2 = url.match(/[?&]id=([^&]+)/);
+            if (m2?.[1]) return m2[1];
+            return null;
+        }
+
+        // ============================================
+        // ดำเนินการเติม ZZZZ_ หน้าชื่อไฟล์
+        // ============================================
+        async function processUnusedImages() {
+            const unused = window.unusedFiles || [];
+            if (unused.length === 0) return;
+            
+            if (!confirm(`⚠️ ยืนยันเติม "ZZZZ_" หน้าชื่อ ${unused.length} รูป?`)) return;
+            
+            document.getElementById('scan-step').classList.add('hidden');
+            document.getElementById('progress-step').classList.remove('hidden');
+            
+            const bar = document.getElementById('progress-bar');
+            const text = document.getElementById('progress-text');
+            const log = document.getElementById('progress-log');
+            
+            let success = 0;
+            
+            for (let i = 0; i < unused.length; i++) {
+                const f = unused[i];
+                const newName = `ZZZZ_${f.name}`;  // ✅ ZZZZ_ + ชื่อไฟล์จริงจาก Drive
+                
+                try {
+                    const res = await fetch(`${CONFIG.SCRIPT_URL}?action=renameFile`, {
+                        method: 'POST',
+                        body: new URLSearchParams({
+                            fileId: f.id,           // ✅ ใช้ไฟล์ ID
+                            newName: newName,
+                            folderType: f.folderType
+                        })
+                    });
+                    const result = await res.json();
+                    
+                    if (result.success) {
+                        success++;
+                        log.innerHTML += `<div class="text-green-400">✅ ${f.name} → ${newName}</div>`;
+                    } else {
+                        log.innerHTML += `<div class="text-red-400">❌ ${f.name}: ${result.error}</div>`;
+                    }
+                } catch (err) {
+                    log.innerHTML += `<div class="text-red-400">❌ ${f.name}: ${err.message}</div>`;
+                }
+                
+                const pct = Math.round(((i+1)/unused.length)*100);
+                bar.style.width = `${pct}%`;
+                text.textContent = `${i+1}/${unused.length}`;
+                log.scrollTop = log.scrollHeight;
+                
+                await new Promise(r => setTimeout(r, 100));
+            }
+            
+            setTimeout(() => {
+                showNotificationLeft(`✅ เสร็จสิ้น: สำเร็จ ${success}/${unused.length}`, 'success');
+                closeUnusedImageModal();
+            }, 500);
+        }
+
         /**
          * ปุ่ม 3: โหลดรูปสิ่งปลูกสร้างจากโฟลเดอร์ Google Drive
          */
@@ -3744,64 +3974,67 @@
           }
         }
 
-        /**
-         * แสดงแกลเลอรี่รูปภาพ - เวอร์ชันแก้ไข
-         */
+        // ============================================
+        // แสดง Gallery Modal (ตั้งค่า global variable ให้ถูกต้อง)
+        // ============================================
         function showImageGallery(items, type) {
-            // ✅ ข้อ 1: กรองเฉพาะรูปที่มีลิ้งค์
-            const filteredItems = items.filter(item => {
-                if (type === 'building') {
-                    return item.image && item.image.trim() !== '';
-                } else {
-                    return item.picture && item.picture.trim() !== '';
-                }
-            });
+            console.log('🖼️ แสดง Gallery:', type, 'จำนวน:', items.length);
             
-            if (filteredItems.length === 0) {
-                showNotificationLeft('ไม่พบรูปภาพที่มีลิ้งค์', 'warning');
-                return;
-            }
+            // ✅ สำคัญ: ตั้งค่า global variable ให้ฟังก์ชันอื่นเข้าถึงได้
+            window.currentGalleryItems = items;  // ✅ ต้องมี window.
+            window.currentGalleryType = type;     // ✅ ต้องมี window.
             
-            // สร้างหน้าต่างแกลเลอรี่
+            // ✅ ลบ Modal เก่า (ถ้ามี)
+            const oldModal = document.getElementById('image-gallery-modal');
+            if (oldModal) oldModal.remove();
+            
+            // ✅ สร้าง Modal ใหม่
             const galleryDiv = document.createElement('div');
             galleryDiv.id = 'image-gallery-modal';
-            galleryDiv.className = 'fixed inset-0 bg-black/90 z-[3000] flex flex-col p-4 overflow-hidden';
-            
-            // ✅ ค่าเริ่มต้น: แสดงเป็นรายชื่อ
-            let isGridView = false;
+            galleryDiv.className = 'fixed inset-0 bg-black/90 z-[3000] flex flex-col p-4';
             
             galleryDiv.innerHTML = `
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-white text-xl font-bold">
-                    ${type === 'building' ? 'รูปภาพสิ่งปลูกสร้าง' : 'รูปภาพป้าย'} (${filteredItems.length} รูป)
-                </h3>
-                <div class="flex gap-2">
-                    <!-- ✅ ปุ่มสลับมุมมอง (ค่าเริ่มต้น: แสดงเป็นภาพ) -->
-                    <button onclick="toggleGalleryView()" id="btn-toggle-view" class="bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition flex items-center gap-2">
-                        <i data-lucide="grid" id="view-icon" class="w-4 h-4"></i>
-                        <span id="view-text">แสดงเป็นภาพ</span>
-                    </button>
-                    <!-- ✅ ปุ่มดาวน์โหลดทั้งหมด -->
-                    <button onclick="downloadAllImagesAsZip()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center gap-2">
-                        <i data-lucide="download" class="w-4 h-4"></i>
-                        <span>ดาวน์โหลดทั้งหมด</span>
-                    </button>
-                    <button onclick="closeImageGallery()" class="text-white hover:text-gray-300 transition">
-                        <i data-lucide="x" class="w-8 h-8"></i>
-                    </button>
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-white text-xl font-bold">
+                        ${type === 'building' ? 'รูปภาพสิ่งปลูกสร้าง' : 'รูปภาพป้าย'} (${items.length} รูป)
+                    </h3>
+                    <div class="flex gap-2">
+                        <button onclick="toggleGalleryView()" id="btn-toggle-view" class="bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition flex items-center gap-2">
+                            <i data-lucide="grid" id="view-icon" class="w-4 h-4"></i>
+                            <span id="view-text">แสดงเป็นภาพ</span>
+                        </button>
+                        <!-- ✅ ปุ่มดาวน์โหลดทั้งหมด -->
+                        <button onclick="downloadAllImagesAsZip()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center gap-2">
+                            <i data-lucide="download" class="w-4 h-4"></i>
+                            <span>ดาวน์โหลดทั้งหมด</span>
+                        </button>
+                        <button onclick="closeImageGallery()" class="text-white hover:text-gray-300 transition">
+                            <i data-lucide="x" class="w-8 h-8"></i>
+                        </button>
+                    </div>
                 </div>
-            </div>
-            <!-- ✅ คอนเทนเนอร์สำหรับสลับมุมมอง -->
-            <div id="gallery-container" class="flex-1 overflow-y-auto">
-                <!-- จะถูกแทนที่ด้วยฟังก์ชัน toggleGalleryView() -->
-            </div>
+                <div id="gallery-container" class="flex-1 overflow-y-auto">
+                    ${items.map((item, index) => {
+                        const imageUrl = item.image || item.picture;
+                        const code = item.parcel_cod || item.id || item._row_num || `รูปที่ ${index + 1}`;
+                        return `
+                            <div class="relative group cursor-pointer bg-gray-800 rounded-lg overflow-hidden mb-2" onclick="openImageViewer(${index}, '${type}')">
+                                <img src="${imageUrl}" class="w-full h-40 object-cover" loading="lazy" onerror="this.style.display='none'">
+                                <div class="p-2 text-center text-white font-bold text-sm truncate">${code}</div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
             `;
             
             document.body.appendChild(galleryDiv);
-            lucide.createIcons();
+            if (typeof lucide !== 'undefined') lucide.createIcons();
             
-            // ✅ เริ่มต้นด้วยมุมมองรายชื่อ
-            renderGalleryListView(filteredItems, type);
+            // ✅ Debug: ตรวจสอบว่าตั้งค่าถูกต้อง
+            console.log('✅ ตั้งค่า global:', {
+                items: window.currentGalleryItems?.length,
+                type: window.currentGalleryType
+            });
         }
 
         // ✅ ประกาศตัวแปรสำหรับเก็บสถานะมุมมองและข้อมูลปัจจุบัน
@@ -3908,89 +4141,144 @@
             lucide.createIcons();
         }
 
-        /**
-         * ✅ ดาวน์โหลดรูปภาพเดียว
-         */
+        // ============================================
+        // ดาวน์โหลดรูปภาพเดียว (แก้ไข URL Google Drive)
+        // ============================================
         function downloadSingleImage(url, filename) {
+            // ✅ แปลง URL Google Drive ก่อนดาวน์โหลด
+            const downloadUrl = convertGoogleDriveUrl(url);
+            
             const link = document.createElement('a');
-            link.href = url;
-            link.download = `${filename}_${Date.now()}.jpg`;
+            link.href = downloadUrl;
+            link.download = `${filename}.jpg`;
+            link.target = '_blank';  // ✅ เปิดในแท็บใหม่สำหรับ Google Drive
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
             
-            showNotificationLeft(`ดาวน์โหลด ${filename} สำเร็จ!`, 'success');
+            showNotificationLeft('กำลังดาวน์โหลดรูปภาพ...', 'info');
         }
 
         // ============================================
-        // ดาวน์โหลดรูปทั้งหมดเป็นไฟล์เดียว (ใช้ JSZip) - เวอร์ชันแก้ไขแล้ว
+        // แปลง Google Drive URL แบบ view → direct download
+        // ============================================
+        function convertGoogleDriveUrl(viewUrl) {
+            if (!viewUrl || !viewUrl.includes('drive.google.com')) {
+                return viewUrl;  // ไม่ใช่ Google Drive → ส่งกลับเดิม
+            }
+            
+            // ✅ แยกไฟล์ไอดีจาก URL
+            // รูปแบบ: https://drive.google.com/file/d/FILE_ID/view...
+            // หรือ: https://drive.google.com/open?id=FILE_ID
+            let fileId = '';
+            
+            const match1 = viewUrl.match(/\/file\/d\/([^\/\?]+)/);
+            const match2 = viewUrl.match(/[?&]id=([^&]+)/);
+            
+            if (match1 && match1[1]) {
+                fileId = match1[1];
+            } else if (match2 && match2[1]) {
+                fileId = match2[1];
+            }
+            
+            if (fileId) {
+                // ✅ แปลงเป็น direct download URL
+                return `https://drive.google.com/uc?export=download&id=${fileId}`;
+            }
+            
+            return viewUrl;  // ถ้าแยกไอดีไม่ได้ → ส่งกลับเดิม
+        }
+
+        // ============================================
+        // ดาวน์โหลดรูปภาพทั้งหมดจาก Gallery Modal (แก้ไขแล้ว)
         // ============================================
         async function downloadAllImagesAsZip() {
-            showNotificationLeft('กำลังเตรียมดาวน์โหลด...', 'info');
+            console.log('📦 เริ่มดาวน์โหลดทั้งหมด...');
+            
+            if (!window.currentGalleryItems || window.currentGalleryItems.length === 0) {
+                showNotificationLeft('❌ ไม่พบข้อมูลรูปภาพ', 'error');
+                return;
+            }
+            
+            const items = window.currentGalleryItems;
+            const type = window.currentGalleryType || 'building';
+            
+            showNotificationLeft(`กำลังดาวน์โหลด ${items.length} รูป...`, 'info');
             
             try {
-                const galleryGrid = document.getElementById('gallery-grid');
-                if (!galleryGrid) {
-                    showNotificationLeft('❌ ไม่พบข้อมูลรูปภาพ', 'error');
-                    return;
-                }
-                
-                const items = [];
-                const type = document.querySelector('#image-gallery-modal h3')?.innerText.includes('สิ่งปลูกสร้าง') ? 'building' : 'sign';
-                
-                galleryGrid.querySelectorAll('.relative.group').forEach((el, index) => {
-                    const img = el.querySelector('img');
-                    const url = img?.src;
-                    const codeEl = el.querySelector('p.font-bold');
-                    const codeText = codeEl?.innerText || '';
-                    const code = codeText.replace(/[^0-9]/g, '');
-                    
-                    // ✅ แก้ไข: ลบช่องว่างพิเศษในสตริงตรวจสอบ
-                    if (url && url !== 'https://via.placeholder.com/150?text=No+Image') {
-                        items.push({
-                            url: url,
-                            filename: `${type === 'building' ? 'B' : 'S'}${code || index + 1}.jpg`
-                        });
-                    }
-                });
-                
-                if (items.length === 0) {
-                    showNotificationLeft('⚠️ ไม่พบรูปภาพให้ดาวน์โหลด', 'warning');
-                    return;
-                }
-                
-                showNotificationLeft(`กำลังดาวน์โหลด ${items.length} รูป...`, 'info');
-                
-                // ✅ แก้ไข: ลบช่องว่างพิเศษใน URL JSZip
-                if (typeof JSZip === 'undefined') {
-                    await new Promise((resolve, reject) => {
-                        const script = document.createElement('script');
-                        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'; // ✅ ลบช่องว่าง
-                        script.onload = resolve;
-                        script.onerror = () => reject(new Error('Failed to load JSZip'));
-                        document.head.appendChild(script);
-                    });
-                }
-                
                 const zip = new JSZip();
                 const folder = zip.folder(type === 'building' ? 'buildings' : 'signs');
+                
                 let successCount = 0;
                 
                 for (let i = 0; i < items.length; i++) {
                     const item = items[i];
-                    try {
-                        const response = await fetch(item.url);
-                        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                        
-                        const blob = await response.blob();
-                        folder.file(item.filename, blob);
-                        successCount++;
-                        
-                        if ((i + 1) % 5 === 0 || i === items.length - 1) {
-                            showNotificationLeft(`กำลังดาวน์โหลด (${successCount}/${items.length})...`, 'info');
+                    
+                    // ✅ Debug: ดูข้อมูลจริง
+                    console.log(`🔍 Item ${i + 1}:`, item);
+                    
+                    // ✅ หา URL แบบยืดหยุ่น (ลองหลายชื่อ property)
+                    let imageUrl = null;
+                    const possibleUrlKeys = ['image', 'picture', 'url', 'imageUrl', 'Image', 'Picture'];
+                    for (const key of possibleUrlKeys) {
+                        if (item[key] && typeof item[key] === 'string' && item[key].includes('http')) {
+                            imageUrl = item[key];
+                            console.log(`✅ พบ URL ใน key "${key}": ${imageUrl}`);
+                            break;
                         }
+                    }
+                    
+                    if (!imageUrl) {
+                        console.warn(`⚠️ ข้ามรูปที่ ${i + 1}: ไม่พบ URL ที่ถูกต้อง`);
+                        console.warn('   Available keys:', Object.keys(item));
+                        continue;
+                    }
+                    
+                    // ✅ แปลง Google Drive URL
+                    const downloadUrl = convertGoogleDriveUrl(imageUrl);
+                    
+                    // ✅ หาชื่อไฟล์แบบยืดหยุ่น
+                    let fileName = null;
+                    const possibleNameKeys = ['picture', 'filename', 'fileName', 'name', 'Picture', 'Filename'];
+                    for (const key of possibleNameKeys) {
+                        if (item[key] && typeof item[key] === 'string' && item[key].trim() !== '') {
+                            fileName = item[key];
+                            console.log(`✅ พบชื่อไฟล์ใน key "${key}": ${fileName}`);
+                            break;
+                        }
+                    }
+                    
+                    // ✅ ถ้าไม่พบชื่อไฟล์ → สร้างจาก id หรือ index
+                    if (!fileName) {
+                        const code = item.parcel_cod || item.building_c || item.s_code || item.id || `image_${i + 1}`;
+                        fileName = `${type === 'building' ? 'B' : 'S'}_${code}.jpg`;
+                        console.log(`⚠️ ใช้ชื่อไฟล์สำรอง: ${fileName}`);
+                    }
+                    
+                    // ✅ ตรวจสอบนามสกุล
+                    if (!fileName.toLowerCase().match(/\.(jpg|jpeg|png)$/)) {
+                        fileName += '.jpg';
+                    }
+                    
+                    console.log(`📸 ดาวน์โหลด: ${fileName} จาก ${downloadUrl}`);
+                    
+                    try {
+                        const imgResponse = await fetch(downloadUrl);
+                        if (!imgResponse.ok) throw new Error(`HTTP ${imgResponse.status}`);
+                        
+                        const blob = await imgResponse.blob();
+                        
+                        if (blob.type && !blob.type.startsWith('image/')) {
+                            console.warn(`⚠️ ${fileName} ไม่ใช่รูปภาพ: ${blob.type}`);
+                            continue;
+                        }
+                        
+                        folder.file(fileName, blob);
+                        successCount++;
+                        showNotificationLeft(`กำลังดาวน์โหลด (${successCount}/${items.length})...`, 'info');
+                        
                     } catch (err) {
-                        console.error(`ดาวน์โหลด ${item.filename} ล้มเหลว:`, err);
+                        console.error(`ดาวน์โหลด ${fileName} ล้มเหลว:`, err.message);
                     }
                 }
                 
@@ -4002,15 +4290,16 @@
                 const content = await zip.generateAsync({ type: 'blob' });
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(content);
-                link.download = `${type === 'building' ? 'buildings' : 'signs'}_${new Date().toISOString().slice(0, 10)}.zip`;
+                link.download = `${type}_images_${new Date().toISOString().slice(0, 10)}.zip`;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
                 URL.revokeObjectURL(link.href);
                 
                 showNotificationLeft(`✅ ดาวน์โหลดรูปภาพทั้งหมด (${successCount} รูป) เสร็จสิ้น!`, 'success');
+                
             } catch (err) {
-                console.error('ข้อผิดพลาด:', err);
+                console.error('Error downloading images:', err);
                 showNotificationLeft('❌ ดาวน์โหลดล้มเหลว: ' + err.message, 'error');
             }
         }
@@ -4071,13 +4360,18 @@
           if (viewer) viewer.remove();
         }
 
-        /**
-         * ปิดแกลเลอรี่รูปภาพ
-         */
+        // ============================================
+        // ปิด Gallery Modal
+        // ============================================
         function closeImageGallery() {
-          const gallery = document.getElementById('image-gallery-modal');
-          if (gallery) gallery.remove();
-          closeImageViewer(); // ปิดหน้าต่างดูรูปใหญ่ด้วย (ถ้ามี)
+            const modal = document.getElementById('image-gallery-modal');
+            if (modal) modal.remove();
+            
+            // ✅ ล้าง global variable เมื่อปิด modal
+            window.currentGalleryItems = null;
+            window.currentGalleryType = null;
+            
+            console.log('❌ ปิด Gallery และล้างข้อมูล');
         }
 
         /**
@@ -5103,7 +5397,7 @@
             // ✅ Parcel Layer (default) - เส้นแดง พื้นขาว
             return {
                 color: '#ef4444',
-                weight: 2,
+                weight: 1.5,
                 opacity: 1.0,
                 fillColor: '#ffffff',
                 fillOpacity: 0.05,
@@ -5114,55 +5408,57 @@
         // ============================================
         // แสดงเลเยอร์ GeoJSON บนแผนที่   function displayGeoJSONLayer(geoJson, layerName) {
         // function displayParcelLayer(geoJson) { ============================================
-        function displayGeoJSONLayer(geoJson, layerName) {
-            console.log('📦 Displaying layer:', layerName, 'features:', geoJson.features?.length || 0);
-            
-            const layer = L.geoJSON(geoJson, {
-                // ✅ สำคัญ: Wrap ฟังก์ชันเพื่อส่ง layerName ไปด้วย!
-                style: function(feature) {
-                    return getMapLayerStyle(feature, layerName);
-                },
-                // ✅ ตั้งค่า interactive ตาม layerName
-                interactive: layerName === 'parcel',
-                onEachFeature: function(feature, polygonLayer) {
-                    // ✅ Popup เฉพาะ parcel layer
-                    if (layerName === 'parcel') {
-                        const props = feature.properties || {};
-                        const parcelCod = props.parcel_cod;
-
-                        // ✅ เพิ่มบรรทัดนี้: เก็บ layerName ไว้ให้ resetHighlight ใช้
-                        polygonLayer.layerName = layerName;
-           
-                        polygonLayer.on({
-                            mouseover: highlightFeature,
-                           mouseout: resetHighlight,
-                            click: function(e) {
-                                if (mouseAddMode) return;
-                                L.DomEvent.stopPropagation(e);
-                                
-                                const popupContent = `
-        <div class="popup-simple" onclick="event.stopPropagation()">
-            <div class="popup-header" onclick="showRawParcelData('${encodeURIComponent(JSON.stringify(props))}', ${e.latlng.lat}, ${e.latlng.lng})">
-                <span class="parcel-cod">${parcelCod || 'ไม่มีรหัส'}</span>
-            </div>
-            <div class="popup-owner">${props.title || ''} ${props.fname || ''} ${props.lname || ''}</div>
-        </div>`;
-                                
-                                L.popup({ minWidth: 160, maxWidth: 220, className: 'mobile-popup' })
-                                    .setLatLng(e.latlng)
-                                    .setContent(popupContent)
-                                    .openOn(map);
-                            }
-                        });
+function displayGeoJSONLayer(geoJson, layerName) {
+    console.log('📦 Displaying layer:', layerName, 'features:', geoJson.features?.length || 0);
+    
+    const layer = L.geoJSON(geoJson, {
+        style: function(feature) {
+            return getMapLayerStyle(feature, layerName);
+        },
+        interactive: layerName === 'parcel',
+        onEachFeature: function(feature, polygonLayer) {
+            if (layerName === 'parcel') {
+                const props = feature.properties || {};
+                const parcelCod = props.parcel_cod;
+                polygonLayer.layerName = layerName;
+                polygonLayer.on({
+                    mouseover: highlightFeature,
+                    mouseout: resetHighlight,
+                    click: function(e) {
+                        if (mouseAddMode) return;
+                        L.DomEvent.stopPropagation(e);
+                        const popupContent = `
+                        <div class="popup-simple" onclick="event.stopPropagation()">
+                            <div class="popup-header" onclick="showRawParcelData('${encodeURIComponent(JSON.stringify(props))}', ${e.latlng.lat}, ${e.latlng.lng})">
+                                <span class="parcel-cod">${parcelCod || 'ไม่มีรหัส'}</span>
+                            </div>
+                            <div class="popup-owner">${props.title || ''} ${props.fname || ''} ${props.lname || ''}</div>
+                        </div>`;
+                        L.popup({ minWidth: 160, maxWidth: 220, className: 'mobile-popup' })
+                            .setLatLng(e.latlng)
+                            .setContent(popupContent)
+                            .openOn(map);
                     }
-                    // ✅ boundary และ building: ไม่ผูก event ใดๆ
-                }
-            });
-            
-            layer.addTo(map);
-            console.log('✅ Layer added to map:', layerName);
-            return layer;
+                });
+            }
         }
+    });
+    
+    layer.addTo(map);
+    
+    // ✅ เก็บ layer reference ไว้ที่ global variable (ย้ายมา BEFORE return!)
+    if (layerName === 'building') {
+        window.buildingLayer = layer;
+        console.log('✅ เก็บ window.buildingLayer แล้ว');
+    } else if (layerName === 'parcel') {
+        window.parcelLayer = layer;
+    } else if (layerName === 'boundary') {
+        window.boundaryLayer = layer;
+    }
+    
+    console.log('✅ Layer added to map:', layerName);
+    return layer;
+}
 
 
         // ============================================
@@ -6201,7 +6497,7 @@
             areaHistoryA = [];
             
             areaCalculatorModalA = document.createElement('div');
-            areaCalculatorModalA.className = 'fixed inset-0 bg-black/20 z-[3000] flex items-center justify-center p-4 pointer-events-none';
+            areaCalculatorModalA.className = 'fixed inset-0 z-[3000] flex items-center justify-center p-4 pointer-events-none';
             areaCalculatorModalA.innerHTML = `
             <div id="area-calculator-a-window" class="bg-white/95 backdrop-blur-sm rounded-xl shadow-2xl w-full max-w-sm animate-scale-in pointer-events-auto" 
                  style="width: 340px; position: absolute;">
@@ -6226,17 +6522,24 @@
                     
                     <!-- ✅ แถวที่ 2: ผลลัพธ์สะสม + ประวัติการบวก -->
                     <div class="bg-purple-100 rounded-lg p-2">
-                        <div class="flex justify-between items-center mb-1">
-                            <label class="text-xs font-bold text-purple-900">ผลลัพธ์สะสม (ตร.ม.)</label>
-                            <input type="text" id="calc-result-a" class="form-input bg-white font-bold text-center w-24 text-sm"
-                                   readonly value="0.00"
-                                   style="-webkit-appearance: textfield; -moz-appearance: textfield; appearance: textfield;">
-                        </div>
-                        <!-- ✅ แสดงประวัติการบวก -->
-                        <div id="area-history-a" class="text-xs text-purple-700 font-mono bg-white/50 rounded px-2 py-1 min-h-[20px]">
-                            <!-- จะแสดงเช่น: 12 + 13.5 + 8 -->
-                        </div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-xs font-bold text-purple-900">ผลลัพธ์สะสม (ตร.ม.)</label>
+                        <!-- ✅ ข้อ 4: เพิ่มปุ่ม "a" สีส้มสำหรับเรียก Cursor กลับ -->
+                        <button type="button" onclick="restorePlusCursor()" 
+                            class="ml-2 w-6 h-6 bg-orange-500 text-white rounded font-bold text-xs hover:bg-orange-600 transition flex items-center justify-center"
+                            title="เรียก Cursor + กลับมา">
+                            a
+                        </button>
+                        <input type="text" id="calc-result-a" class="form-input bg-white font-bold text-center w-24 text-sm"
+                        readonly value="0.00"
+                        style="-webkit-appearance: textfield; -moz-appearance: textfield; appearance: textfield;">
                     </div>
+                    <!-- ✅ แสดงประวัติการบวก -->
+                    <div id="area-history-a" class="text-xs text-purple-700 font-mono bg-white/50 rounded px-2 py-1 min-h-[20px]">
+                        <!-- จะแสดงเช่น: 12 + 13.5 + 8 -->
+                    </div>
+                    </div>
+
                     
                     <!-- ✅ แถวที่ 3: ปุ่มควบคุม -->
                     <div class="flex gap-2">
@@ -6260,9 +6563,11 @@
             makeDraggable(
                 areaCalculatorModalA.querySelector('#area-calculator-a-window'),
                 areaCalculatorModalA.querySelector('#area-calculator-a-header')
-            );
-            
-            // ✅ ป้องกันการหมุนเมาส์เปลี่ยนค่า
+            );            
+
+            enablePlusCursorForCalculator();
+
+            // ✅ ป้องกันการหมุนเมาส์เปลี่ยนค่า      พอใส่อันนี้ หมุนล้อเลขวิ่ง        enablePlusCursorForCalculator();
             const preventWheel = (e) => e.preventDefault();
             const input = document.getElementById('calc-input-a');
             if (input) {
@@ -6277,6 +6582,244 @@
                 });
             }
         }
+
+        function disableMapInteraction() {
+            map.eachLayer(function(layer) {
+                if (layer.feature && layer.feature.properties) {
+                    const layerType = layer.feature.properties.layer || layer.feature.properties.type;
+                    if (['parcel', 'boundary'].includes(layerType)) {
+                        if (layer.options) {
+                            layer.options.interactive = false;
+                        }
+                        if (layer._path) {
+                            layer._path.style.pointerEvents = 'none';
+                        }
+                    }
+                }
+            });
+        }
+
+        function enableMapInteraction() {
+            map.eachLayer(function(layer) {
+                if (layer.feature && layer.feature.properties) {
+                    const layerType = layer.feature.properties.layer || layer.feature.properties.type;
+                    // ✅ แก้ไข: ลบ 'building' ออก ให้ตรงกันกับ disableMapInteraction
+                    if (['parcel', 'boundary'].includes(layerType)) {
+                        if (layer.options) {
+                            layer.options.interactive = true;
+                        }
+                        if (layer._path) {
+                            layer._path.style.pointerEvents = 'auto';
+                        }
+                    }
+                }
+            });
+        }
+
+        // ✅ ตัวแปรสถานะโหมดคำนวณพื้นที่
+        let isAreaCalculatorMode = false;
+
+        // ✅ ฟังก์ชันเปิดใช้งาน Cursor + และปิดการคลิกแปลง
+        function enablePlusCursorForCalculator() {
+            isAreaCalculatorMode = true;
+            const mapContainer = document.getElementById('map');
+            
+            // ✅ สร้าง Cursor แบบ crosshair
+            const pixmap = document.createElement('canvas');
+            pixmap.width = 32;
+            pixmap.height = 32;
+            const ctx = pixmap.getContext('2d');
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(16, 4);
+            ctx.lineTo(16, 28);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(4, 16);
+            ctx.lineTo(28, 16);
+            ctx.stroke();
+            const cursorUrl = pixmap.toDataURL();
+            
+            // ✅ ตั้งค่า cursor
+            mapContainer.style.cursor = `url(${cursorUrl}) 16 16, crosshair !important`;
+            mapContainer.classList.add('cursor-crosshair-add');
+            
+            // ✅ ปิดการโต้ตอบกับ parcel และ boundary (แต่ไม่ปิด building)
+            disableMapInteraction();
+            
+            // ✅ เพิ่ม Event Listener สำหรับคลิกบนแผนที่ (โหมดคำนวณพื้นที่)
+            if (!window.areaCalculatorClickHandler) {
+                window.areaCalculatorClickHandler = function(e) {
+                    // ✅ ข้อสำคัญ: เช็คโหมดก่อน
+                    if (!isAreaCalculatorMode) return;
+                    
+                    // ✅ Stop Propagation ป้องกัน event รั่ว
+                    if (e.originalEvent) {
+                        L.DomEvent.stopPropagation(e.originalEvent);
+                    }
+                    
+                    let clickedBuilding = null;
+                    let clickedGeometryType = 'Polygon';
+                    
+                    // ✅ ตรวจสอบทั้ง window.buildingLayer และ surveyLayers
+                    const layersToCheck = [];
+                    if (window.buildingLayer) layersToCheck.push(window.buildingLayer);
+                    if (window.surveyLayers) layersToCheck.push(window.surveyLayers);
+                    
+                    layersToCheck.forEach(layerGroup => {
+                        if (layerGroup && typeof layerGroup.eachLayer === 'function') {
+                            layerGroup.eachLayer(function(layer) {
+                                if (layer.feature && layer.feature.properties) {
+                                    const layerType = layer.feature.properties.layer || layer.feature.properties.type;
+                                    if (layerType === 'building') {
+                                        if (layer.feature.geometry) {
+                                            clickedGeometryType = layer.feature.geometry.type || 'Polygon';
+                                        }
+                                        if (layer.getBounds && layer.getBounds().contains(e.latlng)) {
+                                            clickedBuilding = layer;
+                                        }
+                                        else if (layer.getLatLng && map.distance(layer.getLatLng(), e.latlng) < 10) {
+                                            clickedBuilding = layer;
+                                        }
+                                    }
+                                }
+                            });
+                        }
+                    });
+                    
+                    // ใน enablePlusCursorForCalculator()
+                    if (clickedBuilding && clickedBuilding.feature && clickedBuilding.feature.geometry) {
+                        const area = calculatePolygonArea(
+                            clickedBuilding.feature.geometry.coordinates,
+                            clickedBuilding.feature.geometry.type  // 'Polygon' หรือ 'MultiPolygon'
+                        );
+                        if (area > 0) {
+                            const input = document.getElementById('calc-input-a');
+                            if (input) {
+                                input.value = area.toFixed(2);  // หน่วยเป็นตารางเมตร
+                                addAreaToAccumulatorA();
+                                showNotificationLeft(`เพิ่มพื้นที่ ${area.toFixed(2)} ตร.ม.`, 'success');
+                            }
+                        }
+                    }
+                };
+                map.on('click', window.areaCalculatorClickHandler);
+            }
+            
+            showNotificationLeft('โหมดคำนวณพื้นที่: คลิกบนสิ่งปลูกสร้างเพื่อเพิ่มพื้นที่อัตโนมัติ', 'info');
+        }
+
+        // ✅ ฟังก์ชันเช็คจุดอยู่ใน Polygon (รองรับ GeoJSON coordinates)
+        function pointInPolygon(point, coordinates) {
+            // ✅ กรณี MultiPolygon: coordinates เป็น array ของ polygons
+            if (Array.isArray(coordinates[0][0][0])) {
+                for (let polygon of coordinates) {
+                    if (pointInSinglePolygon(point, polygon[0])) return true;
+                }
+                return false;
+            }
+            // ✅ กรณี Polygon: ใช้ ring แรก (วงนอก)
+            return pointInSinglePolygon(point, coordinates[0]);
+        }
+
+        // ✅ ฟังก์ชันย่อย: เช็คจุดใน Polygon เดียว
+        function pointInSinglePolygon(point, ring) {
+            let x = point.lng, y = point.lat;
+            let inside = false;
+            
+            for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+                const xi = ring[i][0], yi = ring[i][1];
+                const xj = ring[j][0], yj = ring[j][1];
+                
+                const intersect = ((yi > y) !== (yj > y)) && 
+                                 (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+
+        // ตัวอย่างจุดที่ควรวาง
+        function loadBuildingLayer(buildingData) {
+            // ลบ Layer เก่าออกก่อน (ถ้ามี)
+            if (window.buildingLayer) map.removeLayer(window.buildingLayer);
+
+            // วางโค้ดที่คุณให้มาตรงนี้
+            window.buildingLayer = L.geoJSON(buildingData, {
+                pane: 'markerPane', // บังคับให้อยู่ชั้นบนสุด (เหนือแผนที่ทั่วไป)
+                style: function(feature) {
+                    return { color: 'orange', fillOpacity: 0.5, weight: 2 };
+                },
+                onEachFeature: function (feature, layer) {
+                    layer.on('click', function (e) {
+                        L.DomEvent.stopPropagation(e); // ✅ สำคัญ: กันไม่ให้คลิกทะลุไปโดน parcel
+                        const area = calculatePolygonArea(layer.getLatLngs());
+                        document.getElementById('b_area').value = area;
+                        showNotificationLeft(`คำนวณพื้นที่: ${area} ตร.ม.`, 'success');
+                    });
+                }
+            }).addTo(map);
+        }
+
+        function disableParcelInteraction() {
+            if (window.parcelLayer) {
+                window.parcelLayer.setStyle({ interactive: false });
+            }
+        }
+
+        // ✅ ฟังก์ชันหลัก: คำนวณพื้นที่จาก Polygon (รองรับทั้ง Polygon และ MultiPolygon)
+        function calculatePolygonArea(coordinates, geometryType = 'Polygon') {
+            // ✅ กรณี coordinates เป็น undefined หรือว่าง
+            if (!coordinates || coordinates.length === 0) {
+                console.warn('⚠️ calculatePolygonArea: coordinates is empty');
+                return 0;
+            }
+            
+            let totalArea = 0;
+            const R = 6378137;
+            
+            if (geometryType === 'MultiPolygon') {
+                for (let polygon of coordinates) {
+                    totalArea += calculateSinglePolygonArea(polygon);
+                }
+            } else {
+                // ✅ กรณี Polygon: coordinates อาจเป็น [ring] หรือ [[ring]]
+                const rings = Array.isArray(coordinates[0][0][0]) ? coordinates : [coordinates];
+                totalArea = calculateSinglePolygonArea(rings[0]);
+            }
+            return totalArea;
+        }
+
+        // ✅ ฟังก์ชันย่อย: คำนวณพื้นที่จาก rings เดียว (ใช้วงนอกสุดเท่านั้น)
+        function calculateSinglePolygonArea(rings, R) {
+            if (!rings || rings.length === 0) return 0;
+            const outerRing = rings[0];  // ใช้เฉพาะวงนอก (ไม่รวมรู/holes)
+            if (!outerRing || outerRing.length < 3) return 0;
+            
+            let area = 0;
+            for (let i = 0; i < outerRing.length; i++) {
+                const j = (i + 1) % outerRing.length;
+                const p1 = outerRing[i], p2 = outerRing[j];
+                const lon1 = p1[0] * Math.PI / 180, lon2 = p2[0] * Math.PI / 180;
+                const lat1 = p1[1] * Math.PI / 180, lat2 = p2[1] * Math.PI / 180;
+                area += (lon2 - lon1) * (2 + Math.sin(lat1) + Math.sin(lat2));
+            }
+            return Math.abs(area * R * R / 2);  // ✅ คืนค่าบวกเสมอ (ตารางเมตร)
+        }
+
+        // ✅ ข้อ 4: ฟังก์ชันเรียก Cursor + กลับมา
+        function restorePlusCursor() {
+            if (!isAreaCalculatorMode) {
+            showNotificationLeft('หน้าต่างคำนวณพื้นที่ไม่เปิดอยู่', 'warning');
+            return;
+            }
+            
+            // ✅ เรียกใช้ Cursor ใหม่
+            enablePlusCursorForCalculator();
+            showNotificationLeft('เรียก Cursor + กลับมาแล้ว', 'success');
+        }
+
+
 
         // ✅ ฟังก์ชันทำให้หน้าต่างลากได้
         function makeDraggable(element, header) {
@@ -6382,6 +6925,21 @@
                     areaCalculatorModalA = null;
                     areaAccumulatorA = 0;
                     areaHistoryA = [];
+                    
+                    // ✅ รีเซ็ต Cursor และสถานะ
+                    isAreaCalculatorMode = false;  // ✅ สำคัญ: ปิดโหมด
+                    const mapContainer = document.getElementById('map');
+                    mapContainer.style.cursor = 'default !important';
+                    mapContainer.classList.remove('cursor-crosshair-add');
+                    
+                    // ✅ เปิดการโต้ตอบกับ layers กลับมา
+                    enableMapInteraction();
+                    
+                    // ✅ ลบ Event Listener
+                    if (window.areaCalculatorClickHandler) {
+                        map.off('click', window.areaCalculatorClickHandler);
+                        window.areaCalculatorClickHandler = null;
+                    }
                 }, 200);
             }
         }
@@ -7387,6 +7945,7 @@
                 showNotificationLeft('❌ เคลียร์แผนที่ไม่สำเร็จ: ' + err.message, 'error');
             }
         }
+
 
         // ============================================
         // ฟังก์ชันแสดงชื่อไฟล์ที่เลือก
