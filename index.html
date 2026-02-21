@@ -6286,6 +6286,7 @@
                                           message.includes('แก้ไข') || 
                                           message.includes('ลบ') ||
                                           message.includes('มีการเปลี่ยนแปลง');
+
             
             // ✅ ถ้าเป็นแจ้งเตือนอัปเดต ให้กดปุ่มรีโหลดอัตโนมัติ (ข้าม cooldown)
             if (isUpdateNotification && type !== 'error') {
@@ -6595,7 +6596,7 @@
                                style="-webkit-appearance: textfield; -moz-appearance: textfield; appearance: textfield;">
                         <button type="button" onclick="addAreaToAccumulatorA()"
                                 class="px-3 py-2 bg-purple-600 text-white rounded font-bold text-sm hover:bg-purple-700 transition whitespace-nowrap">
-                            + เพิ่ม
+                            + บวก
                         </button>
                     </div>
                     
@@ -7108,7 +7109,7 @@
             input.value = '';
             input.focus();
             
-            showNotificationLeft(`เพิ่ม ${val.toFixed(2)} ตร.ม. (รวม: ${areaAccumulatorA.toFixed(2)} ตร.ม.)`, 'success');
+            showNotificationLeft(`บวก ${val.toFixed(2)} ตร.ม. (รวม: ${areaAccumulatorA.toFixed(2)} ตร.ม.)`, 'success');
         }
 
         // ✅ ฟังก์ชันล้างค่า
