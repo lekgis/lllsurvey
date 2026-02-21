@@ -12,7 +12,8 @@
     <title>โนนไทย</title>
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="static/icons/lb.ico" type="image/x-icon"> <!-- แก้เป็นพาธสัมพัทธ์ -->
-
+    <!-- ใช้ Turf.js สำหรับคำนวณพื้นที่ (ต้องเพิ่มก่อนโค้ดอื่นๆ) -->
+    <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -953,11 +954,11 @@
                 </div>
             </button>
             <!-- ✅ ปุ่ม 7: ดาวน์โหลดแผนที่สิ่งปลูกสร้าง -->
-            <button onclick="downloadMapFile('building')" class="map-btn p-3 w-48 bg-gradient-to-r from-orange-400 to-orange-600 text-white hover:scale-105 transition-all shadow-lg flex items-center justify-start gap-2 text-left">
+            <button onclick="downloadMapFile('building_area')" class="map-btn p-3 w-48 bg-gradient-to-r from-orange-400 to-orange-600 text-white hover:scale-105 transition-all shadow-lg flex items-center justify-start gap-2 text-left">
                 <i data-lucide="download" class="w-5 h-5"></i>
                 <div>
                     <div class="font-semibold text-xs">ดาวน์โหลดสิ่งปลูกสร้าง</div>
-                    <div class="text-[10px] opacity-90">ไฟล์ building.geojson</div>
+                    <div class="text-[10px] opacity-90">ไฟล์ building_area.geojson</div>
                 </div>
             </button>
             <!-- ✅ ปุ่ม 8: เลือกไฟล์แผนที่ (ใช้ได้ทั้ง 3 ไฟล์) -->
@@ -1365,13 +1366,13 @@
                 lastCheckKey: 'boundary_geojson_last_check',
             },
             // ✅ Building Layer
-            building: {
+            building_area: {
                 googleDriveFileId: '1TliaF3dkFQBsdaWjdmv_-nHuCs85tW_3',
-                fileName: 'building.geojson',
-                layers: ['building'],
-                localCacheKey: 'building_geojson_cache',
-                lastModifiedKey: 'building_geojson_last_modified',
-                lastCheckKey: 'building_geojson_last_check',
+                fileName: 'building_area.geojson',
+                layers: ['building_area'],
+                localCacheKey: 'building_area_geojson_cache',
+                lastModifiedKey: 'building_area_geojson_last_modified',
+                lastCheckKey: 'building_area_geojson_last_check',
             }
         };
 
@@ -1504,10 +1505,10 @@
                 document.getElementById('confirm-overlay').classList.add('hidden');
                 
                 // ✅ 8. ล้างจุดชั่วคราวเก่า (ถ้ามี)
-                if (mouseTempMarker) {
-                    surveyLayers.removeLayer(mouseTempMarker);
-                    mouseTempMarker = null;
-                }
+                //if (mouseTempMarker) {
+                    //surveyLayers.removeLayer(mouseTempMarker);
+                    //mouseTempMarker = null;
+                //}
                 mouseClickLatLng = null;
                 
                 showNotificationLeft(`โหมดเพิ่มจุดด้วยเมาส์: คลิกบนแผนที่เพื่อเลือกตำแหน่ง`, 'info');
@@ -2167,7 +2168,7 @@
                     }
                     
                     // รอ 500ms ระหว่างการอัปโหลดแต่ละรายการ
-                    await new Promise(resolve => setTimeout(resolve, 500));
+                    await new Promise(resolve => setTimeout(resolve, 5000));
                     
                 } catch (err) {
                     console.error(`❌ ข้อผิดพลาดในการประมวลผลรายการ ${i + 1}:`, err);
@@ -2186,24 +2187,39 @@
                     break;
                 }
             }
-            
+
             // ลบรายการที่สำเร็จแล้วออกจากคิว
             const successItems = dataSyncQueue.filter(item => item.status === 'success');
             for (const item of successItems) {
                 removeFromDataSyncQueue(item.id);
             }
-            
+
             // โหลดคิวใหม่จาก localStorage
             loadDataSyncQueueFromStorage();
-            
-            console.log(`✅ กระบวนการซิงค์ข้อมูลเสร็จสิ้น - คงเหลือ ${dataSyncQueue.length} รายการ`);
-            
-            // ถ้ายังมีรายการเหลืออยู่ ให้ลองซิงค์อีกครั้งหลังจาก 5 วินาที
-            if (dataSyncQueue.length > 0) {
-                console.log('⏳ มีรายการเหลืออยู่ - จะลองซิงค์อีกครั้งใน 5 วินาที');
+
+            // ✅ ตรวจสอบว่ามีรายการที่ยัง "ลองได้อีก" อยู่หรือไม่
+            const retryableItems = dataSyncQueue.filter(item => 
+                item.status !== 'success' && item.status !== 'failed'
+            );
+
+            console.log(`✅ กระบวนการซิงค์ข้อมูลเสร็จสิ้น - คงเหลือ ${dataSyncQueue.length} รายการ (ลองได้อีก ${retryableItems.length} รายการ)`);
+
+            // ✅ ลองซิงค์อีกครั้งเฉพาะเมื่อ: ออนไลน์ AND มีรายการที่ยังลองได้
+            if (retryableItems.length > 0 && (isOnline && navigator.onLine)) {
+                console.log('⏳ มีรายการที่ลองได้อีก - จะลองซิงค์อีกครั้งใน 5 วินาที');
                 setTimeout(() => {
                     processDataSyncQueue();
                 }, 5000);
+            } else if (retryableItems.length > 0 && !(isOnline && navigator.onLine)) {
+                // ✅ ออฟไลน์但有รายการค้าง → รอ event 'online' จัดการแทน
+                console.log('📴 ออฟไลน์ - รอการเชื่อมต่อเพื่อซิงค์ข้อมูล (event listener จะจัดการ)');
+            } else {
+                // ✅ ไม่มีรายการที่ต้องลองอีก → จบกระบวนการ
+                console.log('🎉 ไม่มีรายการที่ต้องลองซิงค์อีก — จบกระบวนการ');
+                const failedCount = dataSyncQueue.filter(item => item.status === 'failed').length;
+                if (failedCount > 0) {
+                    showNotificationLeft(`⚠️ มี ${failedCount} รายการที่ซิงค์ล้มเหลวหลังลอง 3 ครั้ง`, 'warning');
+                }
             }
         }
 
@@ -4440,7 +4456,7 @@
         }
 
         // บันทึกเฉพาะชั้นข้อมูลที่จำเป็น
-        const layersToCache = ['parcel', 'boundary']; // ไม่รวม 'building' ถ้าใหญ่เกินไป
+        const layersToCache = ['parcel', 'boundary']; // ไม่รวม 'building_area' ถ้าใหญ่เกินไป
 
         async function downloadMapStreaming(fileId) {
             const response = await fetch(`https://drive.google.com/uc?export=download&id=${fileId}`);
@@ -4984,7 +5000,7 @@
             console.log('🔍 ตรวจสอบแผนที่ GeoJSON...');
             
             // ✅ โหลดทั้ง 3 layer
-            const layerTypes = ['parcel', 'boundary', 'building'];
+            const layerTypes = ['parcel', 'boundary', 'building_area'];
             
             for (const layerType of layerTypes) {
                 const config = MAP_CONFIG[layerType];
@@ -5309,7 +5325,7 @@
                 
                 console.log(`📊 Total features: ${geoJson.features.length}`);
                 
-                // ✅ กรณี 1: โหลดไฟล์เดี่ยว (boundary.geojson, building.geojson, parcel.geojson)
+                // ✅ กรณี 1: โหลดไฟล์เดี่ยว (boundary.geojson, building_area.geojson, parcel.geojson)
                 // → โหลดทั้งหมดเป็นเลเยอร์นั้น ไม่ต้องกรองตาม properties
                 if (layerType !== 'all') {
                     displayGeoJSONLayer(geoJson, layerType);
@@ -5318,7 +5334,7 @@
                 // ✅ กรณี 2: โหลดไฟล์ผสมที่มีหลายเลเยอร์ (layerType === 'all')
                 // → กรองฟีเจอร์ตาม properties.layer หรือ properties.type
                 else {
-                    ['parcel', 'boundary', 'building'].forEach(targetLayer => {
+                    ['parcel', 'boundary', 'building_area'].forEach(targetLayer => {
                         const layerFeatures = geoJson.features.filter(f => {
                             const fLayer = f.properties?.layer || f.properties?.type;
                             // ✅ แก้: ลบ !fLayer ออก → โหลดเฉพาะฟีเจอร์ที่ระบุ layer ชัดเจน
@@ -5345,6 +5361,33 @@
             }
         }
 
+        // ✅ ฟังก์ชันตรวจสอบว่า layer สามารถคลิกได้หรือไม่
+        function checkLayerInteractiveStatus() {
+            let buildingAreaInteractive = false;
+            
+            map.eachLayer(function(layer) {
+                if (layer.options && layer.options.layerType === 'building_area') {
+                    buildingAreaInteractive = layer.options.interactive === true;
+                    console.log('🔍 สถานะการคลิกของ building_area:', {
+                        layerType: layer.options.layerType,
+                        interactive: layer.options.interactive,
+                        hasClickListener: layer.listeners && layer.listeners.click
+                    });
+                }
+            });
+            
+            return buildingAreaInteractive;
+        }
+
+        // ✅ ฟังก์ชันเปิดการโต้ตอบกับ building_area (ใช้เมื่อจำเป็น)
+        function enableBuildingAreaInteraction() {
+            map.eachLayer(function(layer) {
+                if (layer.options && layer.options.layerType === 'building_area') {
+                    layer.options.interactive = true;
+                    console.log('✅ เปิดการคลิกสำหรับ building_area');
+                }
+            });
+        }
 
         // ============================================
         // แปลงข้อมูลเป็น GeoJSON
@@ -5383,14 +5426,14 @@
             }
             
             // ✅ Building Layer - สีส้ม
-            if (layerName === 'building') {
+            if (layerName === 'building_area') {
                 return {
                     color: '#2A3439',
                     weight: 1,
                     opacity: 1.0,
                     fillColor: '#fdba74',
                     fillOpacity: 0.5,
-                    interactive: false
+                    interactive: true
                 };
             }
             
@@ -5408,57 +5451,93 @@
         // ============================================
         // แสดงเลเยอร์ GeoJSON บนแผนที่   function displayGeoJSONLayer(geoJson, layerName) {
         // function displayParcelLayer(geoJson) { ============================================
-function displayGeoJSONLayer(geoJson, layerName) {
-    console.log('📦 Displaying layer:', layerName, 'features:', geoJson.features?.length || 0);
-    
-    const layer = L.geoJSON(geoJson, {
-        style: function(feature) {
-            return getMapLayerStyle(feature, layerName);
-        },
-        interactive: layerName === 'parcel',
-        onEachFeature: function(feature, polygonLayer) {
-            if (layerName === 'parcel') {
-                const props = feature.properties || {};
-                const parcelCod = props.parcel_cod;
-                polygonLayer.layerName = layerName;
-                polygonLayer.on({
-                    mouseover: highlightFeature,
-                    mouseout: resetHighlight,
-                    click: function(e) {
-                        if (mouseAddMode) return;
-                        L.DomEvent.stopPropagation(e);
-                        const popupContent = `
-                        <div class="popup-simple" onclick="event.stopPropagation()">
-                            <div class="popup-header" onclick="showRawParcelData('${encodeURIComponent(JSON.stringify(props))}', ${e.latlng.lat}, ${e.latlng.lng})">
-                                <span class="parcel-cod">${parcelCod || 'ไม่มีรหัส'}</span>
-                            </div>
-                            <div class="popup-owner">${props.title || ''} ${props.fname || ''} ${props.lname || ''}</div>
-                        </div>`;
-                        L.popup({ minWidth: 160, maxWidth: 220, className: 'mobile-popup' })
-                            .setLatLng(e.latlng)
-                            .setContent(popupContent)
-                            .openOn(map);
+        function displayGeoJSONLayer(geoJson, layerName) {
+            console.log('📦 Displaying layer:', layerName, 'features:', geoJson.features?.length || 0);
+            
+            const layer = L.geoJSON(geoJson, {
+                style: function(feature) {
+                    return getMapLayerStyle(feature, layerName);
+                },
+                interactive: layerName === 'parcel' || layerName === 'building_area',
+                onEachFeature: function(feature, polygonLayer) {
+                    if (layerName === 'parcel') {
+                        const props = feature.properties || {};
+                        const parcelCod = props.parcel_cod;
+                        polygonLayer.layerName = layerName;
+                        polygonLayer.on({
+                            mouseover: highlightFeature,
+                            mouseout: resetHighlight,
+                            click: function(e) {
+                                if (mouseAddMode) return;
+                                L.DomEvent.stopPropagation(e);
+                                const popupContent = `
+                                <div class="popup-simple" onclick="event.stopPropagation()">
+                                    <div class="popup-header" onclick="showRawParcelData('${encodeURIComponent(JSON.stringify(props))}', ${e.latlng.lat}, ${e.latlng.lng})">
+                                        <span class="parcel-cod">${parcelCod || 'ไม่มีรหัส'}</span>
+                                    </div>
+                                    <div class="popup-owner">${props.title || ''} ${props.fname || ''} ${props.lname || ''}</div>
+                                </div>`;
+                                L.popup({ minWidth: 160, maxWidth: 220, className: 'mobile-popup' })
+                                    .setLatLng(e.latlng)
+                                    .setContent(popupContent)
+                                    .openOn(map);
+                            }
+                        });
                     }
-                });
+                    // ✅ เพิ่มส่วนนี้สำหรับ building_area
+                    // ✅ ในส่วนจัดการคลิก building_area.geojson (แทนที่โค้ดเดิมทั้งหมด)
+                    else if (layerName === 'building_area') {
+                        polygonLayer.on({
+                            click: function(e) {
+                                L.DomEvent.stopPropagation(e);
+                                
+                                // ✅ ข้อ 1: ทำงานเฉพาะเมื่อเปิดโหมดคำนวณพื้นที่ A เท่านั้น
+                                // ถ้าไม่ได้เปิดหน้าต่าง A จากปุ่ม A ใน panel → ไม่ทำอะไร
+                                if (!isAreaCalculatorMode) {
+                                    console.log('ℹ️ โหมดคำนวณพื้นที่ A ไม่เปิดอยู่ - ไม่ประมวลผล');
+                                    return;
+                                }
+                                
+                                // ✅ คำนวณพื้นที่จาก feature เดิมด้วย Turf.js
+                                const area = parseFloat(turf.area(feature).toFixed(2));
+                                
+                                // ✅ ข้อ 2: กรอกค่าในช่อง input + กดปุ่ม "+ เพิ่ม" อัตโนมัติ (ใช้ฟังก์ชันเดิม)
+                                const input = document.getElementById('calc-input-a');
+                                if (input && area > 0) {
+                                    // กรอกค่าพื้นที่ในช่อง input
+                                    input.value = area.toFixed(2);
+                                    
+                                    // ✅ กดปุ่ม "+ เพิ่ม" ที่มีอยู่เดิมอัตโนมัติ (ไม่ต้องสร้างฟังก์ชันใหม่)
+                                    const addBtn = document.querySelector('button[onclick="addAreaToAccumulatorA()"]');
+                                    if (addBtn) {
+                                        addBtn.click(); // ใช้ฟังก์ชันเดิม addAreaToAccumulatorA()
+                                    }
+                                    
+                                    // แสดงผลลัพธ์
+                                    showNotificationLeft(`✅ +${area.toFixed(2)} ตร.ม.`, 'success');
+                                    console.log(`✅ บวกพื้นที่: ${area.toFixed(2)} ตร.ม.`);
+                                }
+                            }
+                        });
+                    }
+                }
+            });
+            
+            layer.addTo(map);
+            
+            // ✅ เก็บ layer reference ไว้ที่ global variable (ย้ายมา BEFORE return!)
+            if (layerName === 'building_area') {
+                window.buildingLayer = layer;
+                console.log('✅ เก็บ window.buildingLayer แล้ว');
+            } else if (layerName === 'parcel') {
+                window.parcelLayer = layer;
+            } else if (layerName === 'boundary') {
+                window.boundaryLayer = layer;
             }
+            
+            console.log('✅ Layer added to map:', layerName);
+            return layer;
         }
-    });
-    
-    layer.addTo(map);
-    
-    // ✅ เก็บ layer reference ไว้ที่ global variable (ย้ายมา BEFORE return!)
-    if (layerName === 'building') {
-        window.buildingLayer = layer;
-        console.log('✅ เก็บ window.buildingLayer แล้ว');
-    } else if (layerName === 'parcel') {
-        window.parcelLayer = layer;
-    } else if (layerName === 'boundary') {
-        window.boundaryLayer = layer;
-    }
-    
-    console.log('✅ Layer added to map:', layerName);
-    return layer;
-}
 
 
         // ============================================
@@ -5495,9 +5574,9 @@ function displayGeoJSONLayer(geoJson, layerName) {
         function displayBuildingLayer(geoJson) {
             const layer = L.geoJSON(geoJson, {
                 style: function(feature) {
-                    return getMapLayerStyle(feature, 'building');
+                    return getMapLayerStyle(feature, 'building_area');
                 }
-                // ✅ ไม่ผูก event ใดๆ สำหรับ building
+                // ✅ ไม่ผูก event ใดๆ สำหรับ building_area
             });
             layer.addTo(map);
             return layer;
@@ -5560,7 +5639,7 @@ function displayGeoJSONLayer(geoJson, layerName) {
                         fillOpacity: 0,
                         dashArray: '5, 5'
                     };
-                case 'building':
+                case 'building_area':
                     return {
                         color: '#16a34a',
                         weight: 1,
@@ -6225,7 +6304,7 @@ function displayGeoJSONLayer(geoJson, layerName) {
                         notification.remove();
                     }
                 }, 300);
-            }, 3000);
+            }, 300);
         }
 
         // ✅ ฟังก์ชัน Helper: กดปุ่มรีโหลดอัตโนมัติ
@@ -6497,10 +6576,10 @@ function displayGeoJSONLayer(geoJson, layerName) {
             areaHistoryA = [];
             
             areaCalculatorModalA = document.createElement('div');
-            areaCalculatorModalA.className = 'fixed inset-0 z-[3000] flex items-center justify-center p-4 pointer-events-none';
+            areaCalculatorModalA.className = 'fixed inset-0 z-[3000] p-4 pointer-events-none';
             areaCalculatorModalA.innerHTML = `
             <div id="area-calculator-a-window" class="bg-white/95 backdrop-blur-sm rounded-xl shadow-2xl w-full max-w-sm animate-scale-in pointer-events-auto" 
-                 style="width: 340px; position: absolute;">
+                 style="width: 340px; position: absolute; left: 50%; transform: translateX(-50%); bottom: 70%;">
                 <!-- ✅ Header สำหรับลากหน้าต่าง -->
                 <div id="area-calculator-a-header" class="p-3 border-b flex justify-between items-center bg-purple-50 cursor-move rounded-t-lg">
                     <h3 class="font-bold text-sm text-purple-900">คำนวณพื้นที่ทั้งหลัง (A)</h3>
@@ -6599,11 +6678,98 @@ function displayGeoJSONLayer(geoJson, layerName) {
             });
         }
 
+        // ✅ ฟังก์ชันตรวจสอบจุดอยู่ใน Polygon (รองรับทุกโครงสร้าง)
+        function isPointInPolygon(point, polygon) {
+            if (!polygon || polygon.length < 3) return false;
+            
+            // ✅ รองรับโครงสร้างหลายแบบของ GeoJSON
+            let latlngs = polygon;
+            
+            // ถ้าเป็น MultiPolygon: ใช้ exterior ring ของ polygon แรก
+            if (Array.isArray(polygon[0][0])) {
+                latlngs = polygon[0][0];
+            }
+            // ถ้าเป็น Polygon แบบซ้อน: ใช้ exterior ring
+            else if (Array.isArray(polygon[0]) && polygon[0].length > 0 && 
+                     Array.isArray(polygon[0][0]) && polygon[0][0].length === 2) {
+                latlngs = polygon[0];
+            }
+            
+            let inside = false;
+            const x = point.lng, y = point.lat;
+            
+            for (let i = 0, j = latlngs.length - 1; i < latlngs.length; j = i++) {
+                // ✅ รองรับทั้ง LatLng และ [lng, lat]
+                const xi = latlngs[i].lng !== undefined ? latlngs[i].lng : latlngs[i][0];
+                const yi = latlngs[i].lat !== undefined ? latlngs[i].lat : latlngs[i][1];
+                const xj = latlngs[j].lng !== undefined ? latlngs[j].lng : latlngs[j][0];
+                const yj = latlngs[j].lat !== undefined ? latlngs[j].lat : latlngs[j][1];
+                
+                const intersect = ((yi > y) !== (yj > y)) &&
+                    (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            
+            return inside;
+        }
+
+        // ✅ ในฟังก์ชันโหลด building_area.geojson
+        function displayBuildingAreaLayer(geoJson) {
+            const layer = L.geoJSON(geoJson, {
+                style: function(feature) {
+                    // ✅ ใช้สไตล์เดิมของคุณ (ไม่แก้สี)
+                    return {
+                        color: feature.properties.color || '#3b82f6',
+                        weight: 2,
+                        fillOpacity: 0.3,
+                        fillColor: feature.properties.fillColor || '#60a5fa'
+                    };
+                },
+                onEachFeature: function(feature, layer) {
+                    // ✅ ผูกคลิกโดยตรง (เหมือนตัวอย่าง)
+                    layer.on('click', function(e) {
+                        L.DomEvent.stopPropagation(e);
+                        
+                        // ✅ ทำงานเฉพาะเมื่อเปิดโหมดคำนวณพื้นที่ A
+                        if (!isAreaCalculatorMode) return;
+                        
+                        // ✅ คำนวณพื้นที่ด้วย feature ที่ได้จาก onEachFeature (โครงสร้างถูกต้อง!)
+                        const area = turf.area(feature).toFixed(2);
+                        
+                        // ✅ กรอกค่า + กดปุ่ม "+ เพิ่ม" อัตโนมัติ
+                        const input = document.getElementById('calc-input-a');
+                        if (input && area > 0) {
+                            input.value = area;
+                            const addBtn = document.querySelector('button[onclick="addAreaToAccumulatorA()"]');
+                            if (addBtn) addBtn.click();
+                        }
+                        
+                        // ✅ ไฮไลท์ polygon ที่คลิก (เหมือนตัวอย่าง)
+                        layer.setStyle({
+                            color: '#fbbf24',
+                            weight: 4,
+                            fillOpacity: 0.6
+                        });
+                        setTimeout(() => {
+                            layer.setStyle({
+                                color: feature.properties.color || '#3b82f6',
+                                weight: 2,
+                                fillOpacity: 0.3
+                            });
+                        }, 2000);
+                    });
+                }
+            });
+            layer.addTo(map);
+            window.buildingAreaLayer = layer;
+            return layer;
+        }
+
         function enableMapInteraction() {
             map.eachLayer(function(layer) {
                 if (layer.feature && layer.feature.properties) {
                     const layerType = layer.feature.properties.layer || layer.feature.properties.type;
-                    // ✅ แก้ไข: ลบ 'building' ออก ให้ตรงกันกับ disableMapInteraction
+                    // ✅ แก้ไข: ลบ 'building_area' ออก ให้ตรงกันกับ disableMapInteraction
                     if (['parcel', 'boundary'].includes(layerType)) {
                         if (layer.options) {
                             layer.options.interactive = true;
@@ -6619,95 +6785,133 @@ function displayGeoJSONLayer(geoJson, layerName) {
         // ✅ ตัวแปรสถานะโหมดคำนวณพื้นที่
         let isAreaCalculatorMode = false;
 
-        // ✅ ฟังก์ชันเปิดใช้งาน Cursor + และปิดการคลิกแปลง
+        // ✅ ฟังก์ชันเปิดใช้งาน Cursor + (แบบเรียบง่าย)
         function enablePlusCursorForCalculator() {
             isAreaCalculatorMode = true;
-            const mapContainer = document.getElementById('map');
             
-            // ✅ สร้าง Cursor แบบ crosshair
-            const pixmap = document.createElement('canvas');
-            pixmap.width = 32;
-            pixmap.height = 32;
-            const ctx = pixmap.getContext('2d');
-            ctx.strokeStyle = 'white';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(16, 4);
-            ctx.lineTo(16, 28);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(4, 16);
-            ctx.lineTo(28, 16);
-            ctx.stroke();
-            const cursorUrl = pixmap.toDataURL();
-            
-            // ✅ ตั้งค่า cursor
-            mapContainer.style.cursor = `url(${cursorUrl}) 16 16, crosshair !important`;
-            mapContainer.classList.add('cursor-crosshair-add');
-            
-            // ✅ ปิดการโต้ตอบกับ parcel และ boundary (แต่ไม่ปิด building)
-            disableMapInteraction();
-            
-            // ✅ เพิ่ม Event Listener สำหรับคลิกบนแผนที่ (โหมดคำนวณพื้นที่)
-            if (!window.areaCalculatorClickHandler) {
-                window.areaCalculatorClickHandler = function(e) {
-                    // ✅ ข้อสำคัญ: เช็คโหมดก่อน
-                    if (!isAreaCalculatorMode) return;
-                    
-                    // ✅ Stop Propagation ป้องกัน event รั่ว
-                    if (e.originalEvent) {
-                        L.DomEvent.stopPropagation(e.originalEvent);
-                    }
-                    
-                    let clickedBuilding = null;
-                    let clickedGeometryType = 'Polygon';
-                    
-                    // ✅ ตรวจสอบทั้ง window.buildingLayer และ surveyLayers
-                    const layersToCheck = [];
-                    if (window.buildingLayer) layersToCheck.push(window.buildingLayer);
-                    if (window.surveyLayers) layersToCheck.push(window.surveyLayers);
-                    
-                    layersToCheck.forEach(layerGroup => {
-                        if (layerGroup && typeof layerGroup.eachLayer === 'function') {
-                            layerGroup.eachLayer(function(layer) {
-                                if (layer.feature && layer.feature.properties) {
-                                    const layerType = layer.feature.properties.layer || layer.feature.properties.type;
-                                    if (layerType === 'building') {
-                                        if (layer.feature.geometry) {
-                                            clickedGeometryType = layer.feature.geometry.type || 'Polygon';
-                                        }
-                                        if (layer.getBounds && layer.getBounds().contains(e.latlng)) {
-                                            clickedBuilding = layer;
-                                        }
-                                        else if (layer.getLatLng && map.distance(layer.getLatLng(), e.latlng) < 10) {
-                                            clickedBuilding = layer;
-                                        }
-                                    }
-                                }
-                            });
-                        }
-                    });
-                    
-                    // ใน enablePlusCursorForCalculator()
-                    if (clickedBuilding && clickedBuilding.feature && clickedBuilding.feature.geometry) {
-                        const area = calculatePolygonArea(
-                            clickedBuilding.feature.geometry.coordinates,
-                            clickedBuilding.feature.geometry.type  // 'Polygon' หรือ 'MultiPolygon'
-                        );
-                        if (area > 0) {
-                            const input = document.getElementById('calc-input-a');
-                            if (input) {
-                                input.value = area.toFixed(2);  // หน่วยเป็นตารางเมตร
-                                addAreaToAccumulatorA();
-                                showNotificationLeft(`เพิ่มพื้นที่ ${area.toFixed(2)} ตร.ม.`, 'success');
-                            }
-                        }
-                    }
-                };
-                map.on('click', window.areaCalculatorClickHandler);
+            // ✅ ดึง building_area ขึ้นมาชั้นบนสุด
+            if (window.buildingAreaLayer) {
+                window.buildingAreaLayer.bringToFront();
             }
             
-            showNotificationLeft('โหมดคำนวณพื้นที่: คลิกบนสิ่งปลูกสร้างเพื่อเพิ่มพื้นที่อัตโนมัติ', 'info');
+            // ✅ ปิดการโต้ตอบกับ parcel/boundary ชั่วคราว (ป้องกันคลิกผิด)
+            if (window.parcelLayer) window.parcelLayer.setStyle({ interactive: false });
+            if (window.boundaryLayer) window.boundaryLayer.setStyle({ interactive: false });
+            
+            // ✅ สร้าง Cursor แบบ crosshair (+)
+            const mapContainer = document.getElementById('map');
+            const pixmap = document.createElement('canvas');
+            pixmap.width = 32; pixmap.height = 32;
+            const ctx = pixmap.getContext('2d');
+            ctx.strokeStyle = 'white'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(16, 4); ctx.lineTo(16, 28); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(4, 16); ctx.lineTo(28, 16); ctx.stroke();
+            const cursorUrl = pixmap.toDataURL();
+            
+            mapContainer.style.cursor = `url(${cursorUrl}) 16 16, crosshair`;
+            mapContainer.classList.add('cursor-crosshair-add');
+            
+            // ✅ ไม่ต้องเพิ่ม event handler ใหม่ → ใช้คลิกที่ผูกใน onEachFeature แล้ว
+            showNotificationLeft('โหมดคำนวณพื้นที่: คลิกบนสิ่งปลูกสร้างเพื่อเพิ่มพื้นที่', 'info');
+        }
+
+        // ✅ เพิ่มฟังก์ชันสร้าง pane สำหรับ building_area (วางที่ด้านบนสุดของ <script>)
+        function setupBuildingAreaPane() {
+            // สร้าง pane ใหม่ถ้ายังไม่มี (zIndex สูงกว่า layer อื่นๆ)
+            if (!map.getPane('buildingAreaPane')) {
+                const pane = map.createPane('buildingAreaPane');
+                pane.style.zIndex = 800; // สูงกว่า overlayPane (600) และ markerPane (650)
+                pane.style.pointerEvents = 'auto'; // เปิดการคลิก
+            }
+        }
+
+        // ✅ เรียกใช้ฟังก์ชันนี้หลัง initMap()
+        window.onload = function() {
+            initMap();
+            setupBuildingAreaPane(); // ✅ สร้าง pane สำหรับ building_area
+        };
+
+        // ✅ ฟังก์ชันคำนวณพื้นที่ (ใช้ Turf.js - ทำงานได้ 100%)
+        function calculateAreaFromFeature(feature) {
+            try {
+                // ✅ Turf.js คำนวณพื้นที่บนโลกจริงได้แม่นยำ
+                return turf.area(feature).toFixed(2);
+            } catch (e) {
+                console.error("Area Calculation Error:", e);
+                return 0;
+            }
+        }
+
+        // ✅ ฟังก์ชันดึง latlngs สำหรับ GeoJSON ที่ถูกต้อง
+        function getPolygonLatLngs(layer) {
+            // ✅ รองรับทั้ง Polygon และ MultiPolygon
+            let latlngs = layer.getLatLngs();
+            
+            // ✅ สำหรับ MultiPolygon: ใช้ exterior ring ของ polygon แรก
+            if (layer instanceof L.MultiPolygon) {
+                latlngs = latlngs[0][0];
+            } 
+            // ✅ สำหรับ Polygon: ตรวจสอบโครงสร้าง
+            else if (latlngs && latlngs[0] && latlngs[0][0] && latlngs[0][0].lat) {
+                latlngs = latlngs[0];
+            }
+            
+            return latlngs;
+        }
+
+        // ✅ ฟังก์ชันคำนวณพื้นที่จากพิกัด
+        function calculatePolygonAreaFromLatLngs(latlngs) {
+            if (!latlngs || latlngs.length < 3) return 0;
+            
+            const R = 6378137;
+            let area = 0;
+            
+            for (let i = 0; i < latlngs.length; i++) {
+                const p1 = latlngs[i];
+                const p2 = latlngs[(i + 1) % latlngs.length];
+                
+                const lon1 = p1.lng * Math.PI / 180;
+                const lon2 = p2.lng * Math.PI / 180;
+                const lat1 = p1.lat * Math.PI / 180;
+                const lat2 = p2.lat * Math.PI / 180;
+                
+                area += (lon2 - lon1) * (2 + Math.sin(lat1) + Math.sin(lat2));
+            }
+            
+            return Math.abs(area * R * R / 2);
+        }
+
+        // ✅ ฟังก์ชันรีเซ็ตโหมดคำนวณพื้นที่
+        // ✅ ฟังก์ชันรีเซ็ตโหมด (เปิด parcel/boundary กลับมา)
+        function disableAreaCalculatorMode() {
+            isAreaCalculatorMode = false;
+            const mapContainer = document.getElementById('map');
+            
+            // ✅ คืนค่า cursor ปกติ
+            mapContainer.style.cursor = 'default';
+            mapContainer.classList.remove('cursor-crosshair-add');
+            
+            // ✅ เปิดการโต้ตอบกับ parcel และ boundary กลับมา
+            if (window.parcelLayer) {
+                window.parcelLayer.setStyle({ interactive: true });
+                if (window.parcelLayer._path) {
+                    window.parcelLayer._path.style.pointerEvents = 'auto';
+                }
+            }
+            if (window.boundaryLayer) {
+                window.boundaryLayer.setStyle({ interactive: true });
+                if (window.boundaryLayer._path) {
+                    window.boundaryLayer._path.style.pointerEvents = 'auto';
+                }
+            }
+            
+            // ✅ ลบเหตุการณ์คลิก
+            if (window.areaCalculatorClickHandler) {
+                map.off('click', window.areaCalculatorClickHandler);
+                window.areaCalculatorClickHandler = null;
+            }
+            
+            console.log('✅ ปิดโหมดคำนวณพื้นที่');
         }
 
         // ✅ ฟังก์ชันเช็คจุดอยู่ใน Polygon (รองรับ GeoJSON coordinates)
@@ -6751,6 +6955,7 @@ function displayGeoJSONLayer(geoJson, layerName) {
                     return { color: 'orange', fillOpacity: 0.5, weight: 2 };
                 },
                 onEachFeature: function (feature, layer) {
+                    layer.options.fileName = fileName; // fileName คือ "building_area.geojson"
                     layer.on('click', function (e) {
                         L.DomEvent.stopPropagation(e); // ✅ สำคัญ: กันไม่ให้คลิกทะลุไปโดน parcel
                         const area = calculatePolygonArea(layer.getLatLngs());
@@ -6761,50 +6966,78 @@ function displayGeoJSONLayer(geoJson, layerName) {
             }).addTo(map);
         }
 
+        // ✅ ถ้ามีฟังก์ชันนี้อยู่แล้ว ให้แก้ไขให้รองรับ boundary ด้วย
         function disableParcelInteraction() {
             if (window.parcelLayer) {
                 window.parcelLayer.setStyle({ interactive: false });
+                if (window.parcelLayer._path) {
+                    window.parcelLayer._path.style.pointerEvents = 'none';
+                }
+            }
+            // ✅ เพิ่ม boundary ด้วย
+            if (window.boundaryLayer) {
+                window.boundaryLayer.setStyle({ interactive: false });
+                if (window.boundaryLayer._path) {
+                    window.boundaryLayer._path.style.pointerEvents = 'none';
+                }
             }
         }
 
-        // ✅ ฟังก์ชันหลัก: คำนวณพื้นที่จาก Polygon (รองรับทั้ง Polygon และ MultiPolygon)
+        // ✅ ฟังก์ชันคำนวณพื้นที่จาก GeoJSON coordinates (รองรับทั้ง Polygon และ MultiPolygon)
         function calculatePolygonArea(coordinates, geometryType = 'Polygon') {
-            // ✅ กรณี coordinates เป็น undefined หรือว่าง
             if (!coordinates || coordinates.length === 0) {
                 console.warn('⚠️ calculatePolygonArea: coordinates is empty');
                 return 0;
             }
             
             let totalArea = 0;
-            const R = 6378137;
+            const R = 6378137; // รัศมีโลก (เมตร)
             
             if (geometryType === 'MultiPolygon') {
-                for (let polygon of coordinates) {
-                    totalArea += calculateSinglePolygonArea(polygon);
+                // สำหรับ MultiPolygon: coordinates = [ [ [ring] ], [ [ring] ], ... ]
+                for (let i = 0; i < coordinates.length; i++) {
+                    const polygonCoords = coordinates[i];
+                    if (polygonCoords && polygonCoords.length > 0) {
+                        totalArea += calculateSinglePolygonArea(polygonCoords[0], R);
+                    }
                 }
             } else {
-                // ✅ กรณี Polygon: coordinates อาจเป็น [ring] หรือ [[ring]]
-                const rings = Array.isArray(coordinates[0][0][0]) ? coordinates : [coordinates];
-                totalArea = calculateSinglePolygonArea(rings[0]);
+                // สำหรับ Polygon: coordinates = [ [ring], [hole1], [hole2], ... ]
+                // ใช้เฉพาะวงนอกสุด (ดัชนี 0)
+                if (Array.isArray(coordinates[0][0])) {
+                    // รูปแบบ: [ [ [lng, lat], ... ], [ [lng, lat], ... ] ]
+                    totalArea = calculateSinglePolygonArea(coordinates[0], R);
+                } else {
+                    // รูปแบบ: [ [lng, lat], [lng, lat], ... ]
+                    totalArea = calculateSinglePolygonArea(coordinates, R);
+                }
             }
+            
             return totalArea;
         }
 
-        // ✅ ฟังก์ชันย่อย: คำนวณพื้นที่จาก rings เดียว (ใช้วงนอกสุดเท่านั้น)
-        function calculateSinglePolygonArea(rings, R) {
-            if (!rings || rings.length === 0) return 0;
-            const outerRing = rings[0];  // ใช้เฉพาะวงนอก (ไม่รวมรู/holes)
-            if (!outerRing || outerRing.length < 3) return 0;
+        // ✅ ฟังก์ชันย่อย: คำนวณพื้นที่จากวงนอกสุดของโพลิกอน
+        function calculateSinglePolygonArea(ring, R) {
+            if (!ring || ring.length < 3) return 0;
             
             let area = 0;
-            for (let i = 0; i < outerRing.length; i++) {
-                const j = (i + 1) % outerRing.length;
-                const p1 = outerRing[i], p2 = outerRing[j];
-                const lon1 = p1[0] * Math.PI / 180, lon2 = p2[0] * Math.PI / 180;
-                const lat1 = p1[1] * Math.PI / 180, lat2 = p2[1] * Math.PI / 180;
+            const len = ring.length;
+            
+            for (let i = 0; i < len; i++) {
+                const p1 = ring[i];
+                const p2 = ring[(i + 1) % len];
+                
+                // แปลงเป็นเรเดียน
+                const lon1 = p1[0] * Math.PI / 180;
+                const lon2 = p2[0] * Math.PI / 180;
+                const lat1 = p1[1] * Math.PI / 180;
+                const lat2 = p2[1] * Math.PI / 180;
+                
+                // สูตรคำนวณพื้นที่บนทรงกลม
                 area += (lon2 - lon1) * (2 + Math.sin(lat1) + Math.sin(lat2));
             }
-            return Math.abs(area * R * R / 2);  // ✅ คืนค่าบวกเสมอ (ตารางเมตร)
+            
+            return Math.abs(area * R * R / 2); // ตารางเมตร
         }
 
         // ✅ ข้อ 4: ฟังก์ชันเรียก Cursor + กลับมา
@@ -6914,7 +7147,7 @@ function displayGeoJSONLayer(geoJson, layerName) {
             closeAreaCalculatorA();
         }
 
-        // ✅ ฟังก์ชันปิดหน้าต่าง
+        // ปิดหน้าต่างคำนวณพื้นที่ A
         function closeAreaCalculatorA() {
             if (areaCalculatorModalA) {
                 areaCalculatorModalA.classList.add('animate-scale-out');
@@ -6926,20 +7159,8 @@ function displayGeoJSONLayer(geoJson, layerName) {
                     areaAccumulatorA = 0;
                     areaHistoryA = [];
                     
-                    // ✅ รีเซ็ต Cursor และสถานะ
-                    isAreaCalculatorMode = false;  // ✅ สำคัญ: ปิดโหมด
-                    const mapContainer = document.getElementById('map');
-                    mapContainer.style.cursor = 'default !important';
-                    mapContainer.classList.remove('cursor-crosshair-add');
-                    
-                    // ✅ เปิดการโต้ตอบกับ layers กลับมา
-                    enableMapInteraction();
-                    
-                    // ✅ ลบ Event Listener
-                    if (window.areaCalculatorClickHandler) {
-                        map.off('click', window.areaCalculatorClickHandler);
-                        window.areaCalculatorClickHandler = null;
-                    }
+                    // ✅ รีเซ็ตโหมดคำนวณพื้นที่
+                    disableAreaCalculatorMode();
                 }, 200);
             }
         }
@@ -7052,9 +7273,6 @@ function displayGeoJSONLayer(geoJson, layerName) {
             // กรณีปกติ
             return value || '';
         }
-
-
-
 
 
         // ประยุกต์การเปลี่ยนแปลงเฉพาะจุด
@@ -7184,7 +7402,7 @@ function displayGeoJSONLayer(geoJson, layerName) {
             markerCluster.addTo(map);
         }
 
-        // แปลงลิงก์ Google Drive เป็นลิงก์썸เนลที่ใช้ได้กับ <img> (วิธีที่ใช้งานได้จริง)
+        // แปลงลิงก์ Google Drive เป็นลิงก์เนลที่ใช้ได้กับ <img> (วิธีที่ใช้งานได้จริง)
         function convertDriveUrlToDirect(url) {
             if (!url) return url;
             url = url.trim();
@@ -7617,66 +7835,64 @@ function displayGeoJSONLayer(geoJson, layerName) {
         // จัดการไฟล์แผนที่ที่เลือก (รองรับทั้ง 3 ไฟล์)
         // ============================================
         async function handleMapFileSelect(event) {
-            const file = event.target.files[0];
-            if (!file) return;
+          const file = event.target.files[0];
+          if (!file) return;
+          
+          // ✅ ตรวจสอบนามสกุลไฟล์
+          if (!file.name.toLowerCase().endsWith('.geojson') && 
+              !file.name.toLowerCase().endsWith('.json')) {
+            showNotificationLeft('❌ กรุณาเลือกไฟล์ .geojson หรือ .json เท่านั้น', 'error');
+            return;
+          }
+          
+          try {
+            showNotificationLeft('📂 กำลังโหลดแผนที่...', 'info');
             
-            // ✅ ตรวจสอบนามสกุลไฟล์
-            if (!file.name.toLowerCase().endsWith('.geojson') && 
-                !file.name.toLowerCase().endsWith('.json')) {
-                showNotificationLeft('❌ กรุณาเลือกไฟล์ .geojson หรือ .json เท่านั้น', 'error');
-                return;
+            // ✅ อ่านไฟล์เป็น text
+            const text = await file.text();
+            console.log('📄 ขนาดไฟล์:', text.length, 'bytes');
+            
+            // ✅ Parse JSON
+            const geoJson = JSON.parse(text);
+            console.log('📊 โครงสร้าง GeoJSON:', geoJson);
+            
+            // ✅ ตรวจสอบโครงสร้าง
+            if (!geoJson.type || geoJson.type !== 'FeatureCollection') {
+              throw new Error('รูปแบบไฟล์ไม่ถูกต้อง (ต้องเป็น FeatureCollection)');
             }
             
-            try {
-                showNotificationLeft('📂 กำลังโหลดแผนที่...', 'info');
-                
-                // ✅ อ่านไฟล์เป็น text
-                const text = await file.text();
-                console.log('📄 ขนาดไฟล์:', text.length, 'bytes');
-                
-                // ✅ Parse JSON
-                const geoJson = JSON.parse(text);
-                console.log('📊 โครงสร้าง GeoJSON:', geoJson);
-                
-                // ✅ ตรวจสอบโครงสร้าง
-                if (!geoJson.type || geoJson.type !== 'FeatureCollection') {
-                    throw new Error('ไฟล์ไม่ใช่ GeoJSON ที่ถูกต้อง (ต้องมี type: FeatureCollection)');
-                }
-                
-                // ✅ ตรวจสอบ features
-                if (!geoJson.features || !Array.isArray(geoJson.features)) {
-                    throw new Error('ไฟล์ GeoJSON ไม่มี features หรือ features ไม่ใช่ Array');
-                }
-                
-                console.log(`✅ จำนวน features: ${geoJson.features.length}`);
-                
-                // ✅ ตรวจจับประเภทไฟล์จากชื่อ
-                let layerType = 'all';
-                if (file.name.toLowerCase().includes('parcel')) layerType = 'parcel';
-                else if (file.name.toLowerCase().includes('boundary')) layerType = 'boundary';
-                else if (file.name.toLowerCase().includes('building')) layerType = 'building';
-                
-                // ✅ บันทึกใน IndexedDB
-                await cacheMapData(JSON.stringify(geoJson), new Date().toISOString(), layerType);
-                
-                // ✅ โหลดแผนที่
-                await loadMapFromCache(geoJson, layerType);
-                
-                const layerNames = {
-                    parcel: 'แผนที่แปลง',
-                    boundary: 'แผนที่ขอบเขต',
-                    building: 'แผนที่สิ่งปลูกสร้าง',
-                    all: 'แผนที่'
-                };
-                
-                showNotificationLeft(`✅ โหลด${layerNames[layerType]}สำเร็จ!`, 'success');
-            } catch (err) {
-                console.error('❌ ข้อผิดพลาดในการโหลดแผนที่:', err);
-                showNotificationLeft('❌ โหลดแผนที่ล้มเหลว: ' + err.message, 'error');
+            // ✅ ระบุประเภทแผนที่จากชื่อไฟล์
+            let layerType = '';
+            if (file.name.toLowerCase().includes('parcel')) layerType = 'parcel';
+            else if (file.name.toLowerCase().includes('boundary')) layerType = 'boundary';
+            // ✅ เปลี่ยนจาก 'building_a' เป็น 'building_area'
+            else if (file.name.toLowerCase().includes('building_area')) layerType = 'building_area';
+            else {
+              showNotificationLeft('⚠️ ไม่สามารถระบุประเภทแผนที่ได้', 'warning');
+              return;
             }
             
-            // ✅ รีเซ็ต input
-            event.target.value = '';
+            // ✅ บันทึกใน IndexedDB
+            await cacheMapData(JSON.stringify(geoJson), new Date().toISOString(), layerType);
+            
+            // ✅ โหลดแผนที่
+            await loadMapFromCache(geoJson, layerType);
+            
+            const layerNames = {
+              parcel: 'แผนที่แปลง',
+              boundary: 'แผนที่ขอบเขต',
+              building_area: 'แผนที่สิ่งปลูกสร้าง',
+              all: 'แผนที่'
+            };
+            showNotificationLeft(`✅ โหลด${layerNames[layerType]}สำเร็จ!`, 'success');
+            
+          } catch (err) {
+            console.error('❌ ข้อผิดพลาดในการโหลดแผนที่:', err);
+            showNotificationLeft('❌ โหลดแผนที่ล้มเหลว: ' + err.message, 'error');
+          }
+          
+          // ✅ รีเซ็ต input
+          event.target.value = '';
         }
 
         // ============================================
@@ -7697,7 +7913,7 @@ function displayGeoJSONLayer(geoJson, layerName) {
             const layerNames = {
                 parcel: 'แผนที่แปลง',
                 boundary: 'แผนที่ขอบเขต',
-                building: 'แผนที่สิ่งปลูกสร้าง'
+                building_area: 'แผนที่สิ่งปลูกสร้าง'
             };
             
             const fileName = config.fileName;
@@ -7916,7 +8132,7 @@ function displayGeoJSONLayer(geoJson, layerName) {
                 const keysToRemove = [
                     'parcel_geojson_last_modified',
                     'boundary_geojson_last_modified',
-                    'building_geojson_last_modified',
+                    'building_area_geojson_last_modified',
                     'mapCache'
                 ];
                 
@@ -7946,6 +8162,31 @@ function displayGeoJSONLayer(geoJson, layerName) {
             }
         }
 
+        // ✅ เปลี่ยนชื่อฟังก์ชันเพื่อไม่ให้ซ้ำ
+        async function exportGeoJSON(layerType) {
+          try {
+            const geoJson = await getMapGeoJSON(layerType);
+            const blob = new Blob([JSON.stringify(geoJson, null, 2)], {type: 'application/geo+json'});
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            
+            // ✅ เปลี่ยนชื่อไฟล์สำหรับแผนที่สิ่งปลูกสร้าง
+            if (layerType === 'building') {
+              a.download = `building_area_${new Date().toISOString().slice(0,10)}.geojson`;
+            } else {
+              a.download = `${layerType}_${new Date().toISOString().slice(0,10)}.geojson`;
+            }
+            
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            showNotificationLeft(`ดาวน์โหลดไฟล์ ${layerType} สำเร็จ!`, 'success');
+          } catch (err) {
+            showNotificationLeft('เกิดข้อผิดพลาดในการดาวน์โหลด', 'error');
+          }
+        }
 
         // ============================================
         // ฟังก์ชันแสดงชื่อไฟล์ที่เลือก
