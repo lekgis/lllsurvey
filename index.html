@@ -172,6 +172,69 @@
             color: #065f46; 
         }
 
+        /* ============================================
+        ปุ่มแอคชั่นในหน้าต่างแสดงรูปภาพ
+        ============================================ */
+        .image-action-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* ============================================
+        Floating Modal สำหรับ Gemini
+        ============================================ */
+        #gemini-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 800px;
+            height: 80vh;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            z-index: 5000;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        #gemini-modal iframe {
+            flex: 1;
+            border: none;
+            width: 100%;
+            height: 100%;
+        }
+
+        #gemini-modal-header {
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #4285f4, #9b72cb);
+            color: white;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        #gemini-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 4999;
+            display: none;
+        }
+
+        /* Responsive สำหรับมือถือ */
+        @media (max-width: 768px) {
+            #gemini-modal {
+                width: 95%;
+                height: 85vh;
+            }
+        }
+
         /* ✅ สไตล์สำหรับป้ายชื่อแปลง (parcel_cod) */
         .parcel-label {
             background: transparent !important;
@@ -1840,6 +1903,18 @@
               }
           }
 
+          // ✅ === เพิ่มส่วนนี้: ดึงรหัสแปลงอัตโนมัติเมื่อเพิ่มจุดใหม่ ===
+            // ตรวจสอบว่าเป็นการ "เพิ่มใหม่" จริงๆ (ยังไม่มี _row_num หรือ id จากระบบ)
+            // และไม่ใช่จุดชั่วคราวที่รอซิงค์
+          if (!data._row_num && !data.id) { 
+              const parcelCod = getParcelCodeAtLocation(latlng);
+              if (parcelCod) {
+                  data.parcel_cod_temp = parcelCod; // ใส่ค่าลงในข้อมูลที่จะส่งฟอร์ม
+                  console.log(`✅ Auto-fill parcel_cod: ${parcelCod}`);
+              }
+          }
+          // ✅ ==============================================
+
           // ✅ ทำเครื่องหมายในมาร์กเกอร์ว่าเป็นชั่วคราว
           marker._popupData = { ...data, type: type, tempMarker: true };
           setupMarkerPopup(marker, marker._popupData, type);
@@ -2838,7 +2913,15 @@
                 }
                 
                 // ✅ ดึงค่าฟิลด์
+                // ✅ ดึงค่าฟิลด์ (แก้ไขเพื่อรองรับ auto-fill parcel_cod_temp)
                 let fieldValue = data[f.id] || '';
+
+                // ✅ กรณีพิเศษ: ถ้าเป็นรหัสแปลง (parcel_cod_temp) และไม่มีค่าใน data
+                // ให้ลองดึงจาก parcel_cod_temp ที่เราเติมไว้ใน backgroundUpload
+                if (f.id === 'parcel_cod_temp' && !fieldValue && data.parcel_cod_temp) {
+                    fieldValue = data.parcel_cod_temp;
+                }
+
                 if (f.id === 'check') {
                     if (fieldValue === 'ตรวจสอบแล้ว') {
                         // คงค่าไว้
@@ -7958,39 +8041,197 @@
                 return;
             }
             
-            // ✅ แสดงองค์ประกอบ
             container.style.display = 'flex';
-            
-            // ✅ แปลงลิงก์ Google Drive เป็นลิงก์ดาวน์โหลดตรง (สำคัญที่สุด!)
             const directUrl = convertDriveUrlToDirect(imageUrl);
-            console.log('🖼️ ลิงก์รูปภาพ (หลังแปลง):', directUrl);
             
-            // โหลดรูปภาพด้วยลิงก์ที่แปลงแล้ว
-            img.src = directUrl; // ✅ ใช้ directUrl แทน imageUrl
+            img.src = directUrl;
             img.alt = fileName || 'รูปภาพ';
             img.classList.remove('hidden');
             placeholder.classList.add('hidden');
             
-            // จัดการกรณีโหลดรูปภาพล้มเหลว
             img.onerror = () => {
                 img.classList.add('hidden');
                 placeholder.textContent = '❌ ไม่สามารถโหลดรูปภาพได้';
                 placeholder.classList.remove('hidden');
                 placeholder.classList.add('text-red-400');
-                console.error('❌ โหลดรูปภาพล้มเหลว:', directUrl);
             };
             
-            // ✅ ปรับตำแหน่งตามสถานะของตาราง
+            // ✅ === เพิ่มปุ่มคัดลอกและแปลงข้อความใน header ===
+            const header = container.querySelector('.table-header .flex.items-center.justify-between');
+            if (header) {
+                // ลบปุ่มเก่าถ้ามี (ป้องกันซ้ำ)
+                const oldButtons = header.querySelectorAll('.image-action-btn');
+                oldButtons.forEach(btn => btn.remove());
+                
+                // ปุ่มคัดลอก
+                const copyBtn = document.createElement('button');
+                copyBtn.className = 'image-action-btn p-2 hover:bg-white/20 rounded-full transition mr-1';
+                copyBtn.innerHTML = '<i data-lucide="copy" class="w-5 h-5 text-white"></i>';
+                copyBtn.title = 'คัดลอกรูปภาพ';
+                copyBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    copyImageToClipboard(directUrl, fileName);
+                };
+                
+                // ปุ่มแปลงข้อความ
+                const convertBtn = document.createElement('button');
+                convertBtn.className = 'image-action-btn p-2 hover:bg-white/20 rounded-full transition';
+                convertBtn.innerHTML = '<i data-lucide="file-text" class="w-5 h-5 text-white"></i>';
+                convertBtn.title = 'แปลงข้อความ';
+                convertBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    openGeminiModal(directUrl);
+                };
+                
+                // แทรกปุ่มก่อนปุ่มปิด (X)
+                const closeBtn = header.querySelector('button[onclick="hideImagePreview()"]');
+                if (closeBtn) {
+                    header.insertBefore(copyBtn, closeBtn);
+                    header.insertBefore(convertBtn, closeBtn);
+                }
+                
+                // รีเฟรชไอคอน Lucide
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
+            
+            // ปรับตำแหน่งตามตาราง
             const tablePanel = document.getElementById('data-table-panel');
             if (tablePanel && tablePanel.classList.contains('open')) {
                 container.style.bottom = `calc(5px + 45vh + 10px)`;
             } else {
                 container.style.bottom = '5px';
             }
-            
-            // ✅ สร้างไอคอน Lucide สำหรับปุ่มปิด
-            lucide.createIcons();
         }
+
+        // ✅ ฟังก์ชันค้นหา parcel_cod จากตำแหน่งพิกัด (ใช้ Turf.js)
+        function getParcelCodeAtLocation(latlng) {
+            // ตรวจสอบว่า layer โหลดพร้อมหรือยัง
+            if (!window.parcelLayer) {
+                console.warn('⚠️ parcelLayer ไม่พร้อมใช้งาน');
+                return null;
+            }
+            
+            const point = turf.point([latlng.lng, latlng.lat]); // Turf ใช้ [lng, lat]
+            let foundParcelCod = null;
+            
+            // วนลูปค้นหาทุก Polygon ใน layer
+            window.parcelLayer.eachLayer(function(layer) {
+                if (foundParcelCod) return; // เจอแล้วไม่ต้องหาต่อ
+                
+                if (!layer.feature || !layer.feature.geometry) return;
+                
+                try {
+                    // สร้าง Polygon Object จาก GeoJSON
+                    const polygon = turf.polygon(layer.feature.geometry.coordinates);
+                    
+                    // ตรวจสอบว่าจุดนี้อยู่ใน Polygon หรือไม่
+                    if (turf.booleanPointInPolygon(point, polygon)) {
+                        // ดึงค่า parcel_cod (รองรับทั้งพิมพ์เล็ก/ใหญ่)
+                        foundParcelCod = layer.feature.properties?.parcel_cod || 
+                                         layer.feature.properties?.Parcel_cod || 
+                                         null;
+                    }
+                } catch (err) {
+                    console.error('❌ Error checking parcel polygon:', err);
+                }
+            });
+            
+            return foundParcelCod;
+        }
+
+        // ✅ ฟังก์ชันคัดลอกรูปภาพไปยังคลิปบอร์ด
+        async function copyImageToClipboard(imageUrl, fileName) {
+            try {
+                showNotificationLeft('📋 กำลังคัดลอกรูปภาพ...', 'info');
+                
+                // โหลดรูปภาพเป็น blob
+                const response = await fetch(imageUrl);
+                const blob = await response.blob();
+                
+                // สร้าง ClipboardItem
+                const clipboardItem = new ClipboardItem({ [blob.type]: blob });
+                
+                // คัดลอกไปยังคลิปบอร์ด
+                await navigator.clipboard.write([clipboardItem]);
+                
+                showNotificationLeft('✅ คัดลอกรูปภาพสำเร็จ! สามารถวางได้ด้วย Ctrl+V หรือแตะค้างเพื่อวาง', 'success');
+            } catch (err) {
+                console.error('Copy failed:', err);
+                
+                // Fallback: ใช้ canvas
+                try {
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.src = imageUrl;
+                    
+                    img.onload = async () => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0);
+                        
+                        canvas.toBlob(async (blob) => {
+                            try {
+                                const clipboardItem = new ClipboardItem({ 'image/png': blob });
+                                await navigator.clipboard.write([clipboardItem]);
+                                showNotificationLeft('✅ คัดลอกรูปภาพสำเร็จ!', 'success');
+                            } catch (e) {
+                                showNotificationLeft('⚠️ ไม่สามารถคัดลอกอัตโนมัติได้ กรุณาแตะค้างที่รูปภาพแล้วเลือก "คัดลอกรูปภาพ"', 'warning');
+                            }
+                        }, 'image/png');
+                    };
+                } catch (e2) {
+                    showNotificationLeft('⚠️ ไม่สามารถคัดลอกอัตโนมัติได้ กรุณาแตะค้างที่รูปภาพแล้วเลือก "คัดลอกรูปภาพ"', 'warning');
+                }
+            }
+        }
+
+
+        // ✅ เปิด Gemini ในแท็บใหม่ เพื่อแปลงข้อความป้าย
+        async function openGeminiModal(imageUrl) {
+            try {
+                
+                // ✅ เปิด Gemini ในแท็บใหม่
+                const geminiUrl = 'https://gemini.google.com/share/a68b5681bf0c';
+                const newTab = window.open(geminiUrl, '_blank');
+                
+                if (!newTab || newTab.closed || typeof newTab.closed === 'undefined') {
+                    showNotificationLeft('⚠️ เบราว์เซอร์บล็อก Pop-up กรุณาอนุญาต', 'warning');
+                    return;
+                }
+                
+                // ✅ แสดงคำแนะนำผู้ใช้ (ฝั่งซ้าย)
+                const instruction = document.createElement('div');
+                instruction.className = 'fixed top-4 left-4 z-[9999] px-4 py-3 rounded-lg shadow-lg text-white font-medium bg-blue-600 animate-fade-in';
+                instruction.innerHTML = `
+                    <div class="flex items-start gap-2 max-w-sm">
+                        <i data-lucide="info" class="w-5 h-5 mt-0.5"></i>
+                        <div>
+                            <p class="font-bold">วิธีใช้ Gemini วิเคราะห์รูปภาพ:</p>
+                            <ol class="text-sm mt-1 list-decimal list-inside">
+                                <li>คลิกปุ่ม 📎 หรือ 🖼️ ใน Gemini</li>
+                                <li>วางลิงก์ที่คัดลอกไว้ (Ctrl+V)</li>
+                                <li>หรืออัปโหลดรูปจากเครื่องโดยตรง</li>
+                            </ol>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(instruction);
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+                
+                // ✅ ซ่อนคำแนะนำหลัง 8 วินาที
+                setTimeout(() => {
+                    instruction.classList.add('animate-fade-out');
+                    setTimeout(() => instruction.remove(), 300);
+                }, 8000);
+                
+            } catch (err) {
+                console.error('Error opening Gemini:', err);
+                showNotificationLeft('❌ ไม่สามารถเปิด Gemini ได้', 'error');
+            }
+        }
+
 
         // ซ่อนองค์ประกอบแสดงรูปภาพ (เมื่อผู้ใช้คลิกปุ่มปิด)
         function hideImagePreview() {
