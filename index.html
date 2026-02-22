@@ -2043,17 +2043,14 @@
 
                 // ✅ ===== START: เปลี่ยนชื่อไฟล์รูปเดิมก่อนอัปโหลดรูปใหม่ =====
                 if (editingMarker && editingMarker._popupData) {
-                  const oldPicture = editingMarker._popupData.picture;
-                  if (oldPicture && oldPicture.trim() !== '' && oldPicture !== 'image.jpg') {
-                    const folderType = markerType === 'building' ? 'building' : 'sign'; // ✅ แก้เป็น 'building'/'sign' ให้ตรงกับโฟลเดอร์
-                    
-                    // ✅ รอให้เปลี่ยนชื่อเสร็จก่อน (หรือใช้ fire-and-forget ถ้าไม่ต้องการรอ)
-                    try {
-                      await renameOldImageInDrive(oldPicture, folderType);
-                    } catch (err) {
-                      console.warn('⚠️ เปลี่ยนชื่อไฟล์เก่าล้มเหลว แต่ดำเนินการต่อ:', err);
+                    const oldPicture = editingMarker._popupData.picture;
+                    if (oldPicture && oldPicture.trim() !== '' && oldPicture !== 'image.jpg') {
+                        const folderType = markerType === 'building' ? 'buildings' : 'signs';
+                        // เรียกเปลี่ยนชื่อแบบไม่บล็อก (fire-and-forget) เพื่อไม่ให้ช้า
+                        renameOldImageInDrive(oldPicture, folderType).catch(err => {
+                            console.warn('เปลี่ยนชื่อไฟล์เก่าล้มเหลว แต่ดำเนินการต่อ:', err);
+                        });
                     }
-                  }
                 }
                 // ✅ ===== END: เปลี่ยนชื่อไฟล์รูปเดิม =====
 
@@ -3833,48 +3830,37 @@
           }
         }
 
-        // ✅ ฟังก์ชันเปลี่ยนชื่อไฟล์รูปเดิมใน Google Drive
-        async function renameOldImageInDrive(oldPictureUrl, folderType) {
-          if (!oldPictureUrl || oldPictureUrl === 'image.jpg') return;
-          
-          try {
-            // ✅ ดึง fileId จาก URL
-            const fileIdMatch = oldPictureUrl.match(/\/d\/([^\/\?]+)/);
-            if (!fileIdMatch || !fileIdMatch[1]) {
-              console.warn('⚠️ ไม่สามารถแยก fileId จาก:', oldPictureUrl);
-              return;
+        // ✅ ฟังก์ชันเปลี่ยนชื่อไฟล์รูปเดิมใน Google Drive โดยเติม ZZZZ_ หน้าชื่อ
+        async function renameOldImageInDrive(oldFileName, folderType) {
+            if (!oldFileName || oldFileName.trim() === '' || oldFileName.startsWith('ZZZZ_')) {
+                return true; // ไม่มีไฟล์เก่า หรือถูกเปลี่ยนชื่อแล้ว
             }
-            const fileId = fileIdMatch[1];
             
-            // ✅ สร้างชื่อใหม่: ZZZZ_ + ชื่อไฟล์เดิม
-            const oldFileName = oldPictureUrl.split('/').pop()?.split('?')[0] || '';
-            const newFileName = `ZZZZ_${oldFileName}`;
-            
-            console.log(`🔄 กำลังเปลี่ยนชื่อ: ${oldFileName} → ${newFileName}`);
-            
-            // ✅ เรียก Apps Script endpoint
-            const res = await fetch(CONFIG.SCRIPT_URL, {
-              method: 'POST',
-              body: new URLSearchParams({
-                action: 'renameFile',
-                fileId: fileId,
-                newName: newFileName
-              })
-            });
-            
-            const result = await res.json();
-            
-            if (result.success) {
-              console.log(`✅ เปลี่ยนชื่อไฟล์สำเร็จ: ${result.oldName} → ${result.newName}`);
-              return true;
-            } else {
-              console.warn('❌ เปลี่ยนชื่อล้มเหลว:', result.error);
-              return false;
+            try {
+                const body = new URLSearchParams();
+                body.append('action', 'renameFile');
+                body.append('fileName', oldFileName);
+                body.append('newName', `ZZZZ_${oldFileName}`);
+                body.append('folderType', folderType);
+                
+                const res = await fetch(CONFIG.SCRIPT_URL.trim(), {
+                    method: 'POST',
+                    body: body,
+                    timeout: 30000
+                });
+                
+                const result = await res.json();
+                if (res.ok && result.success) {
+                    console.log(`✅ เปลี่ยนชื่อไฟล์เก่า: ${oldFileName} → ZZZZ_${oldFileName}`);
+                    return true;
+                } else {
+                    console.warn(`⚠️ ไม่สามารถเปลี่ยนชื่อไฟล์เก่า: ${oldFileName}`, result);
+                    return false; // ไม่หยุดกระบวนการหลัก
+                }
+            } catch (err) {
+                console.error(`❌ ข้อผิดพลาดในการเปลี่ยนชื่อไฟล์เก่า: ${oldFileName}`, err);
+                return false; // ไม่หยุดกระบวนการหลัก
             }
-          } catch (err) {
-            console.error('❌ Error renaming old image:', err);
-            return false;
-          }
         }
 
         // ============================================
@@ -5596,49 +5582,37 @@
                         });
                     }
                     // ✅ เพิ่มส่วนนี้สำหรับ building_area
-                    // ✅ ในส่วน onEachFeature ของ building_area
+                    // ✅ ในส่วนจัดการคลิก building_area.geojson (แทนที่โค้ดเดิมทั้งหมด)
                     else if (layerName === 'building_area') {
                         polygonLayer.on({
                             click: function(e) {
                                 L.DomEvent.stopPropagation(e);
                                 
-                                // ✅ ตรวจสอบโหมดคำนวณพื้นที่ A
+                                // ✅ ข้อ 1: ทำงานเฉพาะเมื่อเปิดโหมดคำนวณพื้นที่ A เท่านั้น
+                                // ถ้าไม่ได้เปิดหน้าต่าง A จากปุ่ม A ใน panel → ไม่ทำอะไร
                                 if (!isAreaCalculatorMode) {
-                                    console.log('ℹ️ โหมดคำนวณพื้นที่ A ไม่เปิดอยู่');
+                                    console.log('ℹ️ โหมดคำนวณพื้นที่ A ไม่เปิดอยู่ - ไม่ประมวลผล');
                                     return;
                                 }
                                 
-                                // ✅ คำนวณพื้นที่
+                                // ✅ คำนวณพื้นที่จาก feature เดิมด้วย Turf.js
                                 const area = parseFloat(turf.area(feature).toFixed(2));
-                                const input = document.getElementById('calc-input-a');
                                 
+                                // ✅ ข้อ 2: กรอกค่าในช่อง input + กดปุ่ม "+ เพิ่ม" อัตโนมัติ (ใช้ฟังก์ชันเดิม)
+                                const input = document.getElementById('calc-input-a');
                                 if (input && area > 0) {
+                                    // กรอกค่าพื้นที่ในช่อง input
                                     input.value = area.toFixed(2);
                                     
-                                    // ✅ กดปุ่ม "+ บวก" อัตโนมัติ
+                                    // ✅ กดปุ่ม "+ เพิ่ม" ที่มีอยู่เดิมอัตโนมัติ (ไม่ต้องสร้างฟังก์ชันใหม่)
                                     const addBtn = document.querySelector('button[onclick="addAreaToAccumulatorA()"]');
                                     if (addBtn) {
-                                        // ✅ ป้องกันไม่ให้ปิดโหมดหลังคลิก
-                                        addBtn.onclick = function(evt) {
-                                            evt.stopPropagation();
-                                            addAreaToAccumulatorA();
-                                            // ✅ ยืนยันว่าโหมดคำนวณยังเปิดอยู่ (สำคัญสำหรับมือถือ)
-                                            if (isAreaCalculatorMode && !hasMouse) {
-                                                const crosshair = document.getElementById('crosshair');
-                                                const addTrigger = document.getElementById('add-trigger-container');
-                                                if (crosshair) {
-                                                    crosshair.classList.remove('hidden');
-                                                    crosshair.classList.add('visible');
-                                                }
-                                                if (addTrigger) {
-                                                    addTrigger.classList.remove('hidden');
-                                                    addTrigger.classList.add('visible');
-                                                }
-                                            }
-                                        };
-                                        addBtn.click();
+                                        addBtn.click(); // ใช้ฟังก์ชันเดิม addAreaToAccumulatorA()
                                     }
+                                    
+                                    // แสดงผลลัพธ์
                                     showNotificationLeft(`✅ +${area.toFixed(2)} ตร.ม.`, 'success');
+                                    console.log(`✅ บวกพื้นที่: ${area.toFixed(2)} ตร.ม.`);
                                 }
                             }
                         });
@@ -7328,6 +7302,7 @@
             
             areaAccumulatorA += val;
             areaHistoryA.push(val);
+            
             resultDisplay.value = areaAccumulatorA.toFixed(2);
             
             if (historyDisplay) {
@@ -7336,22 +7311,6 @@
             
             input.value = '';
             input.focus();
-            
-            // ✅ เพิ่มบรรทัดนี้: ยืนยันว่าเป้าเล็งยังแสดงอยู่บนมือถือ
-            if (isAreaCalculatorMode && !hasMouse) {
-                setTimeout(() => {
-                    const crosshair = document.getElementById('crosshair');
-                    const addTrigger = document.getElementById('add-trigger-container');
-                    if (crosshair) {
-                        crosshair.classList.remove('hidden');
-                        crosshair.classList.add('visible');
-                    }
-                    if (addTrigger) {
-                        addTrigger.classList.remove('hidden');
-                        addTrigger.classList.add('visible');
-                    }
-                }, 100);
-            }
             
             showNotificationLeft(`บวก ${val.toFixed(2)} ตร.ม. (รวม: ${areaAccumulatorA.toFixed(2)} ตร.ม.)`, 'success');
         }
