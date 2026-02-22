@@ -2670,7 +2670,7 @@
                 },
                 { 
                     id: 'bcode_temp', 
-                    label: 'รหัสสิ่งปลูกสร้าง', 
+                    label: 'ลำดับหลัง', 
                     type: 'select',
                     options: ['', 'B001', 'B002', 'B003', 'B004', 'B005', 'B006', 'B007', 'B008', 'B009', 'B010', 'B011', 'B012', 'B013', 'B014', 'B015', 'B016', 'B017', 'B018', 'B019', 'B020', 'B021', 'B022', 'B023', 'B024', 'B025', 'B026', 'B027', 'B028', 'B029', 'B030'],
                     allowCustom: false,
@@ -2681,7 +2681,7 @@
                 // ✅ ฟิลด์ building_c แบบอ่านอย่างเดียว (สร้างอัตโนมัติ)
                 { 
                     id: 'building_c', 
-                    label: 'รหัสสิ่งปลูกสร้าง (เต็ม)', 
+                    label: 'รหัสสิ่งปลูกสร้าง', 
                     type: 'text',
                     readonly: true,
                     description: 'ค่านี้สร้างอัตโนมัติจาก 2 ฟิลด์ด้านบน',
@@ -5705,15 +5705,12 @@
         async function loadMapFromCache(geoJsonData, layerType = 'all') {
             try {
                 console.log('🗺️ Loading GeoJSON from cache, layerType:', layerType);
-                
                 if (!geoJsonData) throw new Error('ไม่มีข้อมูลแผนที่');
-                
                 let geoJson = typeof geoJsonData === 'string' ? JSON.parse(geoJsonData) : geoJsonData;
                 
                 if (!geoJson.type || geoJson.type !== 'FeatureCollection') {
                     throw new Error('ไฟล์ไม่ใช่ GeoJSON ที่ถูกต้อง');
                 }
-                
                 if (!geoJson.features || !Array.isArray(geoJson.features)) {
                     console.warn('⚠️ GeoJSON ไม่มี features');
                     geoJson.features = [];
@@ -5721,23 +5718,34 @@
                 
                 console.log(`📊 Total features: ${geoJson.features.length}`);
                 
-                // ✅ กรณี 1: โหลดไฟล์เดี่ยว (boundary.geojson, building_area.geojson, parcel.geojson)
-                // → โหลดทั้งหมดเป็นเลเยอร์นั้น ไม่ต้องกรองตาม properties
+                // ✅ กรณี 1: โหลดไฟล์เดี่ยว (parcel.geojson, boundary.geojson, building_area.geojson)
                 if (layerType !== 'all') {
                     displayGeoJSONLayer(geoJson, layerType);
                     console.log(`✅ โหลดเลเยอร์ ${layerType}: ${geoJson.features.length} features`);
-                } 
-                // ✅ กรณี 2: โหลดไฟล์ผสมที่มีหลายเลเยอร์ (layerType === 'all')
-                // → กรองฟีเจอร์ตาม properties.layer หรือ properties.type
+                    return; // ✅ สำคัญ: return ที่นี่เพื่อไม่ให้ไปกรองต่อ
+                }
+                
+                // ✅ กรณี 2: โหลดไฟล์ผสมที่มีหลายเลเยอร์
                 else {
+                    // ✅ อ่านชื่อเลเยอร์จาก property "name" ที่ระดับ root
+                    const rootLayerName = geoJson.name?.toLowerCase();
+                    
                     ['parcel', 'boundary', 'building_area'].forEach(targetLayer => {
-                        const layerFeatures = geoJson.features.filter(f => {
-                            const fLayer = f.properties?.layer || f.properties?.type;
-                            // ✅ แก้: ลบ !fLayer ออก → โหลดเฉพาะฟีเจอร์ที่ระบุ layer ชัดเจน
-                            return fLayer === targetLayer;
-                        });
+                        let layerFeatures = [];
                         
-                        console.log(`🔍 ${targetLayer}: filtered ${layerFeatures.length} features`);
+                        // ถ้าไฟล์มี name ที่ root และตรงกับ targetLayer → ใช้ features ทั้งหมด
+                        if (rootLayerName && rootLayerName === targetLayer) {
+                            layerFeatures = geoJson.features;
+                            console.log(`🔍 ${targetLayer}: ใช้ทั้งหมด ${layerFeatures.length} features (จาก root.name)`);
+                        } 
+                        // ไม่อย่างนั้นกรองตาม properties.layer หรือ properties.type
+                        else {
+                            layerFeatures = geoJson.features.filter(f => {
+                                const fLayer = (f.properties?.layer || f.properties?.type)?.toLowerCase();
+                                return fLayer === targetLayer;
+                            });
+                            console.log(`🔍 ${targetLayer}: filtered ${layerFeatures.length} features (จาก properties)`);
+                        }
                         
                         if (layerFeatures.length > 0) {
                             const layerGeoJson = {
@@ -5748,7 +5756,6 @@
                         }
                     });
                 }
-                
                 console.log('✅ Map loaded successfully');
                 showNotificationLeft('โหลดแผนที่สำเร็จ!', 'success');
             } catch (err) {
@@ -8056,31 +8063,28 @@
 
         // ✅ ฟังก์ชันค้นหา parcel_cod จากตำแหน่งพิกัด (ใช้ Turf.js)
         function getParcelCodeAtLocation(latlng) {
-            // ตรวจสอบว่า layer โหลดพร้อมหรือยัง
+            // ✅ ตรวจสอบว่า parcelLayer โหลดพร้อมหรือยัง
             if (!window.parcelLayer) {
-                console.warn('⚠️ parcelLayer ไม่พร้อมใช้งาน');
+                console.warn('⚠️ parcelLayer ยังไม่พร้อม - รอโหลดแผนที่เสร็จก่อน');
                 return null;
             }
             
-            const point = turf.point([latlng.lng, latlng.lat]); // Turf ใช้ [lng, lat]
+            const point = turf.point([latlng.lng, latlng.lat]);
             let foundParcelCod = null;
             
-            // วนลูปค้นหาทุก Polygon ใน layer
             window.parcelLayer.eachLayer(function(layer) {
-                if (foundParcelCod) return; // เจอแล้วไม่ต้องหาต่อ
-                
+                if (foundParcelCod) return;
                 if (!layer.feature || !layer.feature.geometry) return;
                 
                 try {
-                    // สร้าง Polygon Object จาก GeoJSON
                     const polygon = turf.polygon(layer.feature.geometry.coordinates);
-                    
-                    // ตรวจสอบว่าจุดนี้อยู่ใน Polygon หรือไม่
                     if (turf.booleanPointInPolygon(point, polygon)) {
-                        // ดึงค่า parcel_cod (รองรับทั้งพิมพ์เล็ก/ใหญ่)
-                        foundParcelCod = layer.feature.properties?.parcel_cod || 
-                                         layer.feature.properties?.Parcel_cod || 
-                                         null;
+                        // ✅ รองรับทั้งพิมพ์เล็ก/ใหญ่ และชื่อ property ที่อาจต่างกัน
+                        foundParcelCod = layer.feature.properties?.parcel_cod ||
+                                        layer.feature.properties?.Parcel_cod ||
+                                        layer.feature.properties?.PARCEL_COD ||
+                                        null;
+                        console.log(`✅ พบ parcel_cod: ${foundParcelCod}`);
                     }
                 } catch (err) {
                     console.error('❌ Error checking parcel polygon:', err);
