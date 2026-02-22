@@ -1447,25 +1447,36 @@
                         if (layer.options) {
                             layer.options.interactive = false;
                         }
-                        // ✅ ปิด pointer-events ด้วย CSS
                         if (layer._path) {
                             layer._path.style.pointerEvents = 'none';
                         }
                     });
                 }
                 
-                // ✅ 6. ปิดเป้าเล็งและปุ่มบวก
-                document.getElementById('crosshair').classList.add('hidden');
-                document.getElementById('add-trigger-container').classList.add('hidden');
+                // ✅ 6. ปิดเป้าเล็งและปุ่มบวก (แต่อย่าซ่อนถ้ากำลังคำนวณพื้นที่ A และไม่มีเมาส์)
+                const crosshair = document.getElementById('crosshair');
+                const addTrigger = document.getElementById('add-trigger-container');
+                
+                // ✅ ซ่อนเฉพาะเมื่อ: NOT ในโหมดคำนวณพื้นที่ A หรือ (มีเมาส์ AND ในโหมดคำนวณพื้นที่ A)
+                if (!isAreaCalculatorMode || (hasMouse && isAreaCalculatorMode)) {
+                    if (crosshair) {
+                        crosshair.classList.add('hidden');
+                        crosshair.classList.remove('visible');
+                    }
+                    if (addTrigger) {
+                        addTrigger.classList.add('hidden');
+                        addTrigger.classList.remove('visible');
+                    }
+                }
                 
                 // ✅ 7. ซ่อนปุ่มยืนยัน
                 document.getElementById('confirm-overlay').classList.add('hidden');
                 
                 // ✅ 8. ล้างจุดชั่วคราวเก่า (ถ้ามี)
-                //if (mouseTempMarker) {
-                    //surveyLayers.removeLayer(mouseTempMarker);
-                    //mouseTempMarker = null;
-                //}
+                if (mouseTempMarker) {
+                    surveyLayers.removeLayer(mouseTempMarker);
+                    mouseTempMarker = null;
+                }
                 mouseClickLatLng = null;
                 
                 showNotificationLeft(`โหมดเพิ่มจุดด้วยเมาส์: คลิกบนแผนที่เพื่อเลือกตำแหน่ง`, 'info');
