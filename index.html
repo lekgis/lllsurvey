@@ -831,44 +831,7 @@
         </div>
     </div>
 </div>
-<!-- ✅ Modal คัดรูปไม่ได้ใช้ -->
-<div id="unused-modal" class="fixed inset-0 bg-black/90 z-[4000] hidden flex flex-col p-4">
-    <!-- Header -->
-    <div class="flex justify-between items-center mb-4 bg-gray-800 p-3 rounded-lg">
-        <h3 class="font-bold text-white text-lg">🗑️ คัดรูปไม่ได้ใช้</h3>
-        <button onclick="closeUnusedImageModal()" class="text-white hover:text-gray-300">
-            <i data-lucide="x" class="w-6 h-6"></i>
-        </button>
-    </div>
-    
-    <!-- Content -->
-    <div class="flex-1 overflow-y-auto">
-        <!-- Step 1: สแกน -->
-        <div id="scan-step">
-            <p class="text-gray-300 mb-4">กดปุ่มเพื่อสแกนหารูปที่ไม่มีลิงก์ในฐานข้อมูล</p>
-            <button onclick="scanUnusedImages()" id="btn-scan" class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition font-bold">
-                🔍 เริ่มสแกน
-            </button>
-            <div id="scan-result" class="mt-4 hidden">
-                <p class="text-green-400 font-bold">✅ พบรูปไม่ได้ใช้: <span id="unused-count">0</span> รูป</p>
-                <div id="unused-list" class="max-h-32 overflow-y-auto bg-gray-700 rounded p-2 text-xs text-gray-300 my-3"></div>
-                <button onclick="processUnusedImages()" id="btn-process" class="w-full bg-red-600 text-white py-3 rounded-lg hover:bg-red-700 transition font-bold">
-                    ⚠️ เติม ZZZZ_ (<span id="process-count">0</span> รูป)
-                </button>
-            </div>
-        </div>
-        
-        <!-- Step 2: Progress -->
-        <div id="progress-step" class="hidden">
-            <p class="text-gray-300 mb-2">กำลังดำเนินการ...</p>
-            <div class="w-full bg-gray-700 rounded-full h-3 mb-2">
-                <div id="progress-bar" class="bg-green-500 h-3 rounded-full transition-all" style="width:0%"></div>
-            </div>
-            <p class="text-sm text-gray-400" id="progress-text">0/0</p>
-            <div id="progress-log" class="mt-3 max-h-32 overflow-y-auto bg-gray-700 rounded p-2 text-xs"></div>
-        </div>
-    </div>
-</div>
+
 <body class="bg-gray-100">
 
     <div id="map"></div>
@@ -919,14 +882,6 @@
               <i data-lucide="map-pin" class="w-5 h-5"></i>
               <span class="text-xs font-bold">ดาวน์โหลดป้าย</span>
             </button>
-            <!-- ✅ ปุ่มคัดรูปไม่ได้ใช้ (เติม ZZZZ_) -->
-            <button onclick="openUnusedImageModal()" class="map-btn p-3 w-48 bg-gradient-to-r from-gray-500 to-gray-700 text-white hover:scale-105 transition-all shadow-lg flex items-center justify-start gap-2 text-left">
-                <i data-lucide="filter" class="w-5 h-5"></i>
-                <div>
-                    <div class="font-semibold text-xs">คัดรูปไม่ได้ใช้</div>
-                    <div class="text-[10px] opacity-90">เติม ZZZZ_ หน้าชื่อ</div>
-                </div>
-            </button>
             <!-- ปุ่ม 3: ดาวน์โหลดรูปสิ่งปลูกสร้าง -->
             <button onclick="loadBuildingImages()" class="map-btn p-3 w-48 bg-gradient-to-r from-blue-400 to-blue-600 text-white hover:scale-105 transition-all shadow-lg flex items-center justify-start gap-2 text-left">
               <i data-lucide="image" class="w-5 h-5"></i>
@@ -946,7 +901,7 @@
                 </div>
             </button>
             <!-- ✅ ปุ่ม 6: ดาวน์โหลดแผนที่ขอบเขต -->
-            <button onclick="downloadMapFile('boundary')" class="map-btn p-3 w-48 bg-gradient-to-r from-red-400 to-red-600 text-white hover:scale-105 transition-all shadow-lg flex items-center justify-start gap-2 text-left">
+            <button onclick="downloadMapFile('boundary')" class="map-btn p-3 w-48 bg-gradient-to-r from-gray-500 to-gray-700 text-white hover:scale-105 transition-all shadow-lg flex items-center justify-start gap-2 text-left">
                 <i data-lucide="download" class="w-5 h-5"></i>
                 <div>
                     <div class="font-semibold text-xs">ดาวน์โหลดแผนที่ขอบเขต</div>
@@ -957,7 +912,7 @@
             <button onclick="downloadMapFile('building_area')" class="map-btn p-3 w-48 bg-gradient-to-r from-orange-400 to-orange-600 text-white hover:scale-105 transition-all shadow-lg flex items-center justify-start gap-2 text-left">
                 <i data-lucide="download" class="w-5 h-5"></i>
                 <div>
-                    <div class="font-semibold text-xs">ดาวน์โหลดสิ่งปลูกสร้าง</div>
+                    <div class="font-semibold text-xs">ดาวน์โหลด building_area</div>
                     <div class="text-[10px] opacity-90">ไฟล์ building_area.geojson</div>
                 </div>
             </button>
@@ -1153,7 +1108,8 @@
         let allBuildings = []; 
         let allSigns = [];   
         let movingMarkerId = null; // ✅ เก็บ ID ของจุดที่กำลังถูกลากอยู่  
-        
+        // ✅ ตรวจจับว่ามีเมาส์เชื่อมต่อหรือไม่
+        let hasMouse = false;
         // ตัวแปรสำหรับระบบอัปเดตอัตโนมัติ
 
         let autoUpdateInterval = null;
@@ -1680,6 +1636,18 @@
 
         // ✅ ฟังก์ชันยืนยันและบันทึก (รองรับทั้งโหมดเป้าเล็งและโหมดเมาส์)
         async function confirmCapture() {
+            // ✅ เช็คโหมดคำนวณพื้นที่ก่อน (สำคัญที่สุด!)
+            if (isAreaCalculatorMode) {
+                if (hasMouse) {
+                    // ✅ โหมดเมาส์: ไม่ต้องทำอะไร (คลิกบน polygon จะคำนวณอัตโนมัติ)
+                    showNotificationLeft('ใช้ Cursor + คลิกบนสิ่งปลูกสร้างเพื่อคำนวณพื้นที่', 'info');
+                } else {
+                    // ✅ โหมดสัมผัส: คำนวณจากเป้าเล็งกลางจอ
+                    calculateAreaFromCrosshair();
+                }
+                return; // ✅ จบที่นี่ ไม่ต้องสร้างจุด
+            }
+
             let latlng;
             
             // ✅ เช็คถ้าเป็นโหมดเมาส์ ให้ใช้ตำแหน่งที่คลิก
@@ -1710,6 +1678,59 @@
                 tempMarker.addTo(surveyLayers);
                 backgroundUpload(latlng, activeTool, tempMarker);
                 showNotificationLeft(`เพิ่ม${activeTool === 'building' ? 'สิ่งปลูกสร้าง' : 'ป้าย'}แล้ว`, 'success');
+            }
+        }
+
+        // ✅ ฟังก์ชันคำนวณพื้นที่จากเป้าเล็งกลางจอ (โหมดสัมผัส)
+        function calculateAreaFromCrosshair() {
+            const center = map.getCenter();
+            const point = turf.point([center.lng, center.lat]);
+            
+            let calculatedArea = 0;
+            let foundBuilding = false;
+            
+            // ✅ ค้นหา building_area.geojson ที่อยู่ใต้เป้าเล็ง
+            if (window.buildingAreaLayer) {
+                window.buildingAreaLayer.eachLayer(function(layer) {
+                    if (foundBuilding) return;
+                    
+                    if (layer.feature && layer.feature.geometry) {
+                        const polygon = turf.polygon(layer.feature.geometry.coordinates);
+                        
+                        if (turf.booleanPointInPolygon(point, polygon)) {
+                            calculatedArea = turf.area(polygon);
+                            foundBuilding = true;
+                            
+                            // ✅ ไฮไลท์สิ่งที่คำนวณ
+                            layer.setStyle({
+                                color: '#fbbf24',
+                                weight: 4,
+                                fillOpacity: 0.6
+                            });
+                            setTimeout(() => {
+                                layer.setStyle({
+                                    color: layer.feature.properties.color || '#3b82f6',
+                                    weight: 2,
+                                    fillOpacity: 0.3
+                                });
+                            }, 2000);
+                        }
+                    }
+                });
+            }
+            
+            // ✅ กรอกค่าและบวกเข้าตัวสะสม
+            if (foundBuilding && calculatedArea > 0) {
+                const input = document.getElementById('calc-input-a');
+                if (input) {
+                    input.value = calculatedArea.toFixed(2);
+                    
+                    // ✅ กดปุ่ม "+ บวก" อัตโนมัติ
+                    const addBtn = document.querySelector('button[onclick="addAreaToAccumulatorA()"]');
+                    if (addBtn) addBtn.click();
+                }
+            } else {
+                showNotificationLeft('⚠️ ไม่พบสิ่งปลูกสร้างใต้เป้าเล็ง', 'warning');
             }
         }
 
@@ -1989,6 +2010,20 @@
             
             // ✅ ตรวจสอบว่ามีการเลือกไฟล์ใหม่หรือไม่
             if (fileInput && fileInput.files[0]) {
+
+                // ✅ ===== START: เปลี่ยนชื่อไฟล์รูปเดิมก่อนอัปโหลดรูปใหม่ =====
+                if (editingMarker && editingMarker._popupData) {
+                    const oldPicture = editingMarker._popupData.picture;
+                    if (oldPicture && oldPicture.trim() !== '' && oldPicture !== 'image.jpg') {
+                        const folderType = markerType === 'building' ? 'buildings' : 'signs';
+                        // เรียกเปลี่ยนชื่อแบบไม่บล็อก (fire-and-forget) เพื่อไม่ให้ช้า
+                        renameOldImageInDrive(oldPicture, folderType).catch(err => {
+                            console.warn('เปลี่ยนชื่อไฟล์เก่าล้มเหลว แต่ดำเนินการต่อ:', err);
+                        });
+                    }
+                }
+                // ✅ ===== END: เปลี่ยนชื่อไฟล์รูปเดิม =====
+
                 const file = fileInput.files[0];
                 const maxSize = markerType === 'building' ? 1500 : 2000;
                 
@@ -3750,20 +3785,37 @@
           }
         }
 
-        // ============================================
-        // คัดรูปไม่ได้ใช้ - เติม ZZZZ_ หน้าชื่อ
-        // ============================================
-        function openUnusedImageModal() {
-            closeSettingsMenu();
-            document.getElementById('unused-modal').classList.remove('hidden');
-            document.getElementById('scan-step').classList.remove('hidden');
-            document.getElementById('progress-step').classList.add('hidden');
-            document.getElementById('scan-result').classList.add('hidden');
-            if (typeof lucide !== 'undefined') lucide.createIcons();
-        }
-        function closeUnusedImageModal() {
-            document.getElementById('unused-modal').classList.add('hidden');
-            window.unusedFiles = null;
+        // ✅ ฟังก์ชันเปลี่ยนชื่อไฟล์รูปเดิมใน Google Drive โดยเติม ZZZZ_ หน้าชื่อ
+        async function renameOldImageInDrive(oldFileName, folderType) {
+            if (!oldFileName || oldFileName.trim() === '' || oldFileName.startsWith('ZZZZ_')) {
+                return true; // ไม่มีไฟล์เก่า หรือถูกเปลี่ยนชื่อแล้ว
+            }
+            
+            try {
+                const body = new URLSearchParams();
+                body.append('action', 'renameFile');
+                body.append('fileName', oldFileName);
+                body.append('newName', `ZZZZ_${oldFileName}`);
+                body.append('folderType', folderType);
+                
+                const res = await fetch(CONFIG.SCRIPT_URL.trim(), {
+                    method: 'POST',
+                    body: body,
+                    timeout: 30000
+                });
+                
+                const result = await res.json();
+                if (res.ok && result.success) {
+                    console.log(`✅ เปลี่ยนชื่อไฟล์เก่า: ${oldFileName} → ZZZZ_${oldFileName}`);
+                    return true;
+                } else {
+                    console.warn(`⚠️ ไม่สามารถเปลี่ยนชื่อไฟล์เก่า: ${oldFileName}`, result);
+                    return false; // ไม่หยุดกระบวนการหลัก
+                }
+            } catch (err) {
+                console.error(`❌ ข้อผิดพลาดในการเปลี่ยนชื่อไฟล์เก่า: ${oldFileName}`, err);
+                return false; // ไม่หยุดกระบวนการหลัก
+            }
         }
 
         // ============================================
@@ -6509,11 +6561,12 @@
             }
             // สร้างหน้าต่างคำนวณพื้นที่
             areaCalculatorModal = document.createElement('div');
-            areaCalculatorModal.className = 'fixed inset-0 bg-black/20 z-[3000] flex items-center justify-center p-4 pointer-events-none';
+            areaCalculatorModal.className = 'fixed inset-0 z-[3000] p-4 pointer-events-none';
             areaCalculatorModal.innerHTML = `
-            <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-2xl w-full max-w-sm animate-scale-in pointer-events-auto">
+            <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-2xl w-full max-w-sm animate-scale-in pointer-events-auto"
+                 style="width: 320px; position: absolute; left: 50%; transform: translateX(-50%); bottom: 60%;">
                 <div class="p-3 border-b flex justify-between items-center">
-                    <h3 class="font-bold text-base text-blue-900">คำนวณพื้นที่ประกอบการ</h3>
+                    <h3 class="font-bold text-base text-blue-900">คำนวณพื้นที่ประกอบการ (B)</h3>
                     <button onclick="closeAreaCalculator()" class="p-1.5 hover:bg-gray-200 rounded-full transition">
                         <i data-lucide="x" class="w-4 h-4"></i>
                     </button>
@@ -6572,6 +6625,15 @@
         let areaHistoryA = [];
 
         function openAreaCalculatorA() {
+            // ✅ ตั้งค่าโหมดคำนวณพื้นที่
+            isAreaCalculatorMode = true;
+            
+            // ✅ ตรวจจับอุปกรณ์ก่อนเปิดโหมด
+            detectInputMethod();
+            
+            // ✅ อัปเดตโหมดตามอุปกรณ์ที่ตรวจจับได้
+            updateCalculatorMode();
+
             if (areaCalculatorModalA) { areaCalculatorModalA.remove(); }
             areaAccumulatorA = 0;
             areaHistoryA = [];
@@ -6593,7 +6655,7 @@
                     <div class="flex gap-2 items-center">
                         <input type="number" id="calc-input-a" class="form-input flex-1 text-center"
                                placeholder="ค่าพื้นที่ (ตร.ม.)" step="0.01"
-                               style="-webkit-appearance: textfield; -moz-appearance: textfield; appearance: textfield;">
+                               style="-webkit-appearance: textfield;">
                         <button type="button" onclick="addAreaToAccumulatorA()"
                                 class="px-3 py-2 bg-purple-600 text-white rounded font-bold text-sm hover:bg-purple-700 transition whitespace-nowrap">
                             + บวก
@@ -6604,23 +6666,17 @@
                     <div class="bg-purple-100 rounded-lg p-2">
                     <div class="flex justify-between items-center mb-1">
                         <label class="text-xs font-bold text-purple-900">ผลลัพธ์สะสม (ตร.ม.)</label>
-                        <!-- ✅ ข้อ 4: เพิ่มปุ่ม "a" สีส้มสำหรับเรียก Cursor กลับ -->
                         <button type="button" onclick="restorePlusCursor()" 
                             class="ml-2 w-6 h-6 bg-orange-500 text-white rounded font-bold text-xs hover:bg-orange-600 transition flex items-center justify-center"
                             title="เรียก Cursor + กลับมา">
                             a
                         </button>
                         <input type="text" id="calc-result-a" class="form-input bg-white font-bold text-center w-24 text-sm"
-                        readonly value="0.00"
-                        style="-webkit-appearance: textfield; -moz-appearance: textfield; appearance: textfield;">
+                        readonly value="0.00" style="-webkit-appearance: textfield;">
                     </div>
-                    <!-- ✅ แสดงประวัติการบวก -->
-                    <div id="area-history-a" class="text-xs text-purple-700 font-mono bg-white/50 rounded px-2 py-1 min-h-[20px]">
-                        <!-- จะแสดงเช่น: 12 + 13.5 + 8 -->
-                    </div>
+                    <div id="area-history-a" class="text-xs text-purple-700 font-mono bg-white/50 rounded px-2 py-1 min-h-[20px]"></div>
                     </div>
 
-                    
                     <!-- ✅ แถวที่ 3: ปุ่มควบคุม -->
                     <div class="flex gap-2">
                         <button type="button" onclick="clearAreaCalculatorA()"
@@ -6645,9 +6701,28 @@
                 areaCalculatorModalA.querySelector('#area-calculator-a-header')
             );            
 
-            enablePlusCursorForCalculator();
+            // ✅ เปิด Cursor + เฉพาะเมื่อมีเมาส์
+            if (hasMouse) {
+                enablePlusCursorForCalculator();
+            } else {
+                // ✅ โหมดสัมผัส: ซ่อน cursor + แสดงเป้าเล็ง
+                const mapContainer = document.getElementById('map');
+                mapContainer.style.cursor = 'default';
+                mapContainer.classList.remove('cursor-crosshair-add');
+                
+                const crosshair = document.getElementById('crosshair');
+                const addTrigger = document.getElementById('add-trigger-container');
+                if (crosshair) {
+                    crosshair.classList.remove('hidden');
+                    crosshair.classList.add('visible');
+                }
+                if (addTrigger) {
+                    addTrigger.classList.remove('hidden');
+                    addTrigger.classList.add('visible');
+                }
+            }
 
-            // ✅ ป้องกันการหมุนเมาส์เปลี่ยนค่า      พอใส่อันนี้ หมุนล้อเลขวิ่ง        enablePlusCursorForCalculator();
+            // ✅ ป้องกันการหมุนเมาส์เปลี่ยนค่า
             const preventWheel = (e) => e.preventDefault();
             const input = document.getElementById('calc-input-a');
             if (input) {
@@ -6660,6 +6735,69 @@
                 input.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter') addAreaToAccumulatorA();
                 });
+            }
+        }
+
+        // ✅ ฟังก์ชันตรวจจับประเภทอุปกรณ์ (เมาส์ หรือ สัมผัส)
+        function detectInputMethod() {
+            // ✅ ตรวจสอบว่ามีเมาส์หรือไม่
+            const hasMouseDevice = window.matchMedia('(pointer: fine)').matches;
+            const hasTouchDevice = window.matchMedia('(pointer: coarse)').matches;
+            
+            // ✅ ฟังชันตรวจสอบการเคลื่อนไหวของเมาส์
+            const onMouseMove = () => {
+                hasMouse = true;
+                updateCalculatorMode();
+                document.removeEventListener('mousemove', onMouseMove);
+            };
+            
+            // ✅ ฟังชันตรวจสอบการสัมผัส
+            const onTouchStart = () => {
+                hasMouse = false;
+                updateCalculatorMode();
+                document.removeEventListener('touchstart', onTouchStart);
+            };
+            
+            // ✅ เพิ่ม Event Listener ชั่วคราวเพื่อตรวจจับ
+            document.addEventListener('mousemove', onMouseMove, { once: true });
+            document.addEventListener('touchstart', onTouchStart, { once: true });
+            
+            // ✅ ใช้ค่าเริ่มต้นจาก Media Query
+            hasMouse = hasMouseDevice && !hasTouchDevice;
+            
+            console.log('🔍 ตรวจจับอุปกรณ์:', hasMouse ? 'เมาส์' : 'สัมผัส');
+        }
+
+        // ✅ ฟังก์ชันอัปเดตโหมดคำนวณพื้นที่ตามอุปกรณ์
+        function updateCalculatorMode() {
+            if (!isAreaCalculatorMode) return;
+            
+            const crosshair = document.getElementById('crosshair');
+            const addTrigger = document.getElementById('add-trigger-container');
+            
+            if (hasMouse) {
+                // ✅ มีเมาส์ → ซ่อนเป้าเล็ง, ใช้ Cursor +
+                if (crosshair) {
+                    crosshair.classList.add('hidden');
+                    crosshair.classList.remove('visible');
+                }
+                if (addTrigger) {
+                    addTrigger.classList.add('hidden');
+                    addTrigger.classList.remove('visible');
+                }
+                enablePlusCursorForCalculator();
+                console.log('🖱️ โหมดเมาส์: ใช้ Cursor + คลิกบนสิ่งปลูกสร้าง');
+            } else {
+                // ✅ ไม่มีเมาส์ → แสดงเป้าเล็ง, ใช้ปุ่มยืนยัน
+                if (crosshair) {
+                    crosshair.classList.remove('hidden');
+                    crosshair.classList.add('visible');
+                }
+                if (addTrigger) {
+                    addTrigger.classList.remove('hidden');
+                    addTrigger.classList.add('visible');
+                }
+                console.log('👆 โหมดสัมผัส: ใช้เป้าเล็ง + ปุ่มยืนยัน');
             }
         }
 
@@ -6813,7 +6951,7 @@
             mapContainer.classList.add('cursor-crosshair-add');
             
             // ✅ ไม่ต้องเพิ่ม event handler ใหม่ → ใช้คลิกที่ผูกใน onEachFeature แล้ว
-            showNotificationLeft('โหมดคำนวณพื้นที่: คลิกบนสิ่งปลูกสร้างเพื่อเพิ่มพื้นที่', 'info');
+            //showNotificationLeft('โหมดคำนวณพื้นที่: คลิกบนสิ่งปลูกสร้างเพื่อเพิ่มพื้นที่', 'info');
         }
 
         // ✅ เพิ่มฟังก์ชันสร้าง pane สำหรับ building_area (วางที่ด้านบนสุดของ <script>)
@@ -7161,7 +7299,30 @@
                     areaHistoryA = [];
                     
                     // ✅ รีเซ็ตโหมดคำนวณพื้นที่
+                    isAreaCalculatorMode = false;
+                    
+                    // ✅ ข้อ 1: เรียก disableAreaCalculatorMode() เพื่อเปิด parcel/boundary กลับมา
                     disableAreaCalculatorMode();
+                    
+                    // ✅ ซ่อนเป้าเล็ง
+                    const crosshair = document.getElementById('crosshair');
+                    const addTrigger = document.getElementById('add-trigger-container');
+                    if (crosshair) {
+                        crosshair.classList.add('hidden');
+                        crosshair.classList.remove('visible');
+                    }
+                    if (addTrigger) {
+                        addTrigger.classList.add('hidden');
+                        addTrigger.classList.remove('visible');
+                    }
+                    
+                    // ✅ คืนค่าปุ่มยืนยันเดิม
+                    const confirmBtn = document.getElementById('btn-confirm-action');
+                    const confirmText = document.getElementById('confirm-text');
+                    if (confirmBtn && confirmText && confirmBtn.dataset.originalText) {
+                        confirmText.innerText = confirmBtn.dataset.originalText;
+                        confirmBtn.style.backgroundColor = confirmBtn.dataset.originalColor || '#f97316';
+                    }
                 }, 200);
             }
         }
@@ -7652,6 +7813,18 @@
                 });
             }
         });
+
+        // ✅ เรียกตรวจจับอุปกรณ์เมื่อโหลดหน้าเว็บครั้งแรก
+        document.addEventListener('DOMContentLoaded', function() {
+            detectInputMethod();
+        });
+
+        // ✅ หรือถ้าใช้ window.onload
+        window.onload = function() {
+            initMap();
+            setupBuildingAreaPane();
+            detectInputMethod(); // ✅ ตรวจจับอุปกรณ์ทันที
+        };
 
         // ============================================
         // ป้องกันการเปลี่ยนค่าช่องตัวเลขโดยไม่ตั้งใจเมื่อหมุนสกอร์ลเมาส์
