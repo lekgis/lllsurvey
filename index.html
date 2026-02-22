@@ -8139,12 +8139,28 @@
         }
 
 
-        // ✅ เปิด Gemini ในแท็บใหม่ เพื่อแปลงข้อความป้าย
+        // ✅ เปิด Gemini ในแท็บใหม่ พร้อมคัดลอกลิงก์
         async function openGeminiModal(imageUrl) {
             try {
+                // ✅ ลิงก์ Gemini ที่ต้องการ
+                const geminiUrl = 'https://gemini.google.com/share/a39cad5790a4';
+                
+                // ✅ คัดลอกลิงก์ไปยังคลิปบอร์ด
+                try {
+                    await navigator.clipboard.writeText(geminiUrl);
+                    showNotificationLeft('📋 คัดลอกลิงก์ Gemini เรียบร้อย!', 'success');
+                } catch (clipErr) {
+                    // Fallback สำหรับเบราว์เซอร์ที่ไม่สนับสนุน Clipboard API
+                    const tempInput = document.createElement('input');
+                    tempInput.value = geminiUrl;
+                    document.body.appendChild(tempInput);
+                    tempInput.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(tempInput);
+                    showNotificationLeft('📋 คัดลอกลิงก์ Gemini เรียบร้อย!', 'success');
+                }
                 
                 // ✅ เปิด Gemini ในแท็บใหม่
-                const geminiUrl = 'https://gemini.google.com/share/a39cad5790a4';
                 const newTab = window.open(geminiUrl, '_blank');
                 
                 if (!newTab || newTab.closed || typeof newTab.closed === 'undefined') {
