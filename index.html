@@ -1856,138 +1856,115 @@
 
         // แก้ไขฟังก์ชัน backgroundUpload
         async function backgroundUpload(latlng, type, marker) {
-          const refreshBtn = document.getElementById('btn-refresh');
-          const refreshIcon = document.getElementById('refresh-icon');
-          disableRefreshButton();
-          refreshIcon.classList.add('animate-spin');
-          
-          // ✅ สร้าง ID ที่ไม่ซ้ำกัน
-          const newId = `${type}_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-          
-          // สร้างข้อมูลพื้นฐาน + เพิ่ม id
-          const data = {
-            id: newId, // ✅ ID เดียวกันสำหรับจุดชั่วคราวและจุดจริง
-            lat_long: `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`,
-            date_added: new Date().toISOString(),
-            tempMarker: true
-          };
-          
-          // กำหนดค่าเริ่มต้นตามประเภท
-          // กำหนดค่าเริ่มต้นตามประเภท
-          if (type === 'sign') {
-            data.s_code = `99Z000-S${Date.now().toString().slice(-3)}`;  // ✅ แก้ไข: เพิ่มคำนำหน้า 99Z000-
-            data.s_name = '';
-            data.s_type = '';
-            data.s_wide = '0';
-            data.s_length = '0';
-          } else {
-            data.building_c = `99Z000-B${Date.now().toString().slice(-5)}`;
-            data.full_name = '';
-            data.b_type = '';
-            data.b_area = '0';
-          }
-          
-          // ✅ ก่อนสร้างคิว: ตรวจสอบและรวมรหัสจากฟิลด์ชั่วคราว (กรณีผู้ใช้กรอก manual)
-            // <-- วางโค้ดตรงนี้ <--
-          if (markerType === 'building') {
-              const parcelTemp = form.querySelector('input[name="parcel_cod_temp"]')?.value?.trim();
-              const bcodeTemp = form.querySelector('input[name="bcode_temp"], select[name="bcode_temp"]')?.value?.trim();
-              if (parcelTemp && bcodeTemp && !data.building_c) {
-                  data.building_c = `${parcelTemp}-${bcodeTemp}`;
-              }
-          } else if (markerType === 'sign') {
-              const parcelTemp = form.querySelector('input[name="parcel_cod_temp"]')?.value?.trim();
-              const scodeTemp = form.querySelector('input[name="scode_temp"], select[name="scode_temp"]')?.value?.trim();
-              if (parcelTemp && scodeTemp && !data.s_code) {
-                  data.s_code = `${parcelTemp}-${scodeTemp}`;
-              }
-          }
-
-          // ✅ === เพิ่มส่วนนี้: ดึงรหัสแปลงอัตโนมัติเมื่อเพิ่มจุดใหม่ ===
-            // ตรวจสอบว่าเป็นการ "เพิ่มใหม่" จริงๆ (ยังไม่มี _row_num หรือ id จากระบบ)
-            // และไม่ใช่จุดชั่วคราวที่รอซิงค์
-          if (!data._row_num && !data.id) { 
-              const parcelCod = getParcelCodeAtLocation(latlng);
-              if (parcelCod) {
-                  data.parcel_cod_temp = parcelCod; // ใส่ค่าลงในข้อมูลที่จะส่งฟอร์ม
-                  console.log(`✅ Auto-fill parcel_cod: ${parcelCod}`);
-              }
-          }
-          // ✅ ==============================================
-
-          // ✅ ทำเครื่องหมายในมาร์กเกอร์ว่าเป็นชั่วคราว
-          marker._popupData = { ...data, type: type, tempMarker: true };
-          setupMarkerPopup(marker, marker._popupData, type);
-          
-          try {
-            // ✅ สร้างคิวทุกกรณี
-            const queueId = addToSyncQueue('quickAdd', type, data);
-            marker._popupData = {
-              ...data,
-              type: type,
-              tempMarker: true,
-              queued: true,
-              queueId: queueId
+            const refreshBtn = document.getElementById('btn-refresh');
+            const refreshIcon = document.getElementById('refresh-icon');
+            disableRefreshButton();
+            refreshIcon.classList.add('animate-spin');
+            
+            // ✅ สร้าง ID ที่ไม่ซ้ำกัน (ใช้สำหรับ internal tracking เท่านั้น)
+            const newId = `${type}_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+            
+            // สร้างข้อมูลพื้นฐาน + เพิ่ม id
+            const data = {
+                id: newId,
+                lat_long: `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`,
+                date_added: new Date().toISOString(),
+                tempMarker: true
             };
-            setupMarkerPopup(marker, marker._popupData, type);
             
-            // ✅ เรียกซิงค์ทันที
-            await processSyncQueue();
+            // ✅ ดึงรหัสแปลงจากตำแหน่งที่คลิก (จาก parcel.geojson)
+            const parcelCod = getParcelCodeAtLocation(latlng);
             
-            // ✅ รอให้รายการนี้สำเร็จ (สูงสุด 60 วินาที)
-            const maxWaitTime = 60000;
-            const startTime = Date.now();
-            let queueItem = syncQueue.find(q => q.id === queueId);
-            
-            while (queueItem && queueItem.status === 'ยังไม่สำรวจ' && (Date.now() - startTime) < maxWaitTime) {
-              await new Promise(resolve => setTimeout(resolve, 500));
-              queueItem = syncQueue.find(q => q.id === queueId);
+            // กำหนดค่าเริ่มต้นตามประเภท (❌ ไม่สร้างรหัสอัตโนมัติด้วย 99Z000- อีกต่อไป)
+            if (type === 'sign') {
+                data.s_name = '';
+                data.s_type = '';
+                data.s_wide = '0';
+                data.s_length = '0';
+                // ✅ ถ้าพบ parcel_cod จากแผนที่ → เก็บไว้เป็นค่าเริ่มต้นสำหรับฟอร์ม
+                if (parcelCod) {
+                    data.parcel_cod_temp = parcelCod;
+                    console.log(`✅ Auto-fill parcel_cod_temp: ${parcelCod}`);
+                }
+            } else {
+                data.full_name = '';
+                data.b_type = '';
+                data.b_area = '0';
+                // ✅ ถ้าพบ parcel_cod จากแผนที่ → เก็บไว้เป็นค่าเริ่มต้นสำหรับฟอร์ม
+                if (parcelCod) {
+                    data.parcel_cod_temp = parcelCod;
+                    console.log(`✅ Auto-fill parcel_cod_temp: ${parcelCod}`);
+                }
             }
             
-            // ✅ โหลดข้อมูลใหม่ก่อน (เพื่อให้มีข้อมูลจริงแสดงบนแผนที่)
-            // ⚠️ รอให้เสร็จสมบูรณ์ก่อนลบจุดชั่วคราว
-            await loadExistingData();
+            // ✅ ทำเครื่องหมายในมาร์กเกอร์ว่าเป็นชั่วคราว
+            marker._popupData = { ...data, type: type, tempMarker: true };
+            setupMarkerPopup(marker, marker._popupData, type);
             
-            // ✅ ลบจุดชั่วคราว - รอให้โหลดข้อมูลเสร็จจริงๆ
-            // ตรวจสอบว่าจุดจริงแสดงขึ้นมาแล้วหรือยัง
-            setTimeout(() => {
-              surveyLayers.eachLayer(layer => {
-                if (layer._popupData && layer._popupData.tempMarker) {
-                  // ✅ ตรวจสอบว่าจุดจริงมีอยู่แล้วหรือไม่ (ใช้ ID)
-                  const realMarkerExists = allBuildings.some(b => b.id === layer._popupData.id) || 
-                                           allSigns.some(s => s.id === layer._popupData.id);
-                  
-                  if (realMarkerExists) {
-                    // ✅ จุดจริงมีอยู่แล้ว → ลบจุดชั่วคราว
-                    surveyLayers.removeLayer(layer);
-                    console.log(`✅ ลบจุดชั่วคราว: ${layer._popupData.id} (จุดจริงแสดงแล้ว)`);
-                  } else {
-                    // ⚠️ จุดจริงยังไม่มี → ยังไม่ลบ (รอซิงค์)
-                    console.log(`⚠️ ยังไม่ลบจุดชั่วคราว: ${layer._popupData.id} (จุดจริงยังไม่แสดง)`);
-                  }
+            try {
+                // ✅ สร้างคิวทุกกรณี
+                const queueId = addToSyncQueue('quickAdd', type, data);
+                marker._popupData = {
+                    ...data,
+                    type: type,
+                    tempMarker: true,
+                    queued: true,
+                    queueId: queueId
+                };
+                setupMarkerPopup(marker, marker._popupData, type);
+                
+                // ✅ เรียกซิงค์ทันที
+                await processSyncQueue();
+                
+                // ✅ รอให้รายการนี้สำเร็จ (สูงสุด 60 วินาที)
+                const maxWaitTime = 60000;
+                const startTime = Date.now();
+                let queueItem = syncQueue.find(q => q.id === queueId);
+                
+                while (queueItem && queueItem.status === 'ยังไม่สำรวจ' && (Date.now() - startTime) < maxWaitTime) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    queueItem = syncQueue.find(q => q.id === queueId);
                 }
-              });
-              
-              refreshIcon.classList.remove('animate-spin');
-              refreshBtn.classList.add('refresh-success');
-              
-              setTimeout(() => {
-                refreshBtn.classList.remove('refresh-success');
+                
+                // ✅ โหลดข้อมูลใหม่ก่อน (เพื่อให้มีข้อมูลจริงแสดงบนแผนที่)
+                await loadExistingData();
+                
+                // ✅ ลบจุดชั่วคราว - รอให้โหลดข้อมูลเสร็จจริงๆ
+                setTimeout(() => {
+                    surveyLayers.eachLayer(layer => {
+                        if (layer._popupData && layer._popupData.tempMarker) {
+                            const realMarkerExists = allBuildings.some(b => b.id === layer._popupData.id) || 
+                                                     allSigns.some(s => s.id === layer._popupData.id);
+                            
+                            if (realMarkerExists) {
+                                surveyLayers.removeLayer(layer);
+                                console.log(`✅ ลบจุดชั่วคราว: ${layer._popupData.id} (จุดจริงแสดงแล้ว)`);
+                            } else {
+                                console.log(`⚠️ ยังไม่ลบจุดชั่วคราว: ${layer._popupData.id} (จุดจริงยังไม่แสดง)`);
+                            }
+                        }
+                    });
+                    
+                    refreshIcon.classList.remove('animate-spin');
+                    refreshBtn.classList.add('refresh-success');
+                    
+                    setTimeout(() => {
+                        refreshBtn.classList.remove('refresh-success');
+                        enableRefreshButton();
+                    }, 2000);
+                    
+                    if (queueItem && queueItem.status === 'success') {
+                        showNotificationLeft('เพิ่มจุดเรียบร้อยแล้ว!', 'success');
+                    } else {
+                        showNotificationLeft('เพิ่มจุดเรียบร้อยแล้ว (รอซิงค์)', 'warning');
+                    }
+                }, 1000);
+                
+            } catch (err) {
+                refreshIcon.classList.remove('animate-spin');
                 enableRefreshButton();
-              }, 2000);
-              
-              if (queueItem && queueItem.status === 'success') {
-                showNotificationLeft('เพิ่มจุดเรียบร้อยแล้ว!', 'success');
-              } else {
-                showNotificationLeft('เพิ่มจุดเรียบร้อยแล้ว (รอซิงค์)', 'warning');
-              }
-            }, 1000); // ✅ เพิ่มเป็น 1000ms ให้แน่ใจว่าโหลดเสร็จ
-            
-          } catch (err) {
-            refreshIcon.classList.remove('animate-spin');
-            enableRefreshButton();
-            showNotificationLeft("การบันทึกล้มเหลว: " + err.message, 'error');
-          }
+                showNotificationLeft("การบันทึกล้มเหลว: " + err.message, 'error');
+            }
         }
 
         // ============================================
@@ -2117,35 +2094,20 @@
             // ============================================
             // ✅ กำหนดรหัสอัตโนมัติถ้าไม่มี (สำคัญมาก!)
             // ============================================
+            // ✅ ก่อนสร้างคิว: รวมรหัสจากฟิลด์ชั่วคราว (สำคัญ!)
             if (markerType === 'building') {
-                // ตรวจสอบว่ามีรหัสสิ่งปลูกสร้างหรือไม่
-                if (!data.building_c || data.building_c.trim() === '') {
-                    // สร้างรหัสสิ่งปลูกสร้างอัตโนมัติ (เช่น B001, B002, ...)
-                    const existingCodes = allBuildings.map(b => b.building_c).filter(c => c);
-                    let maxNum = 0;
-                    existingCodes.forEach(code => {
-                        const match = code.match(/^B(\d+)$/);
-                        if (match) {
-                            maxNum = Math.max(maxNum, parseInt(match[1]));
-                        }
-                    });
-                    data.building_c = `B${String(maxNum + 1).padStart(3, '0')}`;
-                    console.log(`🏷️ สร้างรหัสสิ่งปลูกสร้างอัตโนมัติ: ${data.building_c}`);
+                const parcelTemp = form.querySelector('input[name="parcel_cod_temp"]')?.value?.trim();
+                const bcodeTemp = form.querySelector('input[name="bcode_temp"], select[name="bcode_temp"]')?.value?.trim();
+                if (parcelTemp && bcodeTemp) {
+                    data.building_c = `${parcelTemp}-${bcodeTemp}`;  // ✅ เช่น 12K042-B001
+                    console.log(`✅ สร้าง building_c: ${data.building_c}`);
                 }
             } else if (markerType === 'sign') {
-                // ตรวจสอบว่ามีรหัสป้ายหรือไม่
-                if (!data.s_code || data.s_code.trim() === '') {
-                    // สร้างรหัสป้ายอัตโนมัติ (เช่น S001, S002, ...)
-                    const existingCodes = allSigns.map(s => s.s_code).filter(c => c);
-                    let maxNum = 0;
-                    existingCodes.forEach(code => {
-                        const match = code.match(/^S(\d+)$/);
-                        if (match) {
-                            maxNum = Math.max(maxNum, parseInt(match[1]));
-                        }
-                    });
-                    data.s_code = `S${String(maxNum + 1).padStart(3, '0')}`;
-                    console.log(`🏷️ สร้างรหัสป้ายอัตโนมัติ: ${data.s_code}`);
+                const parcelTemp = form.querySelector('input[name="parcel_cod_temp"]')?.value?.trim();
+                const scodeTemp = form.querySelector('input[name="scode_temp"], select[name="scode_temp"]')?.value?.trim();
+                if (parcelTemp && scodeTemp) {
+                    data.s_code = `${parcelTemp}-${scodeTemp}`;  // ✅ เช่น 12K042-S001
+                    console.log(`✅ สร้าง s_code: ${data.s_code}`);
                 }
             }
 
@@ -3116,31 +3078,20 @@
                 input.addEventListener('change', (e) => {
                     const fileId = input.id.replace('file-input-', '');
                     const fileNameBadge = document.getElementById(`filename-text-${fileId}`);
-                    const checkSelect = form.querySelector('select[name="check"]'); // ดึงฟิลด์สถานะ
+                    const checkSelect = form.querySelector('select[name="check"]');
                     
-                    if (e.target.files.length > 0) {
-                        // สร้างชื่อไฟล์ใหม่
-                        // ✅ ใหม่
-                        const extension = file.name.split('.').pop().toLowerCase();
+                    // ✅ ดึงไฟล์จาก event
+                    const file = e.target.files[0];  // ✅ เพิ่มบรรทัดนี้
+                    
+                    if (file) {  // ✅ เช็คก่อนใช้
+                        const extension = file.name.split('.').pop().toLowerCase() || 'jpg';
                         let code = data.building_c || data.s_code;
-
-                        if (code) {
-                            fileName = `${code}.${extension}`;
-                        } else {
-                            const prefix = type === 'building' ? 'B' : 'S';
-                            const tempCode = Date.now().toString().slice(-5);
-                            fileName = `${prefix}${tempCode}.${extension}`;
-                        }
+                        let fileName = code ? `${code}.${extension}` : `${type === 'building' ? 'B' : 'S'}_${Date.now().toString().slice(-5)}.${extension}`;
                         
-                        // ✅ อัปเดตป้ายชื่อรูปภาพ
                         fileNameBadge.textContent = fileName;
-                        
-                        // ✅ อัปเดตสถานะการตรวจสอบทันที (ถ้าเป็น "ยังไม่สำรวจ")
                         if (checkSelect && checkSelect.value === 'ยังไม่สำรวจ') {
                             checkSelect.value = 'ถ่ายรูปแล้ว';
-                            console.log('✅ สถานะเปลี่ยนเป็น: ถ่ายรูปแล้ว');
                         }
-                        // ⚠️ ถ้าเป็น "ตรวจสอบแล้ว" → ไม่ทำอะไร (คงค่าเดิม)
                     } else {
                         fileNameBadge.textContent = 'ยังไม่มีรูปภาพ';
                     }
@@ -8193,7 +8144,7 @@
             try {
                 
                 // ✅ เปิด Gemini ในแท็บใหม่
-                const geminiUrl = 'https://gemini.google.com/share/a68b5681bf0c';
+                const geminiUrl = 'https://gemini.google.com/share/a39cad5790a4';
                 const newTab = window.open(geminiUrl, '_blank');
                 
                 if (!newTab || newTab.closed || typeof newTab.closed === 'undefined') {
