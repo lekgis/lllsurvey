@@ -6464,11 +6464,12 @@
             }
             // สร้างหน้าต่างคำนวณพื้นที่
             areaCalculatorModal = document.createElement('div');
-            areaCalculatorModal.className = 'fixed inset-0 bg-black/20 z-[3000] flex items-center justify-center p-4 pointer-events-none';
+            areaCalculatorModal.className = 'fixed inset-0 z-[3000] p-4 pointer-events-none';
             areaCalculatorModal.innerHTML = `
-            <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-2xl w-full max-w-sm animate-scale-in pointer-events-auto">
+            <div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-2xl w-full max-w-sm animate-scale-in pointer-events-auto"
+                 style="width: 320px; position: absolute; left: 50%; transform: translateX(-50%); bottom: 60%;">
                 <div class="p-3 border-b flex justify-between items-center">
-                    <h3 class="font-bold text-base text-blue-900">คำนวณพื้นที่ประกอบการ</h3>
+                    <h3 class="font-bold text-base text-blue-900">คำนวณพื้นที่ประกอบการ (B)</h3>
                     <button onclick="closeAreaCalculator()" class="p-1.5 hover:bg-gray-200 rounded-full transition">
                         <i data-lucide="x" class="w-4 h-4"></i>
                     </button>
