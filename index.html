@@ -475,6 +475,7 @@
                       opacity 0.6s ease;
           transform: translate(-50%, -50%) translateY(100vh); /* รวมศูนย์กลาง + เลื่อนจากล่าง */
           opacity: 0;
+          pointer-events: none;
           will-change: transform, opacity;
         }
         #crosshair.visible {
@@ -1643,7 +1644,7 @@
                     showNotificationLeft('ใช้ Cursor + คลิกบนสิ่งปลูกสร้างเพื่อคำนวณพื้นที่', 'info');
                 } else {
                     // ✅ โหมดสัมผัส: คำนวณจากเป้าเล็งกลางจอ
-                    calculateAreaFromCrosshair();
+                    calculateAreaFromCrosshair(); // ✅ ต้องเรียกฟังก์ชันนี้!
                 }
                 return; // ✅ จบที่นี่ ไม่ต้องสร้างจุด
             }
@@ -1683,53 +1684,82 @@
 
         // ✅ ฟังก์ชันคำนวณพื้นที่จากเป้าเล็งกลางจอ (โหมดสัมผัส)
         function calculateAreaFromCrosshair() {
+            console.log('🎯 เริ่มคำนวณพื้นที่จากเป้าเล็ง...');
+            
             const center = map.getCenter();
-            const point = turf.point([center.lng, center.lat]);
+            console.log('📍 เป้าเล็งที่พิกัด:', center.lat, center.lng);
+            
+            const point = turf.point([center.lng, center.lat]); // ✅ Turf.js ใช้ [lng, lat]
             
             let calculatedArea = 0;
             let foundBuilding = false;
             
-            // ✅ ค้นหา building_area.geojson ที่อยู่ใต้เป้าเล็ง
-            if (window.buildingAreaLayer) {
-                window.buildingAreaLayer.eachLayer(function(layer) {
-                    if (foundBuilding) return;
-                    
-                    if (layer.feature && layer.feature.geometry) {
-                        const polygon = turf.polygon(layer.feature.geometry.coordinates);
-                        
-                        if (turf.booleanPointInPolygon(point, polygon)) {
-                            calculatedArea = turf.area(polygon);
-                            foundBuilding = true;
-                            
-                            // ✅ ไฮไลท์สิ่งที่คำนวณ
-                            layer.setStyle({
-                                color: '#fbbf24',
-                                weight: 4,
-                                fillOpacity: 0.6
-                            });
-                            setTimeout(() => {
-                                layer.setStyle({
-                                    color: layer.feature.properties.color || '#3b82f6',
-                                    weight: 2,
-                                    fillOpacity: 0.3
-                                });
-                            }, 2000);
-                        }
-                    }
-                });
+            // ✅ ตรวจสอบว่า buildingAreaLayer มีอยู่จริง
+            if (!window.buildingAreaLayer) {
+                console.error('❌ window.buildingAreaLayer เป็น null');
+                showNotificationLeft('⚠️ ยังไม่โหลดข้อมูลสิ่งปลูกสร้าง', 'warning');
+                return;
             }
+            
+            // ✅ ค้นหา building_area.geojson ที่อยู่ใต้เป้าเล็ง
+            let layerCount = 0;
+            window.buildingAreaLayer.eachLayer(function(layer) {
+                layerCount++;
+                
+                if (foundBuilding) return;
+                
+                // ✅ ตรวจสอบว่า layer มี feature
+                if (!layer.feature || !layer.feature.geometry) {
+                    console.log('⚠️ layer ไม่มี feature:', layer);
+                    return;
+                }
+                
+                try {
+                    const polygon = turf.polygon(layer.feature.geometry.coordinates);
+                    
+                    if (turf.booleanPointInPolygon(point, polygon)) {
+                        console.log('✅ พบ building ใต้เป้าเล็ง!');
+                        calculatedArea = turf.area(polygon);
+                        foundBuilding = true;
+                        
+                        // ✅ ไฮไลท์สิ่งที่คำนวณ
+                        layer.setStyle({
+                            color: '#fbbf24',
+                            weight: 4,
+                            fillOpacity: 0.6
+                        });
+                        setTimeout(() => {
+                            layer.setStyle({
+                                color: layer.feature.properties.color || '#3b82f6',
+                                weight: 2,
+                                fillOpacity: 0.3
+                            });
+                        }, 2000);
+                    }
+                } catch (err) {
+                    console.error('❌ Error checking polygon:', err);
+                }
+            });
+            
+            console.log(`📊 ตรวจสอบ layer ทั้งหมด: ${layerCount} ชั้น`);
             
             // ✅ กรอกค่าและบวกเข้าตัวสะสม
             if (foundBuilding && calculatedArea > 0) {
+                console.log(`📐 คำนวณพื้นที่ได้: ${calculatedArea.toFixed(2)} ตร.ม.`);
+                
                 const input = document.getElementById('calc-input-a');
                 if (input) {
                     input.value = calculatedArea.toFixed(2);
                     
                     // ✅ กดปุ่ม "+ บวก" อัตโนมัติ
                     const addBtn = document.querySelector('button[onclick="addAreaToAccumulatorA()"]');
-                    if (addBtn) addBtn.click();
+                    if (addBtn) {
+                        console.log('🔘 กดปุ่ม "+ บวก" อัตโนมัติ');
+                        addBtn.click();
+                    }
                 }
             } else {
+                console.warn('⚠️ ไม่พบสิ่งปลูกสร้างใต้เป้าเล็ง');
                 showNotificationLeft('⚠️ ไม่พบสิ่งปลูกสร้างใต้เป้าเล็ง', 'warning');
             }
         }
@@ -2013,26 +2043,38 @@
 
                 // ✅ ===== START: เปลี่ยนชื่อไฟล์รูปเดิมก่อนอัปโหลดรูปใหม่ =====
                 if (editingMarker && editingMarker._popupData) {
-                    const oldPicture = editingMarker._popupData.picture;
-                    if (oldPicture && oldPicture.trim() !== '' && oldPicture !== 'image.jpg') {
-                        const folderType = markerType === 'building' ? 'buildings' : 'signs';
-                        // เรียกเปลี่ยนชื่อแบบไม่บล็อก (fire-and-forget) เพื่อไม่ให้ช้า
-                        renameOldImageInDrive(oldPicture, folderType).catch(err => {
-                            console.warn('เปลี่ยนชื่อไฟล์เก่าล้มเหลว แต่ดำเนินการต่อ:', err);
-                        });
+                  const oldPicture = editingMarker._popupData.picture;
+                  if (oldPicture && oldPicture.trim() !== '' && oldPicture !== 'image.jpg') {
+                    const folderType = markerType === 'building' ? 'building' : 'sign'; // ✅ แก้เป็น 'building'/'sign' ให้ตรงกับโฟลเดอร์
+                    
+                    // ✅ รอให้เปลี่ยนชื่อเสร็จก่อน (หรือใช้ fire-and-forget ถ้าไม่ต้องการรอ)
+                    try {
+                      await renameOldImageInDrive(oldPicture, folderType);
+                    } catch (err) {
+                      console.warn('⚠️ เปลี่ยนชื่อไฟล์เก่าล้มเหลว แต่ดำเนินการต่อ:', err);
                     }
+                  }
                 }
                 // ✅ ===== END: เปลี่ยนชื่อไฟล์รูปเดิม =====
 
                 const file = fileInput.files[0];
                 const maxSize = markerType === 'building' ? 1500 : 2000;
                 
-                // ตั้งชื่อไฟล์ใหม่
-                const prefix = markerType === 'building' ? 'B' : 'S';
-                const code = data.building_c || data.s_code || Date.now().toString().slice(-5);
+                // ตั้งชื่อไฟล์ใหม่                
+                // ✅ ใหม่ (ตรวจสอบก่อนเติม)
                 const extension = file.name.split('.').pop().toLowerCase() || 'jpg';
-                fileNameParam = `${prefix}${code}.${extension}`;
-                
+                let code = data.building_c || data.s_code;
+
+                if (code) {
+                    // ✅ ถ้ามีรหัสอยู่แล้ว (เช่น 99Z000-B1320) ให้ใช้รหัสนั้นเป็นชื่อไฟล์โดยตรง
+                    fileNameParam = `${code}.${extension}`;
+                } else {
+                    // ✅ กรณีไม่มีรหัสจริงๆ (กันไว้) ค่อยเติม prefix
+                    const prefix = markerType === 'building' ? 'B' : 'S';
+                    const tempCode = Date.now().toString().slice(-5);
+                    fileNameParam = `${prefix}${tempCode}.${extension}`;
+                }
+
                 // ปรับขนาดรูปภาพ
                 try {
                     const resizedImage = await resizeImage(file, maxSize, maxSize);
@@ -2897,11 +2939,17 @@
                     
                     if (e.target.files.length > 0) {
                         // สร้างชื่อไฟล์ใหม่
-                        const file = e.target.files[0];
-                        const prefix = type === 'building' ? 'B' : 'S';
-                        const code = data.building_c || data.s_code || Date.now().toString().slice(-5);
+                        // ✅ ใหม่
                         const extension = file.name.split('.').pop().toLowerCase();
-                        const fileName = `${prefix}${code}.${extension}`;
+                        let code = data.building_c || data.s_code;
+
+                        if (code) {
+                            fileName = `${code}.${extension}`;
+                        } else {
+                            const prefix = type === 'building' ? 'B' : 'S';
+                            const tempCode = Date.now().toString().slice(-5);
+                            fileName = `${prefix}${tempCode}.${extension}`;
+                        }
                         
                         // ✅ อัปเดตป้ายชื่อรูปภาพ
                         fileNameBadge.textContent = fileName;
@@ -3785,37 +3833,48 @@
           }
         }
 
-        // ✅ ฟังก์ชันเปลี่ยนชื่อไฟล์รูปเดิมใน Google Drive โดยเติม ZZZZ_ หน้าชื่อ
-        async function renameOldImageInDrive(oldFileName, folderType) {
-            if (!oldFileName || oldFileName.trim() === '' || oldFileName.startsWith('ZZZZ_')) {
-                return true; // ไม่มีไฟล์เก่า หรือถูกเปลี่ยนชื่อแล้ว
+        // ✅ ฟังก์ชันเปลี่ยนชื่อไฟล์รูปเดิมใน Google Drive
+        async function renameOldImageInDrive(oldPictureUrl, folderType) {
+          if (!oldPictureUrl || oldPictureUrl === 'image.jpg') return;
+          
+          try {
+            // ✅ ดึง fileId จาก URL
+            const fileIdMatch = oldPictureUrl.match(/\/d\/([^\/\?]+)/);
+            if (!fileIdMatch || !fileIdMatch[1]) {
+              console.warn('⚠️ ไม่สามารถแยก fileId จาก:', oldPictureUrl);
+              return;
             }
+            const fileId = fileIdMatch[1];
             
-            try {
-                const body = new URLSearchParams();
-                body.append('action', 'renameFile');
-                body.append('fileName', oldFileName);
-                body.append('newName', `ZZZZ_${oldFileName}`);
-                body.append('folderType', folderType);
-                
-                const res = await fetch(CONFIG.SCRIPT_URL.trim(), {
-                    method: 'POST',
-                    body: body,
-                    timeout: 30000
-                });
-                
-                const result = await res.json();
-                if (res.ok && result.success) {
-                    console.log(`✅ เปลี่ยนชื่อไฟล์เก่า: ${oldFileName} → ZZZZ_${oldFileName}`);
-                    return true;
-                } else {
-                    console.warn(`⚠️ ไม่สามารถเปลี่ยนชื่อไฟล์เก่า: ${oldFileName}`, result);
-                    return false; // ไม่หยุดกระบวนการหลัก
-                }
-            } catch (err) {
-                console.error(`❌ ข้อผิดพลาดในการเปลี่ยนชื่อไฟล์เก่า: ${oldFileName}`, err);
-                return false; // ไม่หยุดกระบวนการหลัก
+            // ✅ สร้างชื่อใหม่: ZZZZ_ + ชื่อไฟล์เดิม
+            const oldFileName = oldPictureUrl.split('/').pop()?.split('?')[0] || '';
+            const newFileName = `ZZZZ_${oldFileName}`;
+            
+            console.log(`🔄 กำลังเปลี่ยนชื่อ: ${oldFileName} → ${newFileName}`);
+            
+            // ✅ เรียก Apps Script endpoint
+            const res = await fetch(CONFIG.SCRIPT_URL, {
+              method: 'POST',
+              body: new URLSearchParams({
+                action: 'renameFile',
+                fileId: fileId,
+                newName: newFileName
+              })
+            });
+            
+            const result = await res.json();
+            
+            if (result.success) {
+              console.log(`✅ เปลี่ยนชื่อไฟล์สำเร็จ: ${result.oldName} → ${result.newName}`);
+              return true;
+            } else {
+              console.warn('❌ เปลี่ยนชื่อล้มเหลว:', result.error);
+              return false;
             }
+          } catch (err) {
+            console.error('❌ Error renaming old image:', err);
+            return false;
+          }
         }
 
         // ============================================
@@ -6853,8 +6912,12 @@
         }
 
         // ✅ ในฟังก์ชันโหลด building_area.geojson
+        // ✅ ฟังก์ชันโหลด building_area.geojson (รวมจุดเด่นทั้งสองเวอร์ชัน)
         function displayBuildingAreaLayer(geoJson) {
             const layer = L.geoJSON(geoJson, {
+                // ✅ ข้อ 1: ระบุ pane ให้ layer นี้อยู่ชั้นบนสุด (ป้องกัน parcel/boundary บัง)
+                pane: 'buildingAreaPane',
+                
                 style: function(feature) {
                     // ✅ ใช้สไตล์เดิมของคุณ (ไม่แก้สี)
                     return {
@@ -6864,8 +6927,20 @@
                         fillColor: feature.properties.fillColor || '#60a5fa'
                     };
                 },
+                
                 onEachFeature: function(feature, layer) {
-                    // ✅ ผูกคลิกโดยตรง (เหมือนตัวอย่าง)
+                    // ✅ ข้อ 2: ล็อกตรวจสอบว่า layer.feature มีค่า (สำหรับดีบัค)
+                    console.log('🏠 โหลด feature:', {
+                        id: feature.properties?.id,
+                        hasGeometry: !!feature.geometry,
+                        layerHasFeature: !!layer.feature  // ✅ ต้องเห็น true
+                    });
+                    
+                    // ✅ ตั้งค่า options สำหรับตรวจสอบในโหมดอื่นๆ
+                    layer.options.layerType = 'building_area';
+                    layer.options.interactive = true;
+                    
+                    // ✅ ข้อ 3: ผูกคลิกโดยตรง (เหมือนตัวอย่างที่ทำงานได้)
                     layer.on('click', function(e) {
                         L.DomEvent.stopPropagation(e);
                         
@@ -6875,7 +6950,7 @@
                         // ✅ คำนวณพื้นที่ด้วย feature ที่ได้จาก onEachFeature (โครงสร้างถูกต้อง!)
                         const area = turf.area(feature).toFixed(2);
                         
-                        // ✅ กรอกค่า + กดปุ่ม "+ เพิ่ม" อัตโนมัติ
+                        // ✅ กรอกค่า + กดปุ่ม "+ บวก" อัตโนมัติ
                         const input = document.getElementById('calc-input-a');
                         if (input && area > 0) {
                             input.value = area;
@@ -6900,7 +6975,11 @@
                 }
             });
             layer.addTo(map);
+            
+            // ✅ ข้อ 4: เก็บ reference ไว้ที่ global variable (สำคัญ!)
             window.buildingAreaLayer = layer;
+            
+            console.log('✅ โหลด building_area.geojson เรียบร้อย, layers:', layer.getLayers?.().length || 'N/A');
             return layer;
         }
 
