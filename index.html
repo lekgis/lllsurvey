@@ -129,12 +129,22 @@
             font-weight: bold;
         }
 
+        /* ✅ สไตล์สำหรับฟิลด์ที่คำนวณอัตโนมัติ (อ่านอย่างเดียว) */
+        .form-input[computed="true"],
+        .form-input[disabled="true"] {
+            background-color: rgba(209, 213, 219, 0.5) !important;
+            cursor: not-allowed !important;
+            color: #6b7280 !important;
+        }
+
         /* สไตล์สำหรับฟิลด์ที่อ่านอย่างเดียว */
         .form-input[readonly] {
             background-color: rgba(187, 247, 208, 0.9) !important;
             cursor: not-allowed !important;
             opacity: 0.85;
             border-color: #9ca3af !important;
+            height: 42px !important;  /* ✅ เพิ่ม: บังคับความสูง */
+            box-sizing: border-box !important;
         }
         .form-input[readonly]:hover {
             border-color: #6b7280 !important;
@@ -355,6 +365,10 @@
             border-radius: 0.3rem; 
             outline: none;
             transition: border-color 0.2s ease;
+            /* ✅ เพิ่ม: บังคับความสูงเท่ากัน */
+            height: 40px;  /* กำหนดความสูงชัดเจน */
+            line-height: 1.5;
+            box-sizing: border-box;  /* ✅ สำคัญ: รวม padding ในความสูง */
         }
         .form-input:focus {
             border-color: #2563eb;
@@ -519,6 +533,7 @@
             .side-panel .form-input {
                 font-size: 0.8125rem !important; /* 13px */
                 padding: 0.4rem 0.6rem !important;
+                height: 38px !important;  /* ✅ ปรับความสูงสำหรับมือถือ */
             }
             
             /* ปรับขนาดเลเบลให้สมดุล */
@@ -557,6 +572,7 @@
             .grid.grid-cols-2 .form-input {
                 font-size: 0.8125rem !important;
                 padding: 0.4rem 0.5rem !important;
+                height: 38px !important;  /* ✅ ปรับความสูงสำหรับมือถือ */
             }
         }
         /* แอนิเมชันสำหรับปุ่มฟันเฟือง */
@@ -1808,6 +1824,22 @@
             data.b_area = '0';
           }
           
+          // ✅ ก่อนสร้างคิว: ตรวจสอบและรวมรหัสจากฟิลด์ชั่วคราว (กรณีผู้ใช้กรอก manual)
+            // <-- วางโค้ดตรงนี้ <--
+          if (markerType === 'building') {
+              const parcelTemp = form.querySelector('input[name="parcel_cod_temp"]')?.value?.trim();
+              const bcodeTemp = form.querySelector('input[name="bcode_temp"], select[name="bcode_temp"]')?.value?.trim();
+              if (parcelTemp && bcodeTemp && !data.building_c) {
+                  data.building_c = `${parcelTemp}-${bcodeTemp}`;
+              }
+          } else if (markerType === 'sign') {
+              const parcelTemp = form.querySelector('input[name="parcel_cod_temp"]')?.value?.trim();
+              const scodeTemp = form.querySelector('input[name="scode_temp"], select[name="scode_temp"]')?.value?.trim();
+              if (parcelTemp && scodeTemp && !data.s_code) {
+                  data.s_code = `${parcelTemp}-${scodeTemp}`;
+              }
+          }
+
           // ✅ ทำเครื่องหมายในมาร์กเกอร์ว่าเป็นชั่วคราว
           marker._popupData = { ...data, type: type, tempMarker: true };
           setupMarkerPopup(marker, marker._popupData, type);
@@ -2589,7 +2621,35 @@
 
             const buildingFields = [
                 { id: 'image', label: 'รูปสิ่งปลูกสร้าง', type: 'file', icon: 'camera' },
-                { id: 'building_c', label: 'รหัสสิ่งปลูกสร้าง', type: 'text' },
+                
+                // ✅ ฟิลด์ชั่วคราวสำหรับแยกส่วนรหัส (แบบคู่แนวนอน)
+                { 
+                    id: 'parcel_cod_temp', 
+                    label: 'รหัสแปลง', 
+                    type: 'text', 
+                    placeholder: 'เช่น 01A001',
+                    tempField: true,
+                    pairWith: 'bcode_temp'
+                },
+                { 
+                    id: 'bcode_temp', 
+                    label: 'รหัสสิ่งปลูกสร้าง', 
+                    type: 'select',
+                    options: ['', 'B001', 'B002', 'B003', 'B004', 'B005', 'B006', 'B007', 'B008', 'B009', 'B010', 'B011', 'B012', 'B013', 'B014', 'B015', 'B016', 'B017', 'B018', 'B019', 'B020', 'B021', 'B022', 'B023', 'B024', 'B025', 'B026', 'B027', 'B028', 'B029', 'B030'],
+                    allowCustom: false,
+                    tempField: true,
+                    pairWith: 'parcel_cod_temp'
+                },
+                
+                // ✅ ฟิลด์ building_c แบบอ่านอย่างเดียว (สร้างอัตโนมัติ)
+                { 
+                    id: 'building_c', 
+                    label: 'รหัสสิ่งปลูกสร้าง (เต็ม)', 
+                    type: 'text',
+                    readonly: true,
+                    description: 'ค่านี้สร้างอัตโนมัติจาก 2 ฟิลด์ด้านบน',
+                    customClass: 'bg-gray-100'
+                },
                 { id: 'b_type', label: 'ประเภทสิ่งปลูกสร้าง', type: 'select', options: [ '000-ไม่ระบุ', '101-บ้านพักอาศัยไม้ชั้นเดียว', '102-บ้านพักอาศัยไม้ชั้นเดียวใต้ถุนสูง', '103-บ้านพักอาศัยตึกชั้นเดียว', '104-บ้านพักอาศัยไม้สองชั้น', '105-บ้านพักอาศัยตึกสองชั้น', '106-บ้านพักอาศัยครึ่งตึกครึ่งไม้สองชั้น', '107-บ้านพักอาศัยตึกสามชั้น', '108-บ้านพักอาศัยแฝดตึกสองชั้น', '109-บ้านพักอาศัยแฝดตึกสามชั้น', '110-บ้านทรงไทยไม้ชั้นเดียวใต้ถุนสูง', '111-บ้านทรงไทยครึ่งตึกครึ่งไม้สองชั้น', '112-บ้านพักอาศัยแฝดตึกชั้นเดียว', '201-บ้านแถว ทาวน์เฮาส์) ชั้นเดียว', '202-บ้านแถว ทาวน์เฮาส์) สองชั้น', '203-บ้านแถว ทาวน์เฮาส์) สามชั้น', '204-บ้านแถว ทาวน์เฮาส์) สี่ชั้น', '301-ห้องแถวไม้ชั้นเดียว', '302-ห้องแถวไม้สองชั้น', '303-ห้องแถวครึ่งตึกครึ่งไม้สองชั้น', '401-ตึกแถวชั้นเดียว', '402-ตึกแถวสองชั้น', '403-ตึกแถวสองชั้นครึ่ง', '404-ตึกแถวสามชั้น', '405-ตึกแถวสามชั้นครึ่ง', '406-ตึกแถวสี่ชั้น', '407-ตึกแถวสี่ชั้นครึ่ง', '408-ตึกแถวห้าชั้น', '409-ตึกแถวหกชั้น', '501-คลังสินค้า พื้นที่ไม่เกิน 300 ตารางเมตร', '502-คลังสินค้าพื้นที่เกินกว่า 300 ตารางเมตรขึ้นไป', '503-เรือนคนใช้ /ครัว', '504-โรงจอดรถ', '505-สถานศึกษา', '506/1-โรงแรม ความสูงไม่เกิน 5 ชั้น', '506/2-โรงแรม ความสูงเกินกว่า 5 ชั้นขึ้นไป', '507-โรงมหรสพ', '508-สถานพยาบาล', '509/1-สำนักงาน ความสูงไม่เกิน 5 ชั้น', '509/2-สำนักงาน ความสูงเกินกว่า 5 ชั้นขึ้นไป', '510-ภัตตาคาร', '511/1-ห้างสรรพสินค้า', '511/2-อาคารพาณิชยกรรม ประเภทค้าปลีกค้าส่ง', '512-สถานีบริการน้ำมันเชื้อเพลิง', '513-โรงงาน', '514-ตลาด พื้นที่ไม่เกิน 1,000 ตารางเมตร', '515-ตลาด พื้นที่เกินกว่า 1,000 ตารางเมตรขึ้นไป', '516-อาคารพาณิชย์ ประเภทโฮมออฟฟิศ', '517-โรงเลี้ยงสัตว์', '518-โรงงานซ่อมรถยนต์', '519-อาคารจอดรถ', '520/1-อาคารอยู่อาศัยรวม ความสูงไม่เกิน 5 ชั้น', '520/2-อาคารอยู่อาศัยรวม ความสูงเกินกว่า 5 ชั้นขึ้นไป', '521-ป้อมยาม', '522-อาคารพาณิชย์ ประเภทโชว์รูมรถยนต์', '523-ห้องน้ำรวม', '601-รั้วคอนกรีต', '602-รั้วลวดหนาม', '603-รั้วสังกะสี', '604-รั้วลวดถัก', '605-รั้วไม้', '606-รั้วเหล็กดัด', '607-รั้วอัลลอยด์', '608-สระว่ายน้ำ', '609-ลานกีฬาอเนกประสงค์', '610-ถนนคอนกรีต', '611-ลานคอนกรีต', '612-ถนนลาดยาง', '613-ป้ายโฆษณา', '614-ท่าเทียบเรือ'] },
                 // ✅ คู่ที่ 1 - วัสดุ + อายุ (แนวนอน)
                 { id: 'b_mat', label: 'วัสดุ', type: 'select', options: ['ไม้', 'ตึก', 'ตึก/ไม้'], defaultValue: 'ตึก', pairWith: 'b_year' },
@@ -2655,6 +2715,7 @@
                 { id: 'full_area2', label: 'ใช้ทั้งหลัง (2)', type: 'select', options: ['', 'บางส่วน'], defaultValue: 'บางส่วน', customClass: 'bg-custom-pink' },
                 { id: 'full_name', label: 'เจ้าของ', type: 'text' },
                 { id: 'address', label: 'ที่อยู่', type: 'text' },
+                { id: 'land_type', label: 'ประเภทที่ดิน', type: 'select', options: ['', 'โฉนด', 'โฉนดตราจอง', 'น.ส.2', 'น.ส.3', 'น.ส.3ก', 'น.ส.ล.', 'ที่ราชพัสดุ', 'ส.ธ.1', 'ส.ป.ก.4-01', 'ท.ค.', 'ทุ่งเลี้ยงสัตว์', 'อื่นๆ'], customClass: 'bg-custom-green' },
                 { 
                   id: 'land_use', 
                   label: 'ใช้ประโยชน์ที่ดิน', 
@@ -2670,7 +2731,35 @@
             
             const signFields = [
                 { id: 'image', label: 'รูปป้าย', type: 'file', icon: 'camera' },
-                { id: 's_code', label: 'รหัสป้าย', type: 'text' },
+                
+                // ✅ ฟิลด์ชั่วคราวสำหรับแยกส่วนรหัสป้าย (แบบคู่แนวนอน)
+                { 
+                    id: 'parcel_cod_temp', 
+                    label: 'รหัสแปลง', 
+                    type: 'text', 
+                    placeholder: 'เช่น 01A001',
+                    tempField: true,
+                    pairWith: 'scode_temp'
+                },
+                { 
+                    id: 'scode_temp', 
+                    label: 'รหัสป้าย', 
+                    type: 'select', 
+                    options: ['', 'S001', 'S002', 'S003', 'S004', 'S005', 'S006', 'S007', 'S008', 'S009', 'S010', 'S011', 'S012', 'S013', 'S014', 'S015', 'S016', 'S017', 'S018', 'S019', 'S020', 'S021', 'S022', 'S023', 'S024', 'S025', 'S026', 'S027', 'S028', 'S029', 'S030'],
+                    allowCustom: false,
+                    tempField: true,
+                    pairWith: 'parcel_cod_temp'
+                },
+                
+                // ✅ ฟิลด์ s_code แบบอ่านอย่างเดียว (สร้างอัตโนมัติ)
+                { 
+                    id: 's_code', 
+                    label: 'รหัสป้าย (เต็ม)', 
+                    type: 'text',
+                    readonly: true,
+                    description: 'ค่านี้สร้างอัตโนมัติจาก 2 ฟิลด์ด้านบน',
+                    customClass: 'bg-gray-100'
+                },
                 { id: 's_name', label: 'ชื่อกิจการ', type: 'text' },
                 { id: 's_type', label: 'ประเภทป้าย', type: 'select', options: ['ป้าย/แสดงโฆษณาทั่วไป', 'ป้าย/ป้ายภายในอาคาร 3 ตร.ม. ขึ้นไป', 'ป้ายตามกฎหมายทะเบียนพาณิชย์'] },
                 // ✅ คู่ที่ 1 - กว้าง + ยาว (แนวนอน)
@@ -2862,6 +2951,7 @@
                     }
                 } else {
                     const customClass = f.customClass || '';
+                    const isDisabled = f.disabled ? 'disabled' : '';  // ✅ เพิ่มบรรทัดนี้
                     html += `<input type="${f.type}" name="${f.id}" class="form-input ${customClass}" value="${fieldValue}"${f.readonly ? ' readonly' : ''}>`;
                 }
                 html += `</div>`;
@@ -3372,6 +3462,116 @@
                 }, 100);
             }
 
+            // ============================================
+            // ✅ ระบบแยก/รวมรหัสสิ่งปลูกสร้างและป้ายอัตโนมัติ
+            // ============================================
+
+            // ✅ ฟังก์ชันแยกค่าจาก building_c/s_code ไปยังฟิลด์ชั่วคราว (เมื่อเปิดฟอร์ม)
+            function splitCodeToTempFields(fullCode, type) {
+                if (!fullCode || !fullCode.includes('-')) return;
+                
+                const parts = fullCode.split('-');
+                if (parts.length >= 2) {
+                    const parcelPart = parts[0]; // ส่วนแรก: รหัสแปลง
+                    const codePart = parts.slice(1).join('-'); // ส่วนหลัง: รหัสสิ่งปลูกสร้าง/ป้าย
+                    
+                    const parcelTemp = document.querySelector('input[name="parcel_cod_temp"]');
+                    if (parcelTemp) parcelTemp.value = parcelPart;
+                    
+                    if (type === 'building') {
+                        const bcodeTemp = document.querySelector('input[name="bcode_temp"], select[name="bcode_temp"]');
+                        if (bcodeTemp) bcodeTemp.value = codePart;
+                    } else if (type === 'sign') {
+                        const scodeTemp = document.querySelector('input[name="scode_temp"], select[name="scode_temp"]');
+                        if (scodeTemp) scodeTemp.value = codePart;
+                    }
+                }
+            }
+
+            // ✅ ฟังก์ชันอัปเดตรหัสสิ่งปลูกสร้างอัตโนมัติ (รวมค่าจาก 2 ฟิลด์)
+            function updateBuildingC() {
+                const parcelTemp = document.querySelector('input[name="parcel_cod_temp"]')?.value?.trim() || '';
+                const bcodeTemp = document.querySelector('input[name="bcode_temp"], select[name="bcode_temp"]')?.value?.trim() || '';
+                const buildingCField = document.querySelector('input[name="building_c"]');
+                
+                if (buildingCField && parcelTemp && bcodeTemp) {
+                    buildingCField.value = `${parcelTemp}-${bcodeTemp}`;
+                    buildingCField.dispatchEvent(new Event('change')); // ทริกเกอร์เหตุการณ์ change
+                } else if (buildingCField && (!parcelTemp || !bcodeTemp)) {
+                    buildingCField.value = ''; // ล้างค่าถ้าขาดส่วนใดส่วนหนึ่ง
+                }
+            }
+
+            // ✅ ฟังก์ชันอัปเดตรหัสป้ายอัตโนมัติ (รวมค่าจาก 2 ฟิลด์)
+            function updateSCode() {
+                const parcelTemp = document.querySelector('input[name="parcel_cod_temp"]')?.value?.trim() || '';
+                const scodeTemp = document.querySelector('input[name="scode_temp"], select[name="scode_temp"]')?.value?.trim() || '';
+                const sCodeField = document.querySelector('input[name="s_code"]');
+                
+                if (sCodeField && parcelTemp && scodeTemp) {
+                    sCodeField.value = `${parcelTemp}-${scodeTemp}`;
+                    sCodeField.dispatchEvent(new Event('change')); // ทริกเกอร์เหตุการณ์ change
+                } else if (sCodeField && (!parcelTemp || !scodeTemp)) {
+                    sCodeField.value = ''; // ล้างค่าถ้าขาดส่วนใดส่วนหนึ่ง
+                }
+            }
+
+            // ✅ ผูกเหตุการณ์ตามประเภทฟอร์ม
+            if (type === 'building') {
+                // ผูกเหตุการณ์กับ parcel_cod_temp
+                const parcelTempBuilding = document.querySelector('input[name="parcel_cod_temp"]');
+                if (parcelTempBuilding) {
+                    parcelTempBuilding.addEventListener('input', updateBuildingC);
+                    parcelTempBuilding.addEventListener('change', updateBuildingC);
+                }
+                
+                // ผูกเหตุการณ์กับ bcode_temp
+                const bcodeTemp = document.querySelector('input[name="bcode_temp"], select[name="bcode_temp"]');
+                if (bcodeTemp) {
+                    bcodeTemp.addEventListener('input', updateBuildingC);
+                    bcodeTemp.addEventListener('change', updateBuildingC);
+                }
+                
+                // ✅ แยกค่าจาก building_c ไปยังฟิลด์ชั่วคราว (เมื่อเปิดฟอร์มแก้ไข)
+                if (editingMarker && editingMarker._popupData?.building_c) {
+                    setTimeout(() => {
+                        splitCodeToTempFields(editingMarker._popupData.building_c, 'building');
+                    }, 50);
+                }
+                
+            } else if (type === 'sign') {
+                // ผูกเหตุการณ์กับ parcel_cod_temp
+                const parcelTempSign = document.querySelector('input[name="parcel_cod_temp"]');
+                if (parcelTempSign) {
+                    parcelTempSign.addEventListener('input', updateSCode);
+                    parcelTempSign.addEventListener('change', updateSCode);
+                }
+                
+                // ผูกเหตุการณ์กับ scode_temp
+                const scodeTemp = document.querySelector('input[name="scode_temp"], select[name="scode_temp"]');
+                if (scodeTemp) {
+                    scodeTemp.addEventListener('input', updateSCode);
+                    scodeTemp.addEventListener('change', updateSCode);
+                }
+                
+                // ✅ แยกค่าจาก s_code ไปยังฟิลด์ชั่วคราว (เมื่อเปิดฟอร์มแก้ไข)
+                if (editingMarker && editingMarker._popupData?.s_code) {
+                    setTimeout(() => {
+                        splitCodeToTempFields(editingMarker._popupData.s_code, 'sign');
+                    }, 50);
+                }
+            }
+
+            // ✅ ผูกเหตุการณ์กับ land_type
+            if (type === 'building') {
+                const landTypeSelect = document.querySelector('select[name="land_type"]');
+                if (landTypeSelect) {
+                    landTypeSelect.addEventListener('change', updateBUseOptions);
+                    // เรียกใช้ครั้งแรกเพื่อตั้งค่าเริ่มต้น
+                    setTimeout(() => updateBUseOptions(), 100);
+                }
+            }
+
             if (type === 'sign') {
                 // ฟังก์ชันอัปเดตค่า s_characte อัตโนมัติ
                 const updateSCharacte = () => {
@@ -3447,6 +3647,60 @@
 
             document.getElementById('side-panel').classList.add('open');
             marker.closePopup();
+        }
+
+        // ✅ เพิ่มฟังก์ชันควบคุมการแสดงตัวเลือก '2-(1)ที่อยู่อาศัย หลังหลัก'
+        function updateBUseOptions() {
+            const landTypeSelect = document.querySelector('select[name="land_type"]');
+            const bUseSelect = document.querySelector('select[name="b_use"]');
+            const bUse2Select = document.querySelector('select[name="b_use2"]');
+            
+            if (!landTypeSelect || !bUseSelect || !bUse2Select) return;
+            
+            const landTypeValue = landTypeSelect.value;
+            const isChanod = landTypeValue === 'โฉนด';
+            
+            // เก็บค่าปัจจุบันไว้
+            const currentBUseValue = bUseSelect.value;
+            const currentBUse2Value = bUse2Select.value;
+            
+            // สร้าง options ใหม่
+            const baseOptions = ['', '1-เกษตรกรรม', '2-(2)ที่อยู่อาศัย หลังหลักไม่เป็นกรรมสิทธิ์ที่ดิน', '2-(3)ที่อยู่อาศัย หลังอื่นๆ เช่น ให้เช่ารายเดือน', '3-อื่นๆ ประกอบการ', '4-ทิ้งไว้ว่างเปล่า/รกร้าง'];
+            const fullOptions = ['', '1-เกษตรกรรม', '2-(1)ที่อยู่อาศัย หลังหลัก', '2-(2)ที่อยู่อาศัย หลังหลักไม่เป็นกรรมสิทธิ์ที่ดิน', '2-(3)ที่อยู่อาศัย หลังอื่นๆ เช่น ให้เช่ารายเดือน', '3-อื่นๆ ประกอบการ', '4-ทิ้งไว้ว่างเปล่า/รกร้าง'];
+            
+            const optionsToUse = isChanod ? fullOptions : baseOptions;
+            
+            // อัปเดต b_use
+            bUseSelect.innerHTML = '';
+            optionsToUse.forEach(opt => {
+                const option = document.createElement('option');
+                option.value = opt;
+                option.textContent = opt;
+                bUseSelect.appendChild(option);
+            });
+            
+            // คืนค่าเดิมถ้ายังมีอยู่
+            if (optionsToUse.includes(currentBUseValue)) {
+                bUseSelect.value = currentBUseValue;
+            } else {
+                bUseSelect.value = '';
+            }
+            
+            // อัปเดต b_use2
+            bUse2Select.innerHTML = '';
+            optionsToUse.forEach(opt => {
+                const option = document.createElement('option');
+                option.value = opt;
+                option.textContent = opt;
+                bUse2Select.appendChild(option);
+            });
+            
+            // คืนค่าเดิมถ้ายังมีอยู่
+            if (optionsToUse.includes(currentBUse2Value)) {
+                bUse2Select.value = currentBUse2Value;
+            } else {
+                bUse2Select.value = '3-อื่นๆ ประกอบการ'; // ค่าเริ่มต้น
+            }
         }
 
         function closePanel() {
