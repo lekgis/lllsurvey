@@ -5596,37 +5596,49 @@
                         });
                     }
                     // ✅ เพิ่มส่วนนี้สำหรับ building_area
-                    // ✅ ในส่วนจัดการคลิก building_area.geojson (แทนที่โค้ดเดิมทั้งหมด)
+                    // ✅ ในส่วน onEachFeature ของ building_area
                     else if (layerName === 'building_area') {
                         polygonLayer.on({
                             click: function(e) {
                                 L.DomEvent.stopPropagation(e);
                                 
-                                // ✅ ข้อ 1: ทำงานเฉพาะเมื่อเปิดโหมดคำนวณพื้นที่ A เท่านั้น
-                                // ถ้าไม่ได้เปิดหน้าต่าง A จากปุ่ม A ใน panel → ไม่ทำอะไร
+                                // ✅ ตรวจสอบโหมดคำนวณพื้นที่ A
                                 if (!isAreaCalculatorMode) {
-                                    console.log('ℹ️ โหมดคำนวณพื้นที่ A ไม่เปิดอยู่ - ไม่ประมวลผล');
+                                    console.log('ℹ️ โหมดคำนวณพื้นที่ A ไม่เปิดอยู่');
                                     return;
                                 }
                                 
-                                // ✅ คำนวณพื้นที่จาก feature เดิมด้วย Turf.js
+                                // ✅ คำนวณพื้นที่
                                 const area = parseFloat(turf.area(feature).toFixed(2));
-                                
-                                // ✅ ข้อ 2: กรอกค่าในช่อง input + กดปุ่ม "+ เพิ่ม" อัตโนมัติ (ใช้ฟังก์ชันเดิม)
                                 const input = document.getElementById('calc-input-a');
+                                
                                 if (input && area > 0) {
-                                    // กรอกค่าพื้นที่ในช่อง input
                                     input.value = area.toFixed(2);
                                     
-                                    // ✅ กดปุ่ม "+ เพิ่ม" ที่มีอยู่เดิมอัตโนมัติ (ไม่ต้องสร้างฟังก์ชันใหม่)
+                                    // ✅ กดปุ่ม "+ บวก" อัตโนมัติ
                                     const addBtn = document.querySelector('button[onclick="addAreaToAccumulatorA()"]');
                                     if (addBtn) {
-                                        addBtn.click(); // ใช้ฟังก์ชันเดิม addAreaToAccumulatorA()
+                                        // ✅ ป้องกันไม่ให้ปิดโหมดหลังคลิก
+                                        addBtn.onclick = function(evt) {
+                                            evt.stopPropagation();
+                                            addAreaToAccumulatorA();
+                                            // ✅ ยืนยันว่าโหมดคำนวณยังเปิดอยู่ (สำคัญสำหรับมือถือ)
+                                            if (isAreaCalculatorMode && !hasMouse) {
+                                                const crosshair = document.getElementById('crosshair');
+                                                const addTrigger = document.getElementById('add-trigger-container');
+                                                if (crosshair) {
+                                                    crosshair.classList.remove('hidden');
+                                                    crosshair.classList.add('visible');
+                                                }
+                                                if (addTrigger) {
+                                                    addTrigger.classList.remove('hidden');
+                                                    addTrigger.classList.add('visible');
+                                                }
+                                            }
+                                        };
+                                        addBtn.click();
                                     }
-                                    
-                                    // แสดงผลลัพธ์
                                     showNotificationLeft(`✅ +${area.toFixed(2)} ตร.ม.`, 'success');
-                                    console.log(`✅ บวกพื้นที่: ${area.toFixed(2)} ตร.ม.`);
                                 }
                             }
                         });
@@ -7316,7 +7328,6 @@
             
             areaAccumulatorA += val;
             areaHistoryA.push(val);
-            
             resultDisplay.value = areaAccumulatorA.toFixed(2);
             
             if (historyDisplay) {
@@ -7325,6 +7336,22 @@
             
             input.value = '';
             input.focus();
+            
+            // ✅ เพิ่มบรรทัดนี้: ยืนยันว่าเป้าเล็งยังแสดงอยู่บนมือถือ
+            if (isAreaCalculatorMode && !hasMouse) {
+                setTimeout(() => {
+                    const crosshair = document.getElementById('crosshair');
+                    const addTrigger = document.getElementById('add-trigger-container');
+                    if (crosshair) {
+                        crosshair.classList.remove('hidden');
+                        crosshair.classList.add('visible');
+                    }
+                    if (addTrigger) {
+                        addTrigger.classList.remove('hidden');
+                        addTrigger.classList.add('visible');
+                    }
+                }, 100);
+            }
             
             showNotificationLeft(`บวก ${val.toFixed(2)} ตร.ม. (รวม: ${areaAccumulatorA.toFixed(2)} ตร.ม.)`, 'success');
         }
