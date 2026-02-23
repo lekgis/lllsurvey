@@ -963,14 +963,14 @@
               <span class="text-xs font-bold">ดาวน์โหลดป้าย</span>
             </button>
             <!-- ปุ่ม 3: ดาวน์โหลดรูปสิ่งปลูกสร้าง -->
-            <button onclick="loadBuildingImages()" class="map-btn p-3 w-48 bg-gradient-to-r from-blue-400 to-blue-600 text-white hover:scale-105 transition-all shadow-lg flex items-center justify-start gap-2 text-left">
-              <i data-lucide="image" class="w-5 h-5"></i>
-              <span class="text-xs font-bold">ดาวน์โหลดรูปสิ่งปลูกสร้าง</span>
+            <button onclick="openBuildingImagesFolder()" class="map-btn p-3 w-48 bg-gradient-to-r from-blue-400 to-blue-600 text-white hover:scale-105 transition-all shadow-lg flex items-center justify-start gap-2 text-left">
+                <i data-lucide="folder-open" class="w-5 h-5"></i>
+                <span class="text-xs font-bold">ดาวน์โหลดรูปสิ่งปลูกสร้าง</span>
             </button>
             <!-- ปุ่ม 4: ดาวน์โหลดรูปป้าย -->
-            <button onclick="loadSignImages()" class="map-btn p-3 w-48 bg-gradient-to-r from-purple-400 to-purple-600 text-white hover:scale-105 transition-all shadow-lg flex items-center justify-start gap-2 text-left">
-              <i data-lucide="gallery-horizontal" class="w-5 h-5"></i>
-              <span class="text-xs font-bold">ดาวน์โหลดรูปป้าย</span>
+            <button onclick="openSignImagesFolder()" class="map-btn p-3 w-48 bg-gradient-to-r from-purple-400 to-purple-600 text-white hover:scale-105 transition-all shadow-lg flex items-center justify-start gap-2 text-left">
+                <i data-lucide="folder-open" class="w-5 h-5"></i>
+                <span class="text-xs font-bold">ดาวน์โหลดรูปป้าย</span>
             </button>
             <!-- ✅ ปุ่ม 5: ดาวน์โหลดแผนที่แปลง (parcel) -->
             <button onclick="downloadMapFile('parcel')" class="map-btn p-3 w-48 bg-gradient-to-r from-yellow-400 to-yellow-600 text-white hover:scale-105 transition-all shadow-lg flex items-center justify-start gap-2 text-left">
@@ -1318,7 +1318,7 @@
 
             document.getElementById('confirm-overlay').classList.add('hidden');
             // ✅ กดรีโหลดอัตโนมัติ
-            triggerAutoRefresh();
+            //triggerAutoRefresh();
         }
 
         // ระบบแคชแผนที่
@@ -1412,6 +1412,22 @@
             }
         };
 
+        // ✅ ฟังก์ชันเปิดโฟลเดอร์รูปภาพสิ่งปลูกสร้าง
+        function openBuildingImagesFolder() {
+            closeSettingsMenu();
+            const folderUrl = 'https://drive.google.com/drive/folders/1iyPD8DyCdRD-XO8TYhx5R3Qsf_AeTbB9';
+            window.open(folderUrl, '_blank');
+            showNotificationLeft('📂 เปิดโฟลเดอร์รูปภาพสิ่งปลูกสร้างในแท็บใหม่', 'info');
+        }
+
+        // ✅ ฟังก์ชันเปิดโฟลเดอร์รูปภาพป้าย
+        function openSignImagesFolder() {
+            closeSettingsMenu();
+            const folderUrl = 'https://drive.google.com/drive/folders/1yeATqdqZ2U9F5DcR9IumpqJlKuU8hwR4';
+            window.open(folderUrl, '_blank');
+            showNotificationLeft('📂 เปิดโฟลเดอร์รูปภาพป้ายในแท็บใหม่', 'info');
+        }
+
         function toggleEditMode() {
             isEditMode = !isEditMode;
             const btnEdit = document.getElementById('btn-edit');
@@ -1454,7 +1470,7 @@
                 showEditModeModal();
 
                 // ✅ กดรีโหลดอัตโนมัติ
-                triggerAutoRefresh();
+                //triggerAutoRefresh();
             } else {
                 btnEdit.classList.remove('active-edit');
 
@@ -1464,7 +1480,7 @@
                     }
                 });
                 // ✅ กดรีโหลดอัตโนมัติ
-                triggerAutoRefresh();
+                //triggerAutoRefresh();
             }
         }
 
@@ -2377,7 +2393,7 @@
             }
         }
 
-        // แก้ไขฟังก์ชัน updateMarkerPosition
+        // ✅ แก้ไขฟังก์ชัน updateMarkerPosition (สร้างคิวทันทีหลัง markersBeingMoved.add)
         async function updateMarkerPosition(marker, data, newLatLng) {
             const refreshBtn = document.getElementById('btn-refresh');
             const refreshIcon = document.getElementById('refresh-icon');
@@ -2399,12 +2415,26 @@
             // ✅ เพิ่มลงในรายการจุดที่กำลังถูกย้าย
             markersBeingMoved.add(rowKey);
             
+            // ✅ ✅ ✅ สร้างคิวทันทีตรงนี้ (ตามที่ขอ) ✅ ✅ ✅
+            console.log(`🔄 สร้างคิวสำหรับ updatePosition: ${rowKey}`);
+            const queueId = addToSyncQueue('updatePosition', type, { lat_long: newLatLngStr }, rowKey);
+            
+            // ✅ อัปเดต marker._popupData ให้มีสถานะ queued
+            if (marker && marker._popupData) {
+                marker._popupData = {
+                    ...marker._popupData,
+                    lat_long: newLatLngStr,
+                    queued: true,
+                    queueId: queueId
+                };
+                setupMarkerPopup(marker, marker._popupData, type);
+            }
+            
             // ✅ หาจุดจริงที่กำลังถูกย้าย (ไม่ใช่จุดชั่วคราว)
             let realMarker = null;
             surveyLayers.eachLayer(layer => {
                 if (layer._popupData) {
                     const layerId = layer._popupData._row_num || layer._popupData.id;
-                    // ✅ ตรวจสอบว่าเป็นจุดจริง (ไม่ใช่จุดชั่วคราว)
                     if (String(layerId) === String(rowKey) && !layer._popupData.tempMarker) {
                         realMarker = layer;
                     }
@@ -2420,11 +2450,11 @@
             }
             
             try {
-                // ✅ อัปเดตตำแหน่งในข้อมูลทันที (ไม่ต้องโหลดข้อมูลใหม่ทั้งหมด)
+                // ✅ 1. อัปเดตตำแหน่งในข้อมูลทันที (UX เดิม)
                 realMarker._popupData.lat_long = newLatLngStr;
                 realMarker.setLatLng(newLatLng);
                 
-                // ✅ ส่งข้อมูลไปยังเซิร์ฟเวอร์
+                // ✅ 2. ส่งข้อมูลไปยังเซิร์ฟเวอร์ตรงๆ (UX เดิม)
                 const body = new URLSearchParams();
                 body.append('action', 'updatePosition');
                 body.append('type', type);
@@ -2440,8 +2470,7 @@
                 const result = await res.json();
                 
                 if (res.ok && result.status === 200) {
-                    // ✅ อัปเดตสำเร็จ - ลบออกจากรายการจุดที่กำลังถูกย้าย
-                    markersBeingMoved.delete(rowKey);
+                    // ✅ อัปเดตสำเร็จ
                     refreshIcon.classList.remove('animate-spin');
                     refreshBtn.classList.add('refresh-success');
                     
@@ -2451,11 +2480,13 @@
                     }, 2000);
                     
                     showNotificationLeft('อัปเดตตำแหน่งสำเร็จ!', 'success');
+                    
                 } else {
                     throw new Error(result.message || "อัปเดตตำแหน่งไม่สำเร็จ");
                 }
+                
             } catch (err) {
-                // ✅ หากเกิดข้อผิดพลาด ให้คืนค่าจุดเดิม
+                // ✅ หากเกิดข้อผิดพลาด → Rollback ตำแหน่งเดิม (UX เดิม)
                 console.error('❌ ข้อผิดพลาดในการอัปเดต:', err);
                 
                 // คืนค่าตำแหน่งเดิม
@@ -2463,12 +2494,20 @@
                 realMarker.setLatLng(L.latLng(coords[0], coords[1]));
                 realMarker._popupData.lat_long = oldLatLng;
                 
-                markersBeingMoved.delete(rowKey);
-                refreshIcon.classList.remove('animate-spin');
-                enableRefreshButton();
-                
-                showNotificationLeft("การอัปเดตล้มเหลว: " + err.message, 'error');
+                showNotificationLeft("การอัปเดตล้มเหลว: จะลองใหม่ผ่านคิว", 'warning');
             }
+            
+            // ✅ เรียกประมวลผลคิวทันที (เพื่อให้คิวที่สร้างไว้เริ่มทำงาน)
+            if (isOnline && navigator.onLine) {
+                await processSyncQueue();
+            }
+            
+            // ✅ ลบออกจากรายการจุดที่กำลังถูกย้าย (ทำท้ายสุด)
+            markersBeingMoved.delete(rowKey);
+            refreshIcon.classList.remove('animate-spin');
+            enableRefreshButton();
+            
+            console.log(`✅ คิวถูกสร้างและประมวลผล: ${queueId}`);
         }
 
 
@@ -3779,29 +3818,50 @@
             document.getElementById('confirm-delete-modal').classList.add('flex');
         }
 
-        // ปิดหน้าต่างยืนยันการลบ
+        // ✅ ปิดหน้าต่างยืนยันการลบ (แก้ไขแล้ว)
         function cancelDelete() {
-            document.getElementById('confirm-delete-modal').classList.add('hidden');
+            const modal = document.getElementById('confirm-delete-modal');
+            if (modal) {
+                modal.classList.add('hidden');      // ✅ ซ่อน
+                modal.classList.remove('flex');     // ✅ ลบ flex ที่ทำให้แสดง
+            }
             deleteMarkerData = null;
             deleteMarkerType = null;
             deleteMarkerRef = null;
         }
 
-        // ยืนยันการลบ
+        // ✅ ยืนยันการลบ (แก้ไขแล้ว - สร้างคิว)
         async function confirmDeleteAction() {
             if (!deleteMarkerRef || !deleteMarkerData || !deleteMarkerType) {
                 cancelDelete();
                 return;
             }
             
-            // ปิดหน้าต่างยืนยัน
-            document.getElementById('confirm-delete-modal').classList.add('hidden');
+            const rowKey = deleteMarkerData._row_num || deleteMarkerData.id;
+            const type = deleteMarkerType;
             
             try {
-                await deleteMarker(deleteMarkerRef, deleteMarkerData, deleteMarkerType);
+                // ✅ 1. ปิด Modal ทันที
+                cancelDelete();
+                
+                // ✅ 2. สร้างคิวสำหรับลบข้อมูล (สำคัญ!)
+                const queueId = addToSyncQueue('delete', type, {}, rowKey);
+                
+                // ✅ 3. อัปเดตสถานะในคิว
+                const queueItem = syncQueue.find(q => q.id === queueId);
+                if (queueItem) {
+                    queueItem.markerRef = deleteMarkerRef;
+                }
+                
+                // ✅ 4. เรียกซิงค์ทันที
+                await processSyncQueue();
+                
+                // ✅ 5. แสดงแจ้งเตือน
+                showNotificationLeft(`ลบ${type === 'building' ? 'สิ่งปลูกสร้าง' : 'ป้าย'}แล้ว (รอซิงค์)`, 'success');
+                
             } catch (err) {
-                console.error("Error in delete action:", err);
-            } finally {
+                console.error('❌ ลบจุดล้มเหลว:', err);
+                showNotificationLeft('❌ เกิดข้อผิดพลาดในการลบ', 'error');
                 cancelDelete();
             }
         }
@@ -8147,7 +8207,7 @@
         async function openGeminiModal(imageUrl) {
             try {
                 // ✅ ลิงก์ Gemini ที่ต้องการ
-                const geminiUrl = 'https://gemini.google.com/share/a39cad5790a4';
+                const geminiUrl = 'https://gemini.google.com/share/53dbeab06052';
                 
                 // ✅ คัดลอกลิงก์ไปยังคลิปบอร์ด
                 try {
