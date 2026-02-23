@@ -1,7 +1,7 @@
 {
   "name": "โนนไทย",
   "short_name": "โนนไทย",
-  "description": "แอปสำรวจสิ่งปลูกสร้างและป้ายแบบออฟไลน์",
+  "description": "แอปสำรวจสิ่งปลูกสร้างและป้าย",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#ffffff",
@@ -24,3 +24,4 @@
   "lang": "th",
   "dir": "ltr"
 }
+
