@@ -3883,6 +3883,12 @@
         // ปิดหน้าต่างโหมดแก้ไข
         function closeEditModeModal() {
             document.getElementById('edit-mode-modal').classList.add('hidden');
+
+            // ✅ ✅ ✅ เพิ่มบรรทัดนี้: เรียก refresh อัตโนมัติหลังปิดโหมดแก้ไข ✅ ✅ ✅
+            setTimeout(() => {
+                triggerAutoRefresh(true);  // ✅ ส่ง true เพื่อข้าม cooldown
+                console.log('🔄 เรียก refresh อัตโนมัติหลังปิดโหมดแก้ไข');
+            }, 1000);  // ✅ รอเล็กน้อยให้ modal ปิดสนิทก่อน
         }
 
         // ฟังก์ชันสำหรับแสดง/ซ่อนตาราง
