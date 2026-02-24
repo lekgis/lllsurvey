@@ -3866,12 +3866,15 @@
             }
         }
 
-        // เปิดหน้าต่างโหมดแก้ไข
+        // ✅ เปิดหน้าต่างโหมดแก้ไข
         function showEditModeModal() {
+            // ✅ ตั้งค่าโหมดแก้ไขเป็น true
+            isEditMode = true;
+            
             document.getElementById('edit-mode-modal').classList.remove('hidden');
             document.getElementById('edit-mode-modal').classList.add('flex');
             
-            // ปิดอัตโนมัติหลัง 3 วินาที
+            // ปิดอัตโนมัติหลัง 1.5 วินาที
             setTimeout(() => {
                 closeEditModeModal();
             }, 500);
@@ -6773,6 +6776,12 @@
 
         // ✅ ฟังก์ชัน Helper: กดปุ่มรีโหลดอัตโนมัติ
         function triggerAutoRefresh(bypassCooldown = false) {
+            // ✅ ✅ ✅ เพิ่มบรรทัดนี้: ข้ามรีโหลดถ้าเปิดโหมดแก้ไขอยู่ ✅ ✅ ✅
+            if (isEditMode) {
+                console.log('⏭️ ข้ามรีโหลดอัตโนมัติ: กำลังอยู่ในโหมดแก้ไขตำแหน่ง');
+                return;
+            }
+            
             const refreshBtn = document.getElementById('btn-refresh');
             
             // ✅ 1. ตรวจสอบว่ากำลังรีโหลดอยู่หรือไม่
@@ -6787,13 +6796,12 @@
                 if (now - lastAutoRefreshTime < AUTO_REFRESH_COOLDOWN) {
                     const remaining = Math.ceil((AUTO_REFRESH_COOLDOWN - (now - lastAutoRefreshTime)) / 1000);
                     console.log(`⏳ Cooldown: รออีก ${remaining} วินาที`);
-                    return;  // ✅ ข้ามเพราะยังไม่ครบ 30 วิ
+                    return;
                 }
             }
             
             // ✅ 3. บันทึกเวลาและเรียกฟังก์ชันรีโหลด
-            lastAutoRefreshTime = Date.now();  // ✅ อัปเดตเวลา
-            
+            lastAutoRefreshTime = Date.now();
             if (refreshBtn && !refreshBtn.disabled) {
                 setTimeout(() => {
                     refreshBtn.click();
@@ -8561,11 +8569,14 @@
         // ============================================
         // ฟังก์ชัน refreshData (ผู้ใช้คลิกเอง - ทำงานทันที)
         // ============================================
-        function refreshData() {
-            const refreshBtn = document.getElementById('btn-refresh');
-            const refreshIcon = document.getElementById('refresh-icon');
+        async function refreshData() {
+            // ✅ ✅ ✅ เพิ่มบรรทัดนี้: ข้ามรีโหลดถ้าเปิดโหมดแก้ไขอยู่ ✅ ✅ ✅
+            if (isEditMode) {
+                console.log('⏭️ ข้ามรีโหลด: กำลังอยู่ในโหมดแก้ไขตำแหน่ง');
+                showNotificationLeft('⏸️ รอจบโหมดแก้ไขก่อนรีโหลด', 'info');
+                return;
+            }
             
-            // ✅ 1. ตรวจสอบว่ากำลังรีโหลดอยู่หรือไม่ (ป้องกันซ้ำ)
             if (isRefreshing) {
                 console.log('⏳ กำลังรีโหลดอยู่ - ข้าม');
                 return;
@@ -8575,20 +8586,20 @@
             isRefreshing = true;
             
             // ✅ 3. รีเซ็ต cooldown สำหรับการอัตโนมัติครั้งต่อไป
-            lastAutoRefreshTime = Date.now();  // ✅ แก้เป็นแบบนี้
+            lastAutoRefreshTime = Date.now();
             console.log('🖱️ ผู้ใช้คลิกปุ่มรีโหลดด้วยตนเอง - รีเซ็ต cooldown');
             
             disableRefreshButton();
-            refreshIcon.classList.add('animate-spin');
+            const refreshIcon = document.getElementById('refresh-icon');
+            if (refreshIcon) refreshIcon.classList.add('animate-spin');
             
-            loadExistingData().finally(() => {
+            await loadExistingData().finally(() => {
                 setTimeout(() => {
-                    refreshIcon.classList.remove('animate-spin');
+                    if (refreshIcon) refreshIcon.classList.remove('animate-spin');
                     enableRefreshButton();
                     
                     // ✅ 4. รีเซ็ตสถานะหลังรีโหลดเสร็จ
                     isRefreshing = false;
-                    
                     console.log('✅ รีโหลดเสร็จสิ้น');
                 }, 500);
             });
