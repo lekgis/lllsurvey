@@ -1198,6 +1198,11 @@
 
         let canvasRenderer; // ✅ ประกาศตัวแปรระดับโกลบอล
 
+        // ✅ ประกาศตัวแปรเก็บข้อมูล cache (วางนอกฟังก์ชัน)
+        let cachedSheetData = null;
+        let cacheTimestamp = null;
+        const CACHE_DURATION = 5 * 60 * 1000; // 5 นาที
+
         // ✅ ตัวแปรควบคุมการรีโหลดอัตโนมัติ
         let isRefreshing = false;  // ✅ สถานะการรีโหลด
         let lastAutoRefreshTime = 0;  // ✅ เวลาที่รีโหลดอัตโนมัติครั้งล่าสุด
@@ -1428,6 +1433,35 @@
             showNotificationLeft('📂 เปิดโฟลเดอร์รูปภาพป้ายในแท็บใหม่', 'info');
         }
 
+
+        // ✅ ฟังก์ชันดึงข้อมูลจาก cache หรือ fetch ใหม่ถ้าหมดอายุ
+        async function getCachedData() {
+            const now = Date.now();
+            
+            // ✅ ถ้ามี cache และยังไม่หมดอายุ → ใช้ cache
+            if (cachedSheetData && cacheTimestamp && (now - cacheTimestamp) < CACHE_DURATION) {
+                console.log('✅ ใช้ข้อมูลจาก cache');
+                return cachedSheetData;
+            }
+            
+            // ✅ ถ้าไม่มี cache หรือหมดอายุ → fetch ใหม่
+            console.log('🔄 โหลดข้อมูลใหม่จาก Google Sheets...');
+            try {
+                const response = await fetch(`${CONFIG.SCRIPT_URL}?action=getData`);
+                const data = await response.json();
+                
+                // ✅ อัปเดต cache
+                cachedSheetData = data;
+                cacheTimestamp = now;
+                
+                console.log('✅ โหลดข้อมูลใหม่เสร็จ, อัปเดต cache');
+                return data;
+            } catch (err) {
+                console.error('❌ Fetch failed, ใช้ cache เก่าถ้ามี:', err);
+                return cachedSheetData || { buildings: [], signs: [] }; // fallback
+            }
+        }
+
         function toggleEditMode() {
             isEditMode = !isEditMode;
             const btnEdit = document.getElementById('btn-edit');
@@ -1570,7 +1604,7 @@
                 // ✅ 8. ล้างจุดชั่วคราวเก่า (ถ้ามี)
                 if (mouseTempMarker) {
                     surveyLayers.removeLayer(mouseTempMarker);
-                    mouseTempMarker = null;
+
                 }
                 mouseClickLatLng = null;
                 
@@ -1621,53 +1655,60 @@
             }
             
             map.on('click', function(e) {
-                // ✅ ต้องเช็คก่อนว่าเปิดโหมดเมาส์อยู่ไหม
                 if (!mouseAddMode) return;
-                
-                // ✅ ต้องเช็คด้วยว่าเลือกประเภทหรือยัง
                 if (!activeTool) {
                     showNotificationLeft('กรุณาเลือกประเภทสิ่งปลูกสร้างหรือป้ายก่อน', 'warning');
                     return;
                 }
                 
-                // ✅ สำคัญ: ป้องกัน event รั่วไปยัง layer อื่น
-                if (e.originalEvent) {
-                    L.DomEvent.stopPropagation(e.originalEvent);
-                }
-                
                 const latlng = e.latlng;
                 console.log('📍 Map clicked at:', latlng);
                 
-                // ✅ สร้างจุดชั่วคราว
+                // ✅ ✅ ✅ สร้างจุดชั่วคราวทันที (ก่อนทำอย่างอื่น!) ✅ ✅ ✅
                 if (mouseTempMarker) {
                     surveyLayers.removeLayer(mouseTempMarker);
                 }
-                
                 mouseTempMarker = L.circleMarker(latlng, {
                     radius: 8,
                     color: activeTool === 'building' ? '#f97316' : '#22c55e',
                     fillColor: activeTool === 'building' ? '#f97316' : '#22c55e',
                     fillOpacity: 0.8,
                     weight: 2
-                });
+                }).addTo(surveyLayers);
                 
-                mouseTempMarker.addTo(surveyLayers);
-                mouseClickLatLng = latlng;
-                
-                // ✅ แสดงปุ่มยืนยัน
-                document.getElementById('confirm-overlay').classList.remove('hidden');
-                
-                // ✅ เพิ่มบรรทัดนี้: ตั้งค่าสีปุ่มตามประเภท (สำคัญมาก!)
+                // ✅ แสดงปุ่มยืนยันทันที
+                const overlay = document.getElementById('confirm-overlay');
                 const btn = document.getElementById('btn-confirm-action');
                 const text = document.getElementById('confirm-text');
-                if (activeTool === 'building') {
-                    btn.style.backgroundColor = '#f97316';  // 🟠 สีส้ม - สิ่งปลูกสร้าง
-                    text.innerText = "เพิ่มสิ่งปลูกสร้าง";
-                } else {
-                    btn.style.backgroundColor = '#22c55e';  // 🟢 สีเขียว - ป้าย
-                    text.innerText = "ยืนยันเพิ่มป้าย";
+                if (overlay && btn && text) {
+                    mouseClickLatLng = latlng;
+                    overlay.classList.remove('hidden');
+                    if (activeTool === 'building') {
+                        btn.style.backgroundColor = '#f97316';
+                        text.innerText = "เพิ่มสิ่งปลูกสร้าง";
+                    } else {
+                        btn.style.backgroundColor = '#22c55e';
+                        text.innerText = "ยืนยันเพิ่มป้าย";
+                    }
                 }
-                showNotificationLeft(`เลือกตำแหน่งแล้ว - กดปุ่มยืนยันเพื่อเพิ่ม${activeTool === 'building' ? 'สิ่งปลูกสร้าง' : 'ป้าย'}`, 'info');
+                
+                // ✅ แก้ไขส่วน setTimeout เดิมใน initMouseAddMode
+                setTimeout(async () => { // เพิ่ม async ตรงนี้
+                    const parcelCod = await getParcelCodeAtLocation(latlng); // เพิ่ม await
+                    if (parcelCod) {
+                        const parcelInput = document.getElementById('parcel_cod');
+                        if (parcelInput) {
+                            parcelInput.value = parcelCod;
+                            console.log(`✅ ดึง parcel_cod: ${parcelCod}`);
+                            showNotificationLeft(`📋 ดึงรหัสแปลง: ${parcelCod}`, 'success');
+                        }
+                    }
+                }, 50);
+                
+                // ✅ หยุด event เฉพาะเมื่อประมวลผลเสร็จแล้ว
+                if (e.originalEvent) {
+                    L.DomEvent.stopPropagation(e.originalEvent);
+                }
             });
         }
 
@@ -1742,45 +1783,46 @@
         }
 
         // ✅ ฟังก์ชันยืนยันและบันทึก (รองรับทั้งโหมดเป้าเล็งและโหมดเมาส์)
-        async function confirmCapture() {
-            // ✅ เช็คโหมดคำนวณพื้นที่ก่อน (สำคัญที่สุด!)
+        function confirmCapture() {
+            // ✅ เช็คโหมดคำนวณพื้นที่ก่อน
             if (isAreaCalculatorMode) {
                 if (hasMouse) {
-                    // ✅ โหมดเมาส์: ไม่ต้องทำอะไร (คลิกบน polygon จะคำนวณอัตโนมัติ)
                     showNotificationLeft('ใช้ Cursor + คลิกบนสิ่งปลูกสร้างเพื่อคำนวณพื้นที่', 'info');
                 } else {
-                    // ✅ โหมดสัมผัส: คำนวณจากเป้าเล็งกลางจอ
-                    calculateAreaFromCrosshair(); // ✅ ต้องเรียกฟังก์ชันนี้!
+                    calculateAreaFromCrosshair();
                 }
-                return; // ✅ จบที่นี่ ไม่ต้องสร้างจุด
+                return;
             }
 
             let latlng;
-            
-            // ✅ เช็คถ้าเป็นโหมดเมาส์ ให้ใช้ตำแหน่งที่คลิก
             if (mouseAddMode && mouseClickLatLng) {
                 latlng = mouseClickLatLng;
             } else {
-                // โหมดเป้าเล็ง ใช้ตำแหน่งตรงกลางจอ
                 const containerPoint = L.point(map.getSize().x / 2, map.getSize().y * 0.35);
                 latlng = map.containerPointToLatLng(containerPoint);
             }
             
+            // ✅ ✅ ✅ ดึง parcel_cod แบบ SYNC (ไม่ต้อง await!) ✅ ✅ ✅
+            const parcelCod = getParcelCodeAtLocation(latlng);
+            
+            if (parcelCod) {
+                const parcelInput = document.getElementById('parcel_cod');
+                if (parcelInput) {
+                    parcelInput.value = parcelCod;
+                    console.log(`✅ ดึง parcel_cod: ${parcelCod}`);
+                    showNotificationLeft(`📋 ดึงรหัสแปลง: ${parcelCod}`, 'success');
+                }
+            }
+
             // ซ่อนปุ่มยืนยัน
             document.getElementById('confirm-overlay').classList.add('hidden');
             
-            // ✅ ถ้าเป็นโหมดเมาส์ → จุดชั่วคราวมีอยู่แล้ว ไม่ต้องสร้างใหม่
+            // ✅ ถ้าเป็นโหมดเมาส์ → จุดชั่วคราวมีอยู่แล้ว
             if (mouseAddMode && mouseTempMarker) {
-                // ✅ แค่บันทึกข้อมูล (จุดแสดงอยู่แล้ว)
                 backgroundUpload(latlng, activeTool, mouseTempMarker);
-                
-                // ✅ รีเซ็ตตัวแปร
-                mouseTempMarker = null;
                 mouseClickLatLng = null;
-                
-                showNotificationLeft(`เพิ่ม${activeTool === 'building' ? 'สิ่งปลูกสร้าง' : 'ป้าย'}แล้ว`, 'success');
+                showNotificationLeft(`เพิ่ม${activeTool === 'building' ? 'สิ่งปลูกสร้าง' : 'ป้าย'}แล้ว (รอซิงค์)`, 'success');
             } else {
-                // โหมดเป้าเล็ง → สร้างจุดใหม่
                 const tempMarker = createCircleMarker(latlng, activeTool, false, 'ยังไม่สำรวจ');
                 tempMarker.addTo(surveyLayers);
                 backgroundUpload(latlng, activeTool, tempMarker);
@@ -1870,45 +1912,51 @@
             }
         }
 
-        // แก้ไขฟังก์ชัน backgroundUpload
+        // ✅ แก้ไขฟังก์ชัน backgroundUpload (ใช้ getParcelCodeAtLocation แบบ sync)
         async function backgroundUpload(latlng, type, marker) {
             const refreshBtn = document.getElementById('btn-refresh');
             const refreshIcon = document.getElementById('refresh-icon');
             disableRefreshButton();
             refreshIcon.classList.add('animate-spin');
             
-            // ✅ สร้าง ID ที่ไม่ซ้ำกัน (ใช้สำหรับ internal tracking เท่านั้น)
+            // ✅ สร้าง ID ที่ไม่ซ้ำกัน
             const newId = `${type}_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
             
-            // สร้างข้อมูลพื้นฐาน + เพิ่ม id
+            // ✅ ดึง parcel_cod แบบ sync (ต้องแน่ใจว่าฟังก์ชันนี้คืนค่า string/null)
+            const parcelCod = getParcelCodeAtLocation(latlng);
+            
+            // ✅ ✅ ✅ สร้าง data object ครั้งเดียว พร้อม parcel_cod ✅ ✅ ✅
             const data = {
                 id: newId,
                 lat_long: `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`,
                 date_added: new Date().toISOString(),
-                tempMarker: true
+                tempMarker: true,
+                
+                // ✅ ส่ง parcel_cod ไป backend (ค่าถาวรสำหรับ Sheets)
+                parcel_cod: parcelCod || '',
+                
+                // ✅ parcel_cod_temp ยังใช้สำหรับแยกส่วนรหัส
+                parcel_cod_temp: parcelCod || ''
             };
             
-            // ✅ ดึงรหัสแปลงจากตำแหน่งที่คลิก (จาก parcel.geojson)
-            const parcelCod = getParcelCodeAtLocation(latlng);
+            console.log(`📦 data.parcel_cod: "${data.parcel_cod}"`);  // ✅ Debug log
             
-            // กำหนดค่าเริ่มต้นตามประเภท (❌ ไม่สร้างรหัสอัตโนมัติด้วย 99Z000- อีกต่อไป)
+            // กำหนดค่าเริ่มต้นตามประเภท
             if (type === 'sign') {
                 data.s_name = '';
                 data.s_type = '';
                 data.s_wide = '0';
                 data.s_length = '0';
-                // ✅ ถ้าพบ parcel_cod จากแผนที่ → เก็บไว้เป็นค่าเริ่มต้นสำหรับฟอร์ม
                 if (parcelCod) {
-                    data.parcel_cod_temp = parcelCod;
+                    data.parcel_cod_temp = parcelCod; // ✅ เก็บไว้
                     console.log(`✅ Auto-fill parcel_cod_temp: ${parcelCod}`);
                 }
             } else {
                 data.full_name = '';
                 data.b_type = '';
                 data.b_area = '0';
-                // ✅ ถ้าพบ parcel_cod จากแผนที่ → เก็บไว้เป็นค่าเริ่มต้นสำหรับฟอร์ม
                 if (parcelCod) {
-                    data.parcel_cod_temp = parcelCod;
+                    data.parcel_cod_temp = parcelCod; // ✅ เก็บไว้
                     console.log(`✅ Auto-fill parcel_cod_temp: ${parcelCod}`);
                 }
             }
@@ -1944,19 +1992,17 @@
                 
                 // ✅ โหลดข้อมูลใหม่ก่อน (เพื่อให้มีข้อมูลจริงแสดงบนแผนที่)
                 await loadExistingData();
-                
-                // ✅ ลบจุดชั่วคราว - รอให้โหลดข้อมูลเสร็จจริงๆ
+
+                // ✅ ลบจุดชั่วคราวหลังจากโหลดข้อมูลเสร็จ
                 setTimeout(() => {
                     surveyLayers.eachLayer(layer => {
-                        if (layer._popupData && layer._popupData.tempMarker) {
+                        if (layer._popupData?.tempMarker) {
                             const realMarkerExists = allBuildings.some(b => b.id === layer._popupData.id) || 
                                                      allSigns.some(s => s.id === layer._popupData.id);
                             
                             if (realMarkerExists) {
                                 surveyLayers.removeLayer(layer);
-                                console.log(`✅ ลบจุดชั่วคราว: ${layer._popupData.id} (จุดจริงแสดงแล้ว)`);
-                            } else {
-                                console.log(`⚠️ ยังไม่ลบจุดชั่วคราว: ${layer._popupData.id} (จุดจริงยังไม่แสดง)`);
+                                console.log(`✅ ลบจุดชั่วคราว: ${layer._popupData.id}`);
                             }
                         }
                     });
@@ -1969,7 +2015,7 @@
                         enableRefreshButton();
                     }, 2000);
                     
-                    if (queueItem && queueItem.status === 'success') {
+                    if (queueItem?.status === 'success') {
                         showNotificationLeft('เพิ่มจุดเรียบร้อยแล้ว!', 'success');
                     } else {
                         showNotificationLeft('เพิ่มจุดเรียบร้อยแล้ว (รอซิงค์)', 'warning');
@@ -2685,36 +2731,124 @@
             }
         }
 
+        // ✅ ดึงรหัสที่ใช้แล้ว ใน parcel_cod เดียวกันเท่านั้น (แบบเข้มงวด)
+        // ✅ แก้ฟังก์ชัน getUsedCodes() ให้ใช้ cache
+        async function getUsedCodes(parcelCod, type) {
+            if (!parcelCod || parcelCod.trim() === '') return [];
+            
+            const cleanParcelCod = parcelCod.trim().toUpperCase().replace(/\s+/g, '');
+            
+            try {
+                // ✅ ใช้ข้อมูลจาก cache แทน fetch ทุกครั้ง
+                const data = await getCachedData();
+                
+                const usedCodes = [];
+                const records = type === 'building' ? data.buildings : data.signs;
+                const codeField = type === 'building' ? 'building_c' : 's_code';
+                
+                records.forEach(record => {
+                    const recordParcelCod = (record.parcel_cod || '')
+                        .trim()
+                        .toUpperCase()
+                        .replace(/\s+/g, '');
+                    
+                    if (recordParcelCod === cleanParcelCod && record[codeField]) {
+                        const fullCode = record[codeField].trim();
+                        const parts = fullCode.split('-');
+                        if (parts.length >= 2) {
+                            const codePart = parts.slice(1).join('-').trim();
+                            if (codePart && !usedCodes.includes(codePart)) {
+                                usedCodes.push(codePart);
+                            }
+                        }
+                    }
+                });
+                
+                return usedCodes;
+            } catch (err) {
+                console.error('❌ Error in getUsedCodes:', err);
+                return [];
+            }
+        }
+
+        // ✅ อัปเดต dropdown: แสดงเฉพาะค่าที่ยังไม่ใช้ + ตั้งค่าว่างถ้าเป็นจุดใหม่
+        async function updateTempCodeOptions(parcelCod, type, existingCode = null) {
+            const selectId = type === 'building' ? 'bcode_temp' : 'scode_temp';
+            const prefix = type === 'building' ? 'B' : 'S';
+            const maxNum = 30;
+            
+            // ✅ ดึงรหัสที่ใช้แล้วใน parcel_cod นี้เท่านั้น
+            const usedCodes = await getUsedCodes(parcelCod, type);
+            
+            // ✅ สร้างรายการรหัสที่ว่าง (ไม่รวมที่ใช้แล้ว)
+            const availableOptions = [];
+            for (let i = 1; i <= maxNum; i++) {
+                const code = `${prefix}${String(i).padStart(3, '0')}`;
+                // ✅ ไม่รวมรหัสที่ใช้แล้ว
+                if (!usedCodes.includes(code)) {
+                    availableOptions.push(code);
+                }
+            }
+            
+            // ✅ อัปเดต dropdown ในฟอร์ม
+            const selectEl = document.querySelector(`select[name="${selectId}"]`);
+            if (selectEl) {
+                selectEl.innerHTML = '';
+                
+                // ✅ เพิ่ม options ที่ว่างทั้งหมด
+                availableOptions.forEach(opt => {
+                    const option = document.createElement('option');
+                    option.value = opt;
+                    option.textContent = opt;
+                    selectEl.appendChild(option);
+                });
+                
+                // ✅ เลือกค่า: ถ้ามี existingCode → ใช้ค่านั้น, ถ้าไม่มี → ว่างไว้
+                if (existingCode && availableOptions.includes(existingCode)) {
+                    selectEl.value = existingCode;
+                    console.log(`✅ คงค่า ${selectId}: ${existingCode}`);
+                } else {
+                    selectEl.value = '';  // ✅ จุดใหม่: ว่างไว้ ให้ผู้ใช้เลือกเอง
+                }
+            }
+            
+            return availableOptions;
+        }
 
         function openEditPanel(data, type, marker) {
             editingMarker = marker;
             const form = document.getElementById('survey-form');
             const initialFloor = data.no_floor ? `1-${data.no_floor}` : '1-1';
+            const isNewPoint = !data.id || data.tempMarker === true || !data.building_c && !data.s_code;
             //document.getElementById('latlng-display').innerText = data.lat_long;
             document.getElementById('panel-title').innerText = type === 'building' ? 'สิ่งปลูกสร้าง' : 'ข้อมูลป้าย';
             // ✅ เพิ่มฟิลด์ประเภทมาร์กเกอร์เป็นบรรทัดแรกของฟอร์ม
             // let html = `<input type="hidden" id="marker-type" name="marker-type" value="${type}">`;
+
+
 
             const buildingFields = [
                 { id: 'image', label: 'รูปสิ่งปลูกสร้าง', type: 'file', icon: 'camera' },
                 
                 // ✅ ฟิลด์ชั่วคราวสำหรับแยกส่วนรหัส (แบบคู่แนวนอน)
                 { 
-                    id: 'parcel_cod_temp', 
-                    label: 'รหัสแปลง', 
-                    type: 'text', 
+                    id: 'parcel_cod',  // ✅ ลบ { ที่เกินออก
+                    label: 'รหัสแปลง',
+                    type: 'text',
                     placeholder: 'เช่น 01A001',
-                    tempField: true,
-                    pairWith: 'bcode_temp'
-                },
+                    description: 'ค่าจากแผนที่ (แก้ไขได้หากไม่ถูกต้อง)',
+                    pairWith: 'bcode_temp',  // ✅ เพิ่มคอมม่าตรงนี้
+                    customClass: 'bg-blue-50'  // สีพื้นหลังต่างกันเพื่อแยกจาก temp
+                },  // ✅ ปิดวงเล็บให้ครบ
                 { 
                     id: 'bcode_temp', 
                     label: 'ลำดับหลัง', 
                     type: 'select',
-                    options: ['', 'B001', 'B002', 'B003', 'B004', 'B005', 'B006', 'B007', 'B008', 'B009', 'B010', 'B011', 'B012', 'B013', 'B014', 'B015', 'B016', 'B017', 'B018', 'B019', 'B020', 'B021', 'B022', 'B023', 'B024', 'B025', 'B026', 'B027', 'B028', 'B029', 'B030'],
+                    options: [''],
                     allowCustom: false,
                     tempField: true,
-                    pairWith: 'parcel_cod_temp'
+                    pairWith: 'parcel_cod',
+                    dynamicOptions: true
                 },
                 
                 // ✅ ฟิลด์ building_c แบบอ่านอย่างเดียว (สร้างอัตโนมัติ)
@@ -2810,27 +2944,29 @@
                 
                 // ✅ ฟิลด์ชั่วคราวสำหรับแยกส่วนรหัสป้าย (แบบคู่แนวนอน)
                 { 
-                    id: 'parcel_cod_temp', 
-                    label: 'รหัสแปลง', 
-                    type: 'text', 
+                    id: 'parcel_cod',  // ✅ ลบ { ที่เกินออก
+                    label: 'รหัสแปลง',
+                    type: 'text',
                     placeholder: 'เช่น 01A001',
-                    tempField: true,
-                    pairWith: 'scode_temp'
-                },
+                    description: 'ค่าจากแผนที่ (แก้ไขได้หากไม่ถูกต้อง)',
+                    pairWith: 'scode_temp',  // ✅ เพิ่มคอมม่าตรงนี้
+                    customClass: 'bg-blue-50'  // สีพื้นหลังต่างกันเพื่อแยกจาก temp
+                },  // ✅ ปิดวงเล็บให้ครบ
                 { 
                     id: 'scode_temp', 
-                    label: 'รหัสป้าย', 
+                    label: 'ลำดับป้าย', 
                     type: 'select', 
-                    options: ['', 'S001', 'S002', 'S003', 'S004', 'S005', 'S006', 'S007', 'S008', 'S009', 'S010', 'S011', 'S012', 'S013', 'S014', 'S015', 'S016', 'S017', 'S018', 'S019', 'S020', 'S021', 'S022', 'S023', 'S024', 'S025', 'S026', 'S027', 'S028', 'S029', 'S030'],
+                    options: [''],
                     allowCustom: false,
                     tempField: true,
-                    pairWith: 'parcel_cod_temp'
+                    pairWith: 'parcel_cod',
+                    dynamicOptions: true
                 },
                 
                 // ✅ ฟิลด์ s_code แบบอ่านอย่างเดียว (สร้างอัตโนมัติ)
                 { 
                     id: 's_code', 
-                    label: 'รหัสป้าย (เต็ม)', 
+                    label: 'รหัสป้าย', 
                     type: 'text',
                     readonly: true,
                     description: 'ค่านี้สร้างอัตโนมัติจาก 2 ฟิลด์ด้านบน',
@@ -2892,6 +3028,7 @@
                 <input type="hidden" name="lat_long" value="${data.lat_long || ''}">
             `;
             fields.forEach(f => {
+
                 // ✅ ข้ามฟิลด์ที่ถูกจับคู่แล้ว (render ในคู่เดียวกัน)
                 if (f.pairWith && fields.findIndex(x => x.id === f.pairWith) < fields.indexOf(f)) {
                     return; // ข้ามฟิลด์ที่ 2 ของคู่ เพราะ render ไปแล้วในฟิลด์ที่ 1
@@ -2913,14 +3050,30 @@
                     html += `<label class="form-label">${f.label}</label>`;
                 }
                 
-                // ✅ ดึงค่าฟิลด์
-                // ✅ ดึงค่าฟิลด์ (แก้ไขเพื่อรองรับ auto-fill parcel_cod_temp)
-                let fieldValue = data[f.id] || '';
-
-                // ✅ กรณีพิเศษ: ถ้าเป็นรหัสแปลง (parcel_cod_temp) และไม่มีค่าใน data
-                // ให้ลองดึงจาก parcel_cod_temp ที่เราเติมไว้ใน backgroundUpload
-                if (f.id === 'parcel_cod_temp' && !fieldValue && data.parcel_cod_temp) {
-                    fieldValue = data.parcel_cod_temp;
+                // ✅ 1. ดึงค่าฟิลด์จาก data object (ประกาศครั้งเดียวเท่านั้น!)
+                let fieldValue = data[f.id];
+                
+                // ✅ 2. ตรวจสอบค่าว่างทุกแบบ
+                if (fieldValue === null || fieldValue === undefined) {
+                    fieldValue = '';
+                }
+                // ✅ อย่าเช็ค fieldValue === '' เพราะจะทำให้ค่าที่มีอยู่หาย!
+                
+                // ✅ 3. กรณีพิเศษ: parcel_cod (อ่านจาก backend ที่บันทึกไว้)
+                if (f.id === 'parcel_cod') {
+                    fieldValue = data.parcel_cod || '';
+                    console.log(`🔍 parcel_cod ในฟอร์ม: "${fieldValue}"`);
+                }
+                
+                // ✅ 4. กรณี parcel_cod_temp: ใช้ค่าจาก parcel_cod เป็นพื้นฐาน
+                if (f.id === 'parcel_cod_temp') {
+                    fieldValue = data.parcel_cod_temp || data.parcel_cod || '';
+                }
+                
+                // ✅ 5. กรณี building_c / s_code → ใช้ค่าจาก data โดยตรง (อย่าแก้ไข!)
+                if (f.id === 'building_c' || f.id === 's_code') {
+                    fieldValue = data[f.id] || '';  // ✅ อ่านค่าจาก Google Sheets
+                    console.log(`🔍 ${f.id} ในฟอร์ม: "${fieldValue}"`);
                 }
 
                 if (f.id === 'check') {
@@ -2976,8 +3129,14 @@
                 } else if (f.type === 'select') {
                     const customClass = f.customClass || '';
                     const isDisabled = f.disabled ? 'disabled' : '';
+                    
+                    // ✅ ตรวจสอบว่าเป็นฟิลด์ dynamic options หรือไม่
+                    const isDynamic = f.dynamicOptions === true;
+                    
                     if (f.allowCustom) {
-                        const value = fieldValue !== undefined && fieldValue !== null && fieldValue !== '' ? fieldValue : (f.defaultValue !== undefined ? f.defaultValue : '');
+                        const value = fieldValue !== undefined && fieldValue !== null && fieldValue !== '' 
+                            ? fieldValue 
+                            : (f.defaultValue !== undefined ? f.defaultValue : '');
                         html += `<input type="text" name="${f.id}" class="form-input ${customClass}" list="${f.id}-options" value="${value}" ${isDisabled}>`;
                         html += `<datalist id="${f.id}-options">`;
                         f.options.forEach(opt => {
@@ -2985,13 +3144,24 @@
                         });
                         html += `</datalist>`;
                     } else {
-                        const value = fieldValue !== undefined && fieldValue !== null && fieldValue !== '' ? fieldValue : (f.defaultValue !== undefined ? f.defaultValue : '');
-                        html += `<select name="${f.id}" class="form-input ${customClass}" ${isDisabled}>`;
-                        f.options.forEach(opt => {
-                            const selected = String(value) === String(opt) ? 'selected' : '';
-                            html += `<option value="${opt}" ${selected}>${opt}</option>`;
-                        });
-                        html += `</select>`;
+                        const value = fieldValue !== undefined && fieldValue !== null && fieldValue !== '' 
+                            ? fieldValue 
+                            : (f.defaultValue !== undefined ? f.defaultValue : '');
+                        
+                        // ✅ ถ้าเป็น dynamic options → เริ่มต้นด้วย option ว่าง (จะถูกเติมโดย updateTempCodeOptions)
+                        if (isDynamic) {
+                            html += `<select name="${f.id}" class="form-input ${customClass}" ${isDisabled} data-dynamic="true">`;
+                            html += `<option value="">-- โหลด... --</option>`;  // ✅ ตัวเลือกชั่วคราว
+                            html += `</select>`;
+                        } else {
+                            // ✅ ฟิลด์ select ปกติ → render options จาก array
+                            html += `<select name="${f.id}" class="form-input ${customClass}" ${isDisabled}>`;
+                            f.options.forEach(opt => {
+                                const selected = String(value) === String(opt) ? 'selected' : '';
+                                html += `<option value="${opt}" ${selected}>${opt}</option>`;
+                            });
+                            html += `</select>`;
+                        }
                     }
                 } else if (f.type === 'number') {
                     const customClass = f.customClass || '';
@@ -3108,10 +3278,48 @@
             });
 
             form.innerHTML = html;
-            // ✅ เพิ่มหลังจาก form.innerHTML = html; ในฟังก์ชัน openEditPanel()
-            // ✅ วางโค้ดผูกเหตุการณ์ที่นี่ (หลัง form.innerHTML)
-            // ✅ ผูกเหตุการณ์อัปเดตชื่อรูปภาพเมื่อเลือกไฟล์ใหม่ (วางหลัง form.innerHTML = html;)
-            // ✅ ผูกเหตุการณ์อัปเดตชื่อรูปภาพ + สถานะการตรวจสอบเมื่อเลือกไฟล์ใหม่
+
+            // ✅ ใน openEditPanel() หลังจาก form.innerHTML = html;
+            // ✅ ใน openEditPanel() หลังจาก form.innerHTML = html;
+            setTimeout(() => {
+                const type = editingMarker?._popupData?.type || activeTool;
+                
+                // ✅ ตรวจสอบว่าเป็นจุดใหม่หรือจุดเดิม
+                const hasExistingCode = type === 'building' ? data.building_c : data.s_code;
+                const existingCode = hasExistingCode?.includes('-') ? hasExistingCode.split('-')[1] : null;
+                
+                // ✅ 1. ถ้ามีค่าเดิม → แยกแสดงในฟิลด์ชั่วคราว
+                if (hasExistingCode && hasExistingCode.includes('-')) {
+                    const parts = hasExistingCode.split('-');
+                    document.querySelector('input[name="parcel_cod"]').value = parts[0];
+                    document.querySelector(`select[name="${type === 'building' ? 'bcode_temp' : 'scode_temp'}"]`).value = parts.slice(1).join('-');
+                }
+                
+                // ✅ 2. อัปเดต dropdown options (ส่ง existingCode → ถ้า null = จุดใหม่ → dropdown ว่าง)
+                const parcelField = document.querySelector('input[name="parcel_cod"]');
+                if (parcelField && parcelField.value) {
+                    updateTempCodeOptions(parcelField.value.trim().toUpperCase(), type, existingCode);
+                }
+                
+                // ✅ 3. ผูก event: parcel_cod เปลี่ยน → อัปเดต dropdown
+                if (parcelField) {
+                    parcelField.addEventListener('change', async (e) => {
+                        const newCod = (e.target.value || '').trim().toUpperCase();
+                        if (newCod) {
+                            await updateTempCodeOptions(newCod, type, null);  // ✅ null = ไม่มีค่าเดิม
+                        }
+                    });
+                }
+                
+                // ✅ 4. ผูก event: dropdown เปลี่ยน → สร้างรหัสรวมอัตโนมัติ (เฉพาะเมื่อผู้ใช้เลือก)
+                const tempSelect = document.querySelector(`select[name="${type === 'building' ? 'bcode_temp' : 'scode_temp'}"]`);
+                if (tempSelect) {
+                    tempSelect.addEventListener('change', type === 'building' ? updateBuildingC : updateSCode);
+                }
+                
+            }, 100);
+
+
             const fileInputs = form.querySelectorAll('input[type="file"]');
             fileInputs.forEach(input => {
                 input.addEventListener('change', (e) => {
@@ -3323,6 +3531,7 @@
                     console.log('✅ ผูกเหตุการณ์ตั้งค่าจำนวนชั้นอัตโนมัติจากประเภทสิ่งปลูกสร้าง');
                 }
             }
+
 
             // ✅ ผูกเหตุการณ์เมื่อเลือกค่าใน 'ใช้ทั้งหลัง' + อัปเดต "ชั้นที่ใช้", "พื้นที่ใช้" และ "ใช้ทั้งหลัง (2)" อัตโนมัติ
             if (type === 'building') {
@@ -3539,54 +3748,44 @@
             // ✅ ระบบแยก/รวมรหัสสิ่งปลูกสร้างและป้ายอัตโนมัติ
             // ============================================
 
-            // ✅ ฟังก์ชันแยกค่าจาก building_c/s_code ไปยังฟิลด์ชั่วคราว (เมื่อเปิดฟอร์ม)
+            // ✅ แยกค่าจาก building_c/s_code → แสดงใน parcel_cod + dropdown
             function splitCodeToTempFields(fullCode, type) {
                 if (!fullCode || !fullCode.includes('-')) return;
-                
                 const parts = fullCode.split('-');
                 if (parts.length >= 2) {
-                    const parcelPart = parts[0]; // ส่วนแรก: รหัสแปลง
-                    const codePart = parts.slice(1).join('-'); // ส่วนหลัง: รหัสสิ่งปลูกสร้าง/ป้าย
+                    const parcelPart = parts[0];
+                    const codePart = parts.slice(1).join('-');  // ✅ B001 หรือ S001
                     
-                    const parcelTemp = document.querySelector('input[name="parcel_cod_temp"]');
-                    if (parcelTemp) parcelTemp.value = parcelPart;
+                    const parcelField = document.querySelector('input[name="parcel_cod"]');
+                    if (parcelField) parcelField.value = parcelPart;
                     
                     if (type === 'building') {
-                        const bcodeTemp = document.querySelector('input[name="bcode_temp"], select[name="bcode_temp"]');
-                        if (bcodeTemp) bcodeTemp.value = codePart;
+                        const bcodeTemp = document.querySelector('select[name="bcode_temp"]');
+                        if (bcodeTemp) bcodeTemp.value = codePart;  // ✅ แสดงค่าเดิมเลย
                     } else if (type === 'sign') {
-                        const scodeTemp = document.querySelector('input[name="scode_temp"], select[name="scode_temp"]');
-                        if (scodeTemp) scodeTemp.value = codePart;
+                        const scodeTemp = document.querySelector('select[name="scode_temp"]');
+                        if (scodeTemp) scodeTemp.value = codePart;  // ✅ แสดงค่าเดิมเลย
                     }
                 }
             }
 
-            // ✅ ฟังก์ชันอัปเดตรหัสสิ่งปลูกสร้างอัตโนมัติ (รวมค่าจาก 2 ฟิลด์)
+
+            // ✅ อัปเดตรหัสสิ่งปลูกสร้าง: parcel_cod + bcode_temp → building_c
             function updateBuildingC() {
-                const parcelTemp = document.querySelector('input[name="parcel_cod_temp"]')?.value?.trim() || '';
-                const bcodeTemp = document.querySelector('input[name="bcode_temp"], select[name="bcode_temp"]')?.value?.trim() || '';
-                const buildingCField = document.querySelector('input[name="building_c"]');
-                
-                if (buildingCField && parcelTemp && bcodeTemp) {
-                    buildingCField.value = `${parcelTemp}-${bcodeTemp}`;
-                    buildingCField.dispatchEvent(new Event('change')); // ทริกเกอร์เหตุการณ์ change
-                } else if (buildingCField && (!parcelTemp || !bcodeTemp)) {
-                    buildingCField.value = ''; // ล้างค่าถ้าขาดส่วนใดส่วนหนึ่ง
-                }
+                const p = document.querySelector('input[name="parcel_cod"]')?.value?.trim() || '';
+                const b = document.querySelector('select[name="bcode_temp"]')?.value?.trim() || '';
+                const f = document.querySelector('input[name="building_c"]');
+                if (f && p && b) { f.value = `${p}-${b}`; f.dispatchEvent(new Event('change')); }
+                else if (f) { f.value = ''; }
             }
 
-            // ✅ ฟังก์ชันอัปเดตรหัสป้ายอัตโนมัติ (รวมค่าจาก 2 ฟิลด์)
+            // ✅ อัปเดตรหัสป้าย: parcel_cod + scode_temp → s_code
             function updateSCode() {
-                const parcelTemp = document.querySelector('input[name="parcel_cod_temp"]')?.value?.trim() || '';
-                const scodeTemp = document.querySelector('input[name="scode_temp"], select[name="scode_temp"]')?.value?.trim() || '';
-                const sCodeField = document.querySelector('input[name="s_code"]');
-                
-                if (sCodeField && parcelTemp && scodeTemp) {
-                    sCodeField.value = `${parcelTemp}-${scodeTemp}`;
-                    sCodeField.dispatchEvent(new Event('change')); // ทริกเกอร์เหตุการณ์ change
-                } else if (sCodeField && (!parcelTemp || !scodeTemp)) {
-                    sCodeField.value = ''; // ล้างค่าถ้าขาดส่วนใดส่วนหนึ่ง
-                }
+                const p = document.querySelector('input[name="parcel_cod"]')?.value?.trim() || '';
+                const s = document.querySelector('select[name="scode_temp"]')?.value?.trim() || '';
+                const f = document.querySelector('input[name="s_code"]');
+                if (f && p && s) { f.value = `${p}-${s}`; f.dispatchEvent(new Event('change')); }
+                else if (f) { f.value = ''; }
             }
 
             // ✅ ผูกเหตุการณ์ตามประเภทฟอร์ม
@@ -7307,13 +7506,22 @@
                     layer.options.interactive = true;
                     
                     // ✅ ข้อ 3: ผูกคลิกโดยตรง (เหมือนตัวอย่างที่ทำงานได้)
+                    // ✅ ใน displayBuildingAreaLayer() → onEachFeature → layer.on('click')
                     layer.on('click', function(e) {
+                        
+                        // ✅ ✅ ✅ เช็ค mouseAddMode ก่อน stopPropagation (สำคัญ!) ✅ ✅ ✅
+                        if (mouseAddMode && activeTool) {
+                            console.log('🔓 ปล่อยให้คลิกทะลุ building_area เพื่อเพิ่มจุด');
+                            return;  // ✅ return โดยไม่เรียก stopPropagation → event ทะลุไปแผนที่
+                        }
+                        
+                        // ✅ หยุด event เฉพาะเมื่อจะประมวลผลคลิกจริงๆ
                         L.DomEvent.stopPropagation(e);
                         
                         // ✅ ทำงานเฉพาะเมื่อเปิดโหมดคำนวณพื้นที่ A
                         if (!isAreaCalculatorMode) return;
                         
-                        // ✅ คำนวณพื้นที่ด้วย feature ที่ได้จาก onEachFeature (โครงสร้างถูกต้อง!)
+                        // ✅ คำนวณพื้นที่ด้วย feature ที่ได้จาก onEachFeature
                         const area = turf.area(feature).toFixed(2);
                         
                         // ✅ กรอกค่า + กดปุ่ม "+ บวก" อัตโนมัติ
@@ -7324,7 +7532,7 @@
                             if (addBtn) addBtn.click();
                         }
                         
-                        // ✅ ไฮไลท์ polygon ที่คลิก (เหมือนตัวอย่าง)
+                        // ✅ ไฮไลท์ polygon ที่คลิก
                         layer.setStyle({
                             color: '#fbbf24',
                             weight: 4,
@@ -8135,37 +8343,55 @@
             }
         }
 
-        // ✅ ฟังก์ชันค้นหา parcel_cod จากตำแหน่งพิกัด (ใช้ Turf.js)
+        // ✅ ฟังก์ชันดึง parcel_cod แบบ Sync + ปลอดภัย (ไม่พังแม้ geometry เสีย)
         function getParcelCodeAtLocation(latlng) {
-            // ✅ ตรวจสอบว่า parcelLayer โหลดพร้อมหรือยัง
+            // ✅ 1. เช็คก่อนว่า parcelLayer พร้อมไหม
             if (!window.parcelLayer) {
-                console.warn('⚠️ parcelLayer ยังไม่พร้อม - รอโหลดแผนที่เสร็จก่อน');
+                console.warn('⚠️ parcelLayer ยังไม่พร้อม');
                 return null;
             }
-            
+
             const point = turf.point([latlng.lng, latlng.lat]);
             let foundParcelCod = null;
-            
+
+            // ✅ 2. วนทุก layer ใน parcelLayer
             window.parcelLayer.eachLayer(function(layer) {
-                if (foundParcelCod) return;
+                if (foundParcelCod) return; // ✅ เจอแล้วหยุด
                 if (!layer.feature || !layer.feature.geometry) return;
+
+                const geom = layer.feature.geometry;
                 
                 try {
-                    const polygon = turf.polygon(layer.feature.geometry.coordinates);
-                    if (turf.booleanPointInPolygon(point, polygon)) {
-                        // ✅ รองรับทั้งพิมพ์เล็ก/ใหญ่ และชื่อ property ที่อาจต่างกัน
-                        foundParcelCod = layer.feature.properties?.parcel_cod ||
-                                        layer.feature.properties?.Parcel_cod ||
-                                        layer.feature.properties?.PARCEL_COD ||
-                                        null;
-                        console.log(`✅ พบ parcel_cod: ${foundParcelCod}`);
+                    // ✅ 3. เช็ค Bounding Box ก่อน (เร็วมาก + กัน error)
+                    if (layer.getBounds && !layer.getBounds().contains(latlng)) {
+                        return;
+                    }
+
+                    // ✅ 4. ใช้ booleanPointInPolygon กับ feature โดยตรง (ไม่ต้องสร้าง polygon ใหม่!)
+                    if (geom.type === 'Polygon' || geom.type === 'MultiPolygon') {
+                        if (turf.booleanPointInPolygon(point, layer.feature)) {
+                            const p = layer.feature.properties;
+                            // ✅ 5. ยืดหยุ่น: รองรับชื่อ property หลายแบบ
+                            foundParcelCod = p?.parcel_cod
+                                || p?.Parcel_cod
+                                || p?.PARCEL_COD
+                                || p?.parcelCod
+                                || p?.ParcelCod
+                                || p?.PARCELCOD
+                                || null;
+                        }
                     }
                 } catch (err) {
-                    console.error('❌ Error checking parcel polygon:', err);
+                    // ✅ 6. ข้ามฟีเจอร์ที่มีปัญหาแบบเงียบๆ ไม่หยุดการทำงาน
+                    return;
                 }
             });
+
+            if (foundParcelCod) {
+                console.log(`✅ พบ parcel_cod: ${foundParcelCod}`);
+            }
             
-            return foundParcelCod;
+            return foundParcelCod; // ✅ คืนค่า string หรือ null เท่านั้น (ไม่ใช่ Promise!)
         }
 
         // ✅ ฟังก์ชันคัดลอกรูปภาพไปยังคลิปบอร์ด
