@@ -4,9 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <!-- ✅ Meta Tags สำหรับ PWA (ต้องอยู่ใน <head>) -->
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="โนนไทย">
+    <meta name="theme-color" content="#2563eb">
 
     <meta name="theme-color" content="#2563eb">
     <title>โนนไทย</title>
@@ -115,6 +117,47 @@
             background-color: #2563eb !important;
             color: white !important;
             border: 2px solid white;
+        }
+
+        /* ✅ แอนิเมชันสำหรับ PWA Install Prompt */
+        @keyframes pulse {
+          0%, 100% { transform: translateX(-50%) scale(1); }
+          50% { transform: translateX(-50%) scale(1.02); }
+        }
+        .animate-pulse {
+          animation: pulse 2s infinite ease-in-out;
+        }
+
+        @keyframes bounce {
+          0%, 100% { transform: translateX(-50%) translateY(0); }
+          50% { transform: translateX(-50%) translateY(-10px); }
+        }
+        .animate-bounce {
+          animation: bounce 1.5s infinite ease-in-out;
+        }
+
+        @keyframes fade-in {
+          from { opacity: 0; transform: translate(-50%, 20px); }
+          to { opacity: 1; transform: translate(-50%, 0); }
+        }
+        @keyframes fade-out {
+          from { opacity: 1; transform: translate(-50%, 0); }
+          to { opacity: 0; transform: translate(-50%, 20px); }
+        }
+        .animate-fade-in { animation: fade-in 0.3s ease-out; }
+        .animate-fade-out { animation: fade-out 0.3s ease-in; }
+
+        /* ✅ สไตล์พิเศษสำหรับปุ่มติดตั้งบนมือถือ */
+        @media (max-width: 768px) {
+          #pwa-install-container {
+            bottom: 80px !important;
+            width: 90% !important;
+          }
+          #pwa-install-btn {
+            width: 100% !important;
+            font-size: 0.9rem !important;
+            padding: 12px 20px !important;
+          }
         }
 
         /* สไตล์พิเศษสำหรับสีพื้นหลังช่องกรอกตามเงื่อนไข */
@@ -1171,7 +1214,19 @@
             </button>
         </div>
     </div>
+    <!-- ✅ ✅ ✅ วาง PWA UI + Script ที่นี่ (ก่อน </body>) ✅ ✅ ✅ -->
+    <!-- UI สำหรับปุ่มติดตั้งแอป -->
+    <div id="pwa-install-container" style="display:none; position:fixed; bottom:100px; left:50%; transform:translateX(-50%); z-index:9999;">
+      <button id="pwa-install-btn" class="bg-blue-600 text-white px-8 py-4 rounded-full shadow-2xl font-bold flex items-center gap-2 animate-pulse">
+        <span class="text-2xl">📲</span> 
+        <span>ติดตั้งแอปสำรวจแผนที่ภาษี "โนนไทย" อ.เล็ก</span>
+      </button>
+    </div>
 
+    <!-- ปุ่มปิดสำหรับกรณีที่ต้องการซ่อน (ซ่อนโดย default) -->
+    <button id="pwa-install-close" class="fixed bottom-20 right-4 z-[9998] bg-gray-200 text-gray-600 p-2 rounded-full shadow hidden" title="ปิดคำแนะนำการติดตั้ง">
+      <i data-lucide="x" class="w-4 h-4"></i>
+    </button>
     <script>
         const CONFIG = {
             SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbyFWpmT-X62o3H_leBlJ35qLJv3I57We_DzlvcmQLwm-NcIwLM3k-GFq_namGrG8zylMw/exec'
@@ -1516,6 +1571,129 @@
                 // ✅ กดรีโหลดอัตโนมัติ
                 //triggerAutoRefresh();
             }
+        }
+
+        // 📱 PWA Support Logic
+        let deferredPrompt;
+        const installContainer = document.getElementById('pwa-install-container');
+        const installBtn = document.getElementById('pwa-install-btn');
+        const installCloseBtn = document.getElementById('pwa-install-close');
+        const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+        // ✅ ตรวจสอบและลงทะเบียน Service Worker
+        if ('serviceWorker' in navigator && isSecure) {
+          window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js')
+              .then((reg) => console.log('✅ SW registered:', reg.scope))
+              .catch(err => console.warn('❌ SW failed:', err.message));
+          });
+
+          // ✅ จับเหตุการณ์ก่อนติดตั้ง (beforeinstallprompt)
+          window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault(); // ป้องกันการโชว์ prompt อัตโนมัติของเบราว์เซอร์
+            deferredPrompt = e;
+            
+            // ✅ แสดงปุ่มติดตั้งแอปขนาดใหญ่
+            if (installContainer) {
+              installContainer.style.display = 'block';
+              // ✅ เพิ่ม animation ดึงดูดความสนใจ
+              installContainer.classList.add('animate-bounce');
+            }
+            console.log('✨ PWA install prompt available');
+          });
+
+          // ✅ เมื่อผู้ใช้คลิกปุ่มติดตั้ง
+          installBtn?.addEventListener('click', async () => {
+            if (deferredPrompt) {
+              // ซ่อนปุ่มขณะรอการติดตั้ง
+              installContainer.style.opacity = '0.7';
+              installBtn.disabled = true;
+              installBtn.innerHTML = '<span class="animate-spin">⏳</span> กำลังติดตั้ง...';
+              
+              try {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log(`Install ${outcome}`);
+                
+                if (outcome === 'accepted') {
+                  installContainer.style.display = 'none';
+                  showNotificationLeft('✅ ติดตั้งแอปสำเร็จ! สามารถใช้งานแบบออฟไลน์ได้', 'success');
+                } else {
+                  // ถ้าผู้ใช้ยกเลิก → แสดงปุ่มกลับคืน
+                  installContainer.style.opacity = '1';
+                  installBtn.disabled = false;
+                  installBtn.innerHTML = '<span class="text-2xl">📲</span> <span>ติดตั้งแอป "โนนไทย" เพื่อใช้งานแบบออฟไลน์</span>';
+                }
+                deferredPrompt = null;
+              } catch (err) {
+                console.error('Install error:', err);
+                installContainer.style.opacity = '1';
+                installBtn.disabled = false;
+              }
+            }
+          });
+
+          // ✅ เมื่อแอปติดตั้งสำเร็จ
+          window.addEventListener('appinstalled', () => {
+            console.log('🚀 PWA installed!');
+            if (installContainer) installContainer.style.display = 'none';
+            if (installCloseBtn) installCloseBtn.classList.add('hidden');
+            showNotificationLeft('🎉 แอป "โนนไทย" ติดตั้งเรียบร้อยแล้ว!', 'success');
+          });
+        }
+
+        // ✅ ปุ่มปิดคำแนะนำการติดตั้ง (สำหรับผู้ใช้ที่ต้องการซ่อน)
+        installCloseBtn?.addEventListener('click', () => {
+          if (installContainer) {
+            installContainer.style.display = 'none';
+            installCloseBtn.classList.add('hidden');
+            // ✅ บันทึกว่าผู้ใช้ปิดคำแนะนำแล้ว (ไม่แสดงอีกใน session นี้)
+            sessionStorage.setItem('pwa-install-dismissed', 'true');
+          }
+        });
+
+        // ✅ iOS Install Hint (แสดงคำแนะนำสำหรับ iPhone/iPad)
+        function showIOSInstallHint() {
+          const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+          const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+          
+          if (isIOS && !isStandalone) {
+            // ✅ ตรวจสอบว่าผู้ใช้ยังไม่ได้ปิดคำแนะนำนี้
+            if (sessionStorage.getItem('ios-hint-dismissed') === 'true') return;
+            
+            const hint = document.createElement('div');
+            hint.className = 'fixed bottom-24 left-1/2 -translate-x-1/2 z-[9999] bg-white px-5 py-4 rounded-2xl shadow-2xl text-center text-xs max-w-xs border-2 border-blue-500 animate-fade-in';
+            hint.innerHTML = `
+              <p class="font-bold text-blue-600 mb-2">🍎 สำหรับ iPhone/iPad</p>
+              <p class="text-gray-700 mb-3">กดปุ่ม <strong>Share</strong> 📤 → <strong>"เพิ่มลงในหน้าจอหลัก"</strong></p>
+              <button id="ios-hint-close" class="text-blue-600 font-bold hover:underline">ปิดคำแนะนำนี้</button>
+            `;
+            document.body.appendChild(hint);
+            
+            // ✅ ปุ่มปิดคำแนะนำ iOS
+            document.getElementById('ios-hint-close')?.addEventListener('click', () => {
+              hint.remove();
+              sessionStorage.setItem('ios-hint-dismissed', 'true');
+            });
+            
+            // ✅ ซ่อนอัตโนมัติหลัง 15 วินาที
+            setTimeout(() => {
+              if (hint.parentNode) {
+                hint.classList.add('animate-fade-out');
+                setTimeout(() => hint.remove(), 300);
+              }
+            }, 15000);
+          }
+        }
+
+        // ✅ แสดงคำแนะนำ iOS หลังโหลดหน้า 3 วินาที
+        setTimeout(showIOSInstallHint, 3000);
+
+        // ✅ ตรวจสอบว่าแอปทำงานในโหมด Standalone หรือไม่
+        if (window.matchMedia('(display-mode: standalone)').matches) {
+          console.log('🚀 App is running in standalone mode!');
+          // ✅ ซ่อนปุ่มติดตั้งถ้าแอปถูกเปิดจากหน้าจอหลักแล้ว
+          if (installContainer) installContainer.style.display = 'none';
         }
 
         // ✅ ตัวแปรโหมดเพิ่มจุดด้วยเมาส์
@@ -6146,7 +6324,7 @@
                                     <div class="popup-header" onclick="showRawParcelData('${encodeURIComponent(JSON.stringify(props))}', ${e.latlng.lat}, ${e.latlng.lng})">
                                         <span class="parcel-cod">${parcelCod || 'ไม่มีรหัส'}</span>
                                     </div>
-                                    <div class="popup-owner">${props.title || ''} ${props.fname || ''} ${props.lname || ''}</div>
+                                    <div class="popup-owner">${props.title || ''}${props.fname || ''} ${props.lname || ''}</div>
                                 </div>`;
                                 L.popup({ minWidth: 160, maxWidth: 220, className: 'mobile-popup' })
                                     .setLatLng(e.latlng)
