@@ -102,6 +102,27 @@
             pointer-events: none !important;
         }
 
+        /* ✅ เพิ่มในส่วนของ <style> */
+        .duplicate-code-row {
+            background-color: #fecaca !important;  /* พื้นสีแดงอ่อน */
+            animation: pulse-red 2s infinite;
+        }
+
+        @keyframes pulse-red {
+            0%, 100% { background-color: #fecaca; }
+            50% { background-color: #fca5a5; }
+        }
+
+        .duplicate-code-badge {
+            background-color: #dc2626;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: bold;
+            margin-left: 4px;
+        }
+
         /* ✅ ปุ่มโหมดเพิ่มจุดด้วยเมาส์ (ซ่อนบนมือถือ) */
         #btn-mouse-add-mode {
             display: none;
@@ -1213,6 +1234,13 @@
                         <span>ป้าย</span>
                         <span id="sign-count-badge" class="ml-2 px-2 py-0.5 bg-green-500 text-white text-xs rounded-full font-medium">0</span>
                     </div>
+                    <div class="table-tab" onclick="toggleDuplicateFilter()" id="duplicate-filter-tab">
+                        <span>รหัสซ้ำ</span>
+                        <span id="duplicate-count-badge" class="ml-2 px-2 py-0.5 bg-red-500 text-white text-xs rounded-full font-medium">0</span>
+                    </div>
+                    <div class="table-tab" onclick="openImportModal()" id="import-tab">
+                        <span>นำเข้า</span>
+                    </div>
                 </div>
             </div>
             <button onclick="toggleTable()" class="p-1.5 hover:bg-white/20 rounded-full">
@@ -1354,6 +1382,11 @@
         // ✅ ตรวจจับว่ามีเมาส์เชื่อมต่อหรือไม่
         let hasMouse = false;
 
+        // ✅ เพิ่มตัวแปร Global สำหรับกรองรหัสซ้ำ
+        let showDuplicateOnly = false;  // สถานะการกรองรหัสซ้ำ
+        let duplicateBuildingCodes = [];  // เก็บรหัสสิ่งปลูกสร้างที่ซ้ำ
+        let duplicateSignCodes = [];  // เก็บรหัสป้ายที่ซ้ำ
+
         // ============================================
         // ✅ ตัวแปรจัดการตำแหน่งผู้ใช้
         // ============================================
@@ -1363,7 +1396,6 @@
         let lastKnownPosition = null;
 
         // ตัวแปรสำหรับระบบอัปเดตอัตโนมัติ
-
         let autoUpdateInterval = null;
         let isUpdating = false;
         let isUploadingImage = false; // [cite: 71]
@@ -3110,6 +3142,42 @@
             return availableOptions;
         }
 
+        // ✅ ฟังก์ชันตรวจสอบและเก็บรหัสที่ซ้ำกัน
+        function findDuplicateCodes() {
+            // ✅ สิ่งปลูกสร้าง
+            const buildingCodeCount = {};
+            allBuildings.forEach(b => {
+                if (b.building_c && b.building_c.trim() !== '') {
+                    const code = b.building_c.trim();
+                    buildingCodeCount[code] = (buildingCodeCount[code] || 0) + 1;
+                }
+            });
+            duplicateBuildingCodes = Object.keys(buildingCodeCount).filter(code => buildingCodeCount[code] > 1);
+            
+            // ✅ ป้าย
+            const signCodeCount = {};
+            allSigns.forEach(s => {
+                if (s.s_code && s.s_code.trim() !== '') {
+                    const code = s.s_code.trim();
+                    signCodeCount[code] = (signCodeCount[code] || 0) + 1;
+                }
+            });
+            duplicateSignCodes = Object.keys(signCodeCount).filter(code => signCodeCount[code] > 1);
+            
+            console.log('🔍 รหัสซ้ำสิ่งปลูกสร้าง:', duplicateBuildingCodes.length, 'รหัส');
+            console.log('🔍 รหัสซ้ำป้าย:', duplicateSignCodes.length, 'รหัส');
+        }
+
+        // ✅ ฟังก์ชันตรวจสอบว่ารหัสซ้ำหรือไม่
+        function isDuplicateCode(code, type) {
+            if (type === 'building') {
+                return duplicateBuildingCodes.includes(code);
+            } else if (type === 'sign') {
+                return duplicateSignCodes.includes(code);
+            }
+            return false;
+        }
+
         function openEditPanel(data, type, marker) {
             editingMarker = marker;
             const form = document.getElementById('survey-form');
@@ -3575,7 +3643,6 @@
             form.innerHTML = html;
 
             // ✅ ใน openEditPanel() หลังจาก form.innerHTML = html;
-            // ✅ ใน openEditPanel() หลังจาก form.innerHTML = html;
             setTimeout(() => {
                 const type = editingMarker?._popupData?.type || activeTool;
                 
@@ -3611,9 +3678,55 @@
                 if (tempSelect) {
                     tempSelect.addEventListener('change', type === 'building' ? updateBuildingC : updateSCode);
                 }
-                
             }, 100);
 
+            // ✅ ✅ ✅ วางโค้ดดึง land_type ตรงนี้ ✅ ✅ ✅
+            setTimeout(async () => {
+                try {
+                    // 1. ดึงพิกัดจากหลายแหล่ง (กันกรณี latlng-display ยังไม่อัปเดต)
+                    let lat, lng;
+                    
+                    // แหล่งที่ 1: จาก latlng-display
+                    const latlngDisplay = document.getElementById('latlng-display')?.innerText;
+                    if (latlngDisplay && latlngDisplay.trim() !== '' && latlngDisplay !== 'กำลังโหลด...') {
+                        [lat, lng] = latlngDisplay.split(',').map(Number);
+                    }
+                    
+                    // แหล่งที่ 2: จาก hidden field ในฟอร์ม (สำรอง)
+                    if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
+                        const latLongInput = document.querySelector('input[name="lat_long"]');
+                        if (latLongInput?.value) {
+                            [lat, lng] = latLongInput.value.split(',').map(Number);
+                        }
+                    }
+                    
+                    // แหล่งที่ 3: จาก marker._popupData (สำรองสุดท้าย)
+                    if ((!lat || !lng || isNaN(lat) || isNaN(lng)) && editingMarker?._popupData?.lat_long) {
+                        [lat, lng] = editingMarker._popupData.lat_long.split(',').map(Number);
+                    }
+                    
+                    // 2. ตรวจสอบว่าพิกัดใช้ได้
+                    if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
+                        console.warn('⚠️ ไม่พบพิกัดที่ถูกต้องสำหรับดึง land_type');
+                        return;
+                    }
+                    
+                    // 3. ดึง land_type จาก parcel layer
+                    const landType = await getLandTypeFromParcel(L.latLng(lat, lng));
+                    
+                    if (landType) {
+                        const landTypeSelect = document.querySelector('select[name="land_type"]');
+                        if (landTypeSelect && !landTypeSelect.disabled) {
+                            landTypeSelect.value = landType;
+                            // ✅ ทริกเกอร์ change event เพื่ออัปเดต land_use ที่คำนวณอัตโนมัติ
+                            landTypeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                            console.log(`✅ กรอก land_type อัตโนมัติ: ${landType}`);
+                        }
+                    }
+                } catch (err) {
+                    console.error('❌ ข้อผิดพลาดในการดึง land_type:', err);
+                }
+            }, 250);
 
             const fileInputs = form.querySelectorAll('input[type="file"]');
             fileInputs.forEach(input => {
@@ -4380,6 +4493,51 @@
             }, 1000);  // ✅ รอเล็กน้อยให้ modal ปิดสนิทก่อน
         }
 
+        // ✅ ฟังก์ชันสลับกรองรหัสซ้ำ
+        function toggleDuplicateFilter() {
+            showDuplicateOnly = !showDuplicateOnly;
+            
+            // ✅ อัปเดตสไตล์ปุ่ม
+            const duplicateTab = document.getElementById('duplicate-filter-tab');
+            if (duplicateTab) {
+                if (showDuplicateOnly) {
+                    duplicateTab.classList.add('active');
+                    document.querySelectorAll('.table-tab').forEach(tab => {
+                        if (tab.id !== 'duplicate-filter-tab' && tab.id !== 'import-tab') {
+                            tab.classList.remove('active');
+                        }
+                    });
+                } else {
+                    duplicateTab.classList.remove('active');
+                }
+            }
+            
+            // ✅ เรนเดอร์ตารางใหม่
+            renderBuildingTable();
+            renderSignTable();
+            updateDuplicateCount();  // ✅ เพิ่มบรรทัดนี้
+
+            showNotificationLeft(
+                showDuplicateOnly ? 'แสดงเฉพาะรายการรหัสซ้ำ' : 'แสดงรายการทั้งหมด',
+                'info'
+            );
+        }
+
+        // ✅ ฟังก์ชันเปิด Modal นำเข้า (ยังไม่มีเงื่อนไข)
+        function openImportModal() {
+            showNotificationLeft('📥 ฟังก์ชันนำเข้า - กำลังพัฒนา', 'info');
+            // ✅ รอเงื่อนไขเพิ่มเติมจากผู้ใช้
+        }
+
+        // ✅ อัปเดตจำนวนรหัสซ้ำที่ badge
+        function updateDuplicateCount() {
+            const badge = document.getElementById('duplicate-count-badge');
+            if (badge) {
+                const totalDuplicates = duplicateBuildingCodes.length + duplicateSignCodes.length;
+                badge.textContent = totalDuplicates > 99 ? '99+' : totalDuplicates;
+            }
+        }
+
         // ฟังก์ชันสำหรับแสดง/ซ่อนตาราง
         function toggleTable() {
             const panel = document.getElementById('data-table-panel');
@@ -4450,68 +4608,140 @@
             }, 300);
         }
 
-        // ฟังก์ชันสร้างแถวข้อมูลสิ่งปลูกสร้าง
+        // ✅ แก้ไขฟังก์ชัน renderBuildingTable()
         function renderBuildingTable() {
             const tbody = document.getElementById('building-table-body');
-            
             if (!allBuildings || allBuildings.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="15" class="text-center py-8 text-gray-500">ไม่มีข้อมูลสิ่งปลูกสร้าง</td></tr>';
                 return;
             }
             
-            // ✅ เรียงข้อมูลตาม ID (เรียงจากน้อยไปมากตามลำดับอักขระ)
+            // ✅ ตรวจสอบรหัสซ้ำก่อนเรนเดอร์
+            findDuplicateCodes();
+            
+            // ✅ เรียงข้อมูล
             const sortedBuildings = sortBuildings(allBuildings, buildingSortColumn, buildingSortDirection);
-
-            tbody.innerHTML = sortedBuildings.map(building => {
+            
+            // ✅ กรองข้อมูลถ้าเปิดโหมดแสดงเฉพาะรหัสซ้ำ
+            let filteredBuildings = sortedBuildings;
+            if (showDuplicateOnly) {
+                filteredBuildings = sortedBuildings.filter(b => isDuplicateCode(b.building_c, 'building'));
+            }
+            
+            if (filteredBuildings.length === 0 && showDuplicateOnly) {
+                tbody.innerHTML = '<tr><td colspan="15" class="text-center py-8 text-yellow-600 font-bold">ไม่พบรหัสซ้ำในระบบ</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = filteredBuildings.map(building => {
                 if (!building.lat_long) return '';
-                
                 const [lat, lng] = building.lat_long.split(',').map(Number);
                 if (isNaN(lat) || isNaN(lng)) return '';
                 
-                // ✅ กำหนดสีสถานะการตรวจสอบ
+                // ✅ ตรวจสอบว่าเป็นรหัสซ้ำหรือไม่
+                const isDuplicate = isDuplicateCode(building.building_c, 'building');
+                const duplicateClass = isDuplicate ? 'duplicate-code-row' : '';
+                const duplicateBadge = isDuplicate ? '<span class="duplicate-code-badge">ซ้ำ</span>' : '';
+                
                 let statusClass = 'status-ยังไม่สำรวจ';
                 let statusText = building.check || 'ยังไม่สำรวจ';
-                
                 if (building.check === 'ถ่ายรูปแล้ว') {
                     statusClass = 'status-ถ่ายรูปแล้ว';
                 } else if (building.check === 'ตรวจสอบแล้ว') {
                     statusClass = 'status-ตรวจสอบแล้ว';
                 }
                 
-                // ✅ ฟังก์ชันช่วยแสดงค่า (ถ้าไม่มีให้แสดง "-")
                 const displayValue = (val) => val && val.toString().trim() !== '' ? val : '-';
                 
                 return `
-                    <tr>
-                        <td><span class="marker-icon marker-building"></span></td>
-                        <td class="font-medium">${displayValue(building.building_c)}</td>
-                        <td>${displayValue(building.full_name)}</td>
-                        <td class="text-center">${displayValue(building.hs_no)}</td>
-                        <td class="text-center">${displayValue(building.hs_moo)}</td>
-                        <td>${displayValue(building.b_type)}</td>
-                        <td class="text-center">${displayValue(building.b_mat)}</td>
-                        <td class="text-center">${displayValue(building.no_floor)}</td>
-                        <td class="text-center">${displayValue(building.b_area)}</td>
-                        <td class="text-center">${displayValue(building.b_year)}</td>
-                        <td>${displayValue(building.b_note)}</td>
-                        <td>${displayValue(building.b_use)}</td>
-                        <td>${displayValue(building.buse_area)}</td>
-                        <td>${displayValue(building.b_use2)}</td>
-                        <td>${displayValue(building.buse_area2)}</td>
-                        <td>${displayValue(building.land_use)}</td>
-                        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
-                        <td>
-                            <button class="zoom-btn" onclick="zoomToLocation(L.latLng(${lat}, ${lng}))">
-                                <i data-lucide="locate" class="w-3 h-3 inline"></i>
-                            </button>
-                        </td>
-                    </tr>
+                <tr class="${duplicateClass}">
+                    <td><span class="marker-icon marker-building"></span></td>
+                    <td class="font-medium">${displayValue(building.building_c)}${duplicateBadge}</td>
+                    <td>${displayValue(building.full_name)}</td>
+                    <td class="text-center">${displayValue(building.hs_no)}</td>
+                    <td class="text-center">${displayValue(building.hs_moo)}</td>
+                    <td>${displayValue(building.b_type)}</td>
+                    <td class="text-center">${displayValue(building.b_mat)}</td>
+                    <td class="text-center">${displayValue(building.no_floor)}</td>
+                    <td class="text-center">${displayValue(building.b_area)}</td>
+                    <td class="text-center">${displayValue(building.b_year)}</td>
+                    <td>${displayValue(building.b_note)}</td>
+                    <td>${displayValue(building.b_use)}</td>
+                    <td>${displayValue(building.buse_area)}</td>
+                    <td>${displayValue(building.b_use2)}</td>
+                    <td>${displayValue(building.buse_area2)}</td>
+                    <td>${displayValue(building.land_use)}</td>
+                    <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                    <td>
+                        <button class="zoom-btn" onclick="zoomToLocation(L.latLng(${lat}, ${lng}))">
+                            <i data-lucide="locate" class="w-3 h-3 inline"></i>
+                        </button>
+                    </td>
+                </tr>
                 `;
             }).join('');
-            // ✅ อัปเดตจำนวนที่หัวตาราง
+            
             updateTableCounters();
+            lucide.createIcons();
+        }
 
-            // ✅ สร้างไอคอนหลังเรนเดอร์ตารางเสร็จ
+        // ✅ แก้ไขฟังก์ชัน renderSignTable() (ทำเหมือนกัน)
+        function renderSignTable() {
+            const tbody = document.getElementById('sign-table-body');
+            if (!allSigns || allSigns.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-gray-500">ไม่มีข้อมูลป้าย</td></tr>';
+                return;
+            }
+            
+            // ✅ ตรวจสอบรหัสซ้ำก่อนเรนเดอร์
+            findDuplicateCodes();
+            
+            const sortedSigns = sortSigns(allSigns, signSortColumn, signSortDirection);
+            
+            // ✅ กรองข้อมูลถ้าเปิดโหมดแสดงเฉพาะรหัสซ้ำ
+            let filteredSigns = sortedSigns;
+            if (showDuplicateOnly) {
+                filteredSigns = sortedSigns.filter(s => isDuplicateCode(s.s_code, 'sign'));
+            }
+            
+            if (filteredSigns.length === 0 && showDuplicateOnly) {
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-yellow-600 font-bold">ไม่พบรหัสซ้ำในระบบ</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = filteredSigns.map(sign => {
+                if (!sign.lat_long) return '';
+                const [lat, lng] = sign.lat_long.split(',').map(Number);
+                if (isNaN(lat) || isNaN(lng)) return '';
+                
+                // ✅ ตรวจสอบว่าเป็นรหัสซ้ำหรือไม่
+                const isDuplicate = isDuplicateCode(sign.s_code, 'sign');
+                const duplicateClass = isDuplicate ? 'duplicate-code-row' : '';
+                const duplicateBadge = isDuplicate ? '<span class="duplicate-code-badge">ซ้ำ</span>' : '';
+                
+                const statusClass = sign.check === 'ถ่ายรูปแล้ว' ? 'status-ถ่ายรูปแล้ว' :
+                                   sign.check === 'ตรวจสอบแล้ว' ? 'status-ตรวจสอบแล้ว' : 'status-ยังไม่สำรวจ';
+                const statusText = sign.check || 'ยังไม่สำรวจ';
+                
+                return `
+                <tr class="${duplicateClass}">
+                    <td><span class="marker-icon marker-sign"></span></td>
+                    <td class="font-medium">${sign.s_code || '-'}${duplicateBadge}</td>
+                    <td class="text-center">${sign.s_characte || '-'}</td>
+                    <td class="text-center">${sign.s_wide || '-'}</td>
+                    <td class="text-center">${sign.s_length || '-'}</td>
+                    <td class="text-center">${sign.no_side || '-'}</td>
+                    <td>${sign.s_text || '-'}</td>
+                    <td class="text-center"><span class="status-badge ${statusClass}">${statusText}</span></td>
+                    <td>
+                        <button class="zoom-btn" onclick="zoomToLocation(L.latLng(${lat}, ${lng}))">
+                            <i data-lucide="locate" class="w-3 h-3 inline"></i>
+                        </button>
+                    </td>
+                </tr>
+                `;
+            }).join('');
+            
             lucide.createIcons();
         }
 
@@ -5508,46 +5738,7 @@
             });
         }
 
-        // ฟังก์ชันสร้างแถวข้อมูลป้าย
-        function renderSignTable() {
-            const tbody = document.getElementById('sign-table-body');
-            if (!allSigns || allSigns.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-gray-500">ไม่มีข้อมูลป้าย</td></tr>';
-                return;
-            }
-            // ในฟังก์ชัน renderSignTable() แก้ไขส่วนสร้างแถว:
-            const sortedSigns = sortSigns(allSigns, signSortColumn, signSortDirection);
 
-            tbody.innerHTML = sortedSigns.map(sign => {
-                if (!sign.lat_long) return '';
-                const [lat, lng] = sign.lat_long.split(',').map(Number);
-                if (isNaN(lat) || isNaN(lng)) return '';
-                
-                // ✅ แสดงสถานะตรวจสอบให้ตรงกับข้อมูลจริง
-                const statusClass = sign.check === 'ถ่ายรูปแล้ว' ? 'status-ถ่ายรูปแล้ว' :
-                                   sign.check === 'ตรวจสอบแล้ว' ? 'status-ตรวจสอบแล้ว' : 'status-ยังไม่สำรวจ';
-                const statusText = sign.check || 'ยังไม่สำรวจ';
-                
-                return `
-                <tr>
-                    <td><span class="marker-icon marker-sign"></span></td>
-                    <td class="font-medium">${sign.s_code || '-'}</td>      <!-- 1. รหัส -->
-                    <td class="text-center">${sign.s_characte || '-'}</td>       <!-- ✅ แก้ไข: บังคับกึ่งกลางด้วย inline style -->
-                    <td class="text-center">${sign.s_wide || '-'}</td>        <!-- ✅ เพิ่ม -->
-                    <td class="text-center">${sign.s_length || '-'}</td>      <!-- ✅ เพิ่ม -->
-                    <td class="text-center">${sign.no_side || '-'}</td>       <!-- ✅ เพิ่ม -->
-                    <td>${sign.s_text || '-'}</td>                          <!-- 6. ข้อความ -->
-                    <td class="text-center"><span class="status-badge ${statusClass}">${statusText}</span></td> <!-- ✅ เพิ่ม -->
-                    <td>
-                        <button class="zoom-btn" onclick="zoomToLocation(L.latLng(${lat}, ${lng}))">
-                            <i data-lucide="locate" class="w-3 h-3 inline"></i>
-                        </button>
-                    </td>
-                </tr>
-                `;
-            }).join('');
-            lucide.createIcons();
-        }
 
         // ============================================
         // สถานะการเรียงลำดับ (เริ่มต้นเรียงตามรหัส)
@@ -8623,6 +8814,42 @@
             } else {
                 container.style.bottom = '5px';
             }
+        }
+
+        // ✅ ฟังก์ชันดึง land_type จาก parcel (ใช้เทคนิคเดียวกับ getParcelCodeAtLocation)
+        async function getLandTypeFromParcel(latlng) {
+            if (!window.parcelLayer) {
+                console.warn('⚠️ parcelLayer ยังไม่พร้อม');
+                return null;
+            }
+            const point = turf.point([latlng.lng, latlng.lat]);
+            let foundLandType = null;
+            
+            window.parcelLayer.eachLayer(function(layer) {
+                if (foundLandType) return;
+                if (!layer.feature || !layer.feature.geometry) return;
+                
+                try {
+                    if (layer.getBounds && !layer.getBounds().contains(latlng)) {
+                        return;
+                    }
+                    const geom = layer.feature.geometry;
+                    if (geom.type === 'Polygon' || geom.type === 'MultiPolygon') {
+                        if (turf.booleanPointInPolygon(point, layer.feature)) {
+                            const p = layer.feature.properties;
+                            // ✅ รองรับชื่อ property หลายแบบ
+                            foundLandType = p?.land_type
+                                           || p?.Land_type
+                                           || p?.LAND_TYPE
+                                           || p?.landType
+                                           || null;
+                        }
+                    }
+                } catch (err) {
+                    return;
+                }
+            });
+            return foundLandType;
         }
 
         // ✅ ฟังก์ชันดึง parcel_cod แบบ Sync + ปลอดภัย (ไม่พังแม้ geometry เสีย)
