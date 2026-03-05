@@ -1175,11 +1175,13 @@
     </button>
     </div>
 
-    <!-- ✅ (เสริม) แสดงพิกัดปัจจุบัน -->
-    <div id="coord-display" 
-         class="absolute bottom-20 left-4 z-[1001] px-3 py-1.5 bg-white/90 rounded-lg text-xs font-mono text-gray-700 shadow hidden">
-        กำลังโหลด...
+    <!-- แก้ไขส่วน HTML ของ coord-display -->
+    <div id="coord-display"
+    class="absolute bottom-4 right-4 z-[1001] text-xs font-mono font-bold hidden"
+    style="color: #ffffff; -webkit-text-stroke: 1px #000000; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); pointer-events: none;">
+    กำลังโหลด...
     </div>
+
 
     <!-- ปุ่มบวก (Add Trigger) -->
     <div id="add-trigger-container" class="absolute bottom-10 left-1/2 -translate-x-1/2 z-[1001] hidden">
@@ -9562,9 +9564,10 @@
                     // ✅ อัปเดตพิกัดใน UI (ถ้ามี)
                     const coordDisplay = document.getElementById('coord-display');
                     if (coordDisplay) {
-                        coordDisplay.textContent = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-                        coordDisplay.classList.remove('hidden');
+                    coordDisplay.textContent = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+                    coordDisplay.classList.remove('hidden');
                     }
+
                 },
                 (error) => {
                     console.warn('Geolocation error:', error.message);
